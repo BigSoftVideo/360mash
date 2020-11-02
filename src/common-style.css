@@ -1,0 +1,56 @@
+
+.c-split-panel-container {
+    width: 100%;
+    height: 100%;
+    display: block;
+    /* display: flex; */
+    /* flex-direction: row; */
+    /* flex-grow: 1; */
+    box-sizing: border-box;
+}
+
+.c-split {
+    background: rgb(206, 206, 206);
+    position: relative;
+}
+/* This class should be attached to both sides of a horizontal split (components are side-by-side) */
+.c-panel-split-h {
+    position: relative;
+    float: left;
+    height: 100%;
+}
+/* Divides an area into two */
+.c-split.c-split-horizontal {
+    cursor: ew-resize;
+    height: 100%;
+    float: left;
+    width: 1px;
+}
+.c-split.c-split-horizontal::after {
+    content: "";
+    display: block;
+    height: 100%;
+    width: 8px;
+    position: absolute;
+    left: -3px;
+    z-index: 10;
+}
+.c-panel-split-v {
+    position: relative;
+    width: 100%;
+}
+/* Divides an area into two */
+.c-split.c-split-vertical {
+    cursor: ns-resize;
+    height: 1px;
+}
+.c-split.c-split-vertical::after {
+    content: "";
+    display: block;
+    height: 8px;
+    width: 100%;
+    position: absolute;
+    top: -3px;
+    z-index: 10;
+}
+
