@@ -1,4 +1,5 @@
-import { app, BrowserWindow } from 'electron';
+
+import { app, BrowserWindow, Menu, protocol } from "electron";
 declare const MAIN_WINDOW_WEBPACK_ENTRY: any;
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -6,13 +7,19 @@ if (require('electron-squirrel-startup')) { // eslint-disable-line global-requir
   app.quit();
 }
 
+Menu.setApplicationMenu(null);
+
+const isDevMode = process.env.NODE_ENV === "development";
+
 const createWindow = (): void => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     height: 600,
     width: 800,
     webPreferences: {
-      nodeIntegration: true
+      enableRemoteModule: true,
+      nodeIntegration: true,
+      webSecurity: !isDevMode
     }
   });
 
@@ -23,10 +30,21 @@ const createWindow = (): void => {
   mainWindow.webContents.openDevTools();
 };
 
+const appReady = () => {
+  if (isDevMode) {
+    protocol.registerFileProtocol('file', (request, callback) => {
+        const path = decodeURI(request.url.replace("file:///", ""));
+        callback(path);
+    });
+  }
+
+  createWindow();
+}
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.on('ready', createWindow);
+app.on('ready', appReady);
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits

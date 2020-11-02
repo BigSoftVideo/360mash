@@ -1,11 +1,9 @@
-
 import * as React from "react";
-import { SplitPanelBase } from "../split-panel-base/split-panel-base";
+import { SplitPanelBase } from "./split-panel-base";
 
 import "../../common-style.css";
 
 export class SplitPanelHor extends SplitPanelBase {
-    
     constructor(params: any) {
         super(params);
     }
@@ -31,7 +29,7 @@ export class SplitPanelHor extends SplitPanelBase {
             </div>
         );
     }
-    
+
     setSplitterPos(event: MouseEvent): void {
         this.setSplitterPageX(event.pageX);
     }

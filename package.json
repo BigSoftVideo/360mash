@@ -1,90 +1,99 @@
 {
-  "name": "360mash",
-  "productName": "360mash",
-  "version": "1.0.0-beta.0",
-  "description": "Easy to use video manipulation",
-  "main": ".webpack/main",
-  "scripts": {
-    "start": "electron-forge start",
-    "package": "electron-forge package",
-    "make": "electron-forge make",
-    "publish": "electron-forge publish",
-    "lint": "eslint --ext .ts ."
-  },
-  "keywords": ["video", "transformation", "effect", "anonimize", "panoramic"],
-  "author": "The 360mash Contributors",
-  "license": "UNLICENSED",
-  "private": true,
-  "config": {
-    "forge": {
-      "packagerConfig": {},
-      "makers": [
-        {
-          "name": "@electron-forge/maker-squirrel",
-          "config": {
-            "name": "360mash"
-          }
-        },
-        {
-          "name": "@electron-forge/maker-zip",
-          "platforms": [
-            "darwin"
-          ]
-        },
-        {
-          "name": "@electron-forge/maker-deb",
-          "config": {}
-        },
-        {
-          "name": "@electron-forge/maker-rpm",
-          "config": {}
-        }
-      ],
-      "plugins": [
-        [
-          "@electron-forge/plugin-webpack",
-          {
-            "mainConfig": "./webpack.main.config.js",
-            "renderer": {
-              "config": "./webpack.renderer.config.js",
-              "entryPoints": [
+    "name": "360mash",
+    "productName": "360mash",
+    "version": "1.0.0-beta.0",
+    "description": "Easy to use video manipulation",
+    "main": ".webpack/main",
+    "scripts": {
+        "start": "electron-forge start",
+        "package": "electron-forge package",
+        "make": "electron-forge make",
+        "publish": "electron-forge publish",
+        "lint": "eslint --ext .ts ."
+    },
+    "keywords": [
+        "video",
+        "transformation",
+        "effect",
+        "anonimize",
+        "panoramic"
+    ],
+    "author": "The 360mash Contributors",
+    "license": "UNLICENSED",
+    "private": true,
+    "config": {
+        "forge": {
+            "packagerConfig": {},
+            "makers": [
                 {
-                  "html": "./src/index.html",
-                  "js": "./src/renderer.tsx",
-                  "name": "main_window"
+                    "name": "@electron-forge/maker-squirrel",
+                    "config": {
+                        "name": "360mash"
+                    }
+                },
+                {
+                    "name": "@electron-forge/maker-zip",
+                    "platforms": [
+                        "darwin"
+                    ]
+                },
+                {
+                    "name": "@electron-forge/maker-deb",
+                    "config": {}
+                },
+                {
+                    "name": "@electron-forge/maker-rpm",
+                    "config": {}
                 }
-              ]
-            }
-          }
-        ]
-      ]
+            ],
+            "plugins": [
+                [
+                    "@electron-forge/plugin-webpack",
+                    {
+                        "mainConfig": "./webpack.main.config.js",
+                        "renderer": {
+                            "config": "./webpack.renderer.config.js",
+                            "entryPoints": [
+                                {
+                                    "html": "./src/index.html",
+                                    "js": "./src/renderer.tsx",
+                                    "name": "main_window"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            ]
+        }
+    },
+    "devDependencies": {
+        "@electron-forge/cli": "^6.0.0-beta.54",
+        "@electron-forge/maker-deb": "^6.0.0-beta.54",
+        "@electron-forge/maker-rpm": "^6.0.0-beta.54",
+        "@electron-forge/maker-squirrel": "^6.0.0-beta.54",
+        "@electron-forge/maker-zip": "^6.0.0-beta.54",
+        "@electron-forge/plugin-webpack": "6.0.0-beta.54",
+        "@marshallofsound/webpack-asset-relocator-loader": "^0.5.0",
+        "@typescript-eslint/eslint-plugin": "^4.0.1",
+        "@typescript-eslint/parser": "^4.0.1",
+        "css-loader": "^4.2.1",
+        "electron": "^10.1.5",
+        "eslint": "^7.6.0",
+        "eslint-plugin-import": "^2.20.0",
+        "fork-ts-checker-webpack-plugin": "^5.0.14",
+        "node-loader": "^1.0.1",
+        "prettier": "^2.1.2",
+        "pretty-quick": "^3.1.0",
+        "style-loader": "^1.2.1",
+        "ts-loader": "^8.0.2",
+        "typescript": "^4.0.2"
+    },
+    "dependencies": {
+        "@types/electron": "^1.6.10",
+        "@types/react": "^16.9.55",
+        "@types/react-dom": "^16.9.9",
+        "electron-squirrel-startup": "^1.0.0",
+        "react": "^17.0.1",
+        "react-dom": "^17.0.1"
     }
-  },
-  "devDependencies": {
-    "@electron-forge/cli": "^6.0.0-beta.54",
-    "@electron-forge/maker-deb": "^6.0.0-beta.54",
-    "@electron-forge/maker-rpm": "^6.0.0-beta.54",
-    "@electron-forge/maker-squirrel": "^6.0.0-beta.54",
-    "@electron-forge/maker-zip": "^6.0.0-beta.54",
-    "@electron-forge/plugin-webpack": "6.0.0-beta.54",
-    "@marshallofsound/webpack-asset-relocator-loader": "^0.5.0",
-    "@typescript-eslint/eslint-plugin": "^4.0.1",
-    "@typescript-eslint/parser": "^4.0.1",
-    "css-loader": "^4.2.1",
-    "electron": "10.1.5",
-    "eslint": "^7.6.0",
-    "eslint-plugin-import": "^2.20.0",
-    "fork-ts-checker-webpack-plugin": "^5.0.14",
-    "node-loader": "^1.0.1",
-    "style-loader": "^1.2.1",
-    "ts-loader": "^8.0.2",
-    "typescript": "^4.0.2"
-  },
-  "dependencies": {
-    "@types/react": "^16.9.55",
-    "@types/react-dom": "^16.9.9",
-    "electron-squirrel-startup": "^1.0.0",
-    "react": "^17.0.1",
-    "react-dom": "^17.0.1"
-  }
 }

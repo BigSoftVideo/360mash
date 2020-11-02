@@ -1,0 +1,10 @@
+.webpack
+additional
+dist
+out
+
+# Ignore all HTML files:
+*.html
+
+# Ignore auto-generated css type definitions.
+*.css.d.ts

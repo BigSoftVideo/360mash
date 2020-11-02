@@ -1,4 +1,3 @@
-
 import * as React from "react";
 
 export interface SplitPanelProps {
@@ -12,7 +11,7 @@ export abstract class SplitPanelBase extends React.Component<SplitPanelProps> {
     protected splitSecond: React.RefObject<HTMLDivElement>;
     mouseMoveListener: (event: any) => void;
     mouseUpListener: (event: any) => void;
-    
+
     constructor(params: any) {
         super(params);
 

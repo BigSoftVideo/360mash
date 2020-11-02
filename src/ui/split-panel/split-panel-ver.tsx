@@ -1,6 +1,5 @@
-
 import * as React from "react";
-import { SplitPanelBase } from "../split-panel-base/split-panel-base";
+import { SplitPanelBase } from "./split-panel-base";
 
 export class SplitPanelVer extends SplitPanelBase {
     constructor(params: any) {
