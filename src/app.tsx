@@ -6,12 +6,13 @@ import { pathToFileURL } from "url";
 
 import * as React from "react";
 
-import { SplitPanelHor } from "./ui/split-panel/split-panel-hor";
-import { SplitPanelVer } from "./ui/split-panel/split-panel-ver";
+import { SplitPanelHor } from "./ui-presentational/split-panel/split-panel-hor";
+import { SplitPanelVer } from "./ui-presentational/split-panel/split-panel-ver";
 
 import "./common-style.css";
 import "./app.css";
-import { VideoPanel } from "./ui/video-panel/video-panel";
+import { VideoPanel } from "./ui-presentational/video-panel/video-panel";
+import { PreviewPanel } from "./ui-presentational/preview-panel/preview-panel";
 
 // TODO: move this to a redux store
 export interface AppState {
@@ -19,35 +20,47 @@ export interface AppState {
 }
 
 export class App extends React.Component<{}, AppState> {
+
+    previewPanelRef: React.RefObject<PreviewPanel>;
+    onResized: () => void;
+
     constructor(params: any) {
         super(params);
-
         this.state = {
             videoUrl: "",
+        };
+
+        this.previewPanelRef = React.createRef();
+        this.onResized = () => {
+            if (this.previewPanelRef.current) {
+                this.previewPanelRef.current.resized();
+            }
         };
     }
 
     componentDidMount() {
         this.createMenu();
+        window.addEventListener("resize", this.onResized);
+    }
+
+    componentWillUnmount() {
+        window.removeEventListener("resize", this.onResized);
     }
 
     render() {
         return (
             <div className="app-contents">
-                <SplitPanelVer defaultPercentage={40}>
-                    <SplitPanelHor defaultPercentage={25}>
+                <SplitPanelVer defaultPercentage={40} onResize={this.onResized}>
+                    <SplitPanelHor defaultPercentage={25} onResize={this.onResized}>
                         <div>Filter list</div>
                         <div>Filter properties</div>
                     </SplitPanelHor>
-                    <SplitPanelHor defaultPercentage={75}>
-                        <div>
-                            <h4>Video preview</h4>
-                            <VideoPanel
-                                videoUrl={this.state.videoUrl}
-                                isPlaying={true}
-                                requestedTime={0}
-                            ></VideoPanel>
-                        </div>
+                    <SplitPanelHor defaultPercentage={75} onResize={this.onResized}>
+                        <PreviewPanel
+                            ref={this.previewPanelRef}
+                            videoUrl={this.state.videoUrl}
+                        >
+                        </PreviewPanel>
                         <div>Export options</div>
                     </SplitPanelHor>
                 </SplitPanelVer>

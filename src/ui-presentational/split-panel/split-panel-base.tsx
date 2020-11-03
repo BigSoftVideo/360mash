@@ -2,6 +2,7 @@ import * as React from "react";
 
 export interface SplitPanelProps {
     defaultPercentage?: number;
+    onResize?: () => void;
 }
 
 export abstract class SplitPanelBase extends React.Component<SplitPanelProps> {
@@ -47,6 +48,9 @@ export abstract class SplitPanelBase extends React.Component<SplitPanelProps> {
     globalMouseMove(event: MouseEvent) {
         if (this.draggingSplit) {
             this.setSplitterPos(event);
+            if (this.props.onResize) {
+                this.props.onResize();
+            }
         }
     }
 
