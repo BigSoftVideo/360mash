@@ -12,22 +12,26 @@ import { SplitPanelVer } from "./ui-presentational/split-panel/split-panel-ver";
 import "./common-style.css";
 import "./app.css";
 import { VideoPanel } from "./ui-presentational/video-panel/video-panel";
-import { PreviewPanel } from "./ui-presentational/preview-panel/preview-panel";
+import { PreviewPanel } from "./ui-mixed/preview-panel/preview-panel";
+import { VideoManager } from "./video/video-manager";
+import { FilterManager } from "./video/filter-manager";
 
 // TODO: move this to a redux store
 export interface AppState {
-    videoUrl: string;
+    //videoUrl: string;
+    videoAspectRatio: number;
 }
 
 export class App extends React.Component<{}, AppState> {
-
     previewPanelRef: React.RefObject<PreviewPanel>;
+    filterManager: FilterManager;
+    videoManager: VideoManager | null;
     onResized: () => void;
 
     constructor(params: any) {
         super(params);
         this.state = {
-            videoUrl: "",
+            videoAspectRatio: 16 / 9,
         };
 
         this.previewPanelRef = React.createRef();
@@ -36,11 +40,19 @@ export class App extends React.Component<{}, AppState> {
                 this.previewPanelRef.current.resized();
             }
         };
+        this.filterManager = new FilterManager();
+        this.videoManager = null;
     }
 
     componentDidMount() {
         this.createMenu();
         window.addEventListener("resize", this.onResized);
+
+        this.initializeVideoManager();
+    }
+
+    componentDidUpdate() {
+        this.initializeVideoManager();
     }
 
     componentWillUnmount() {
@@ -58,14 +70,31 @@ export class App extends React.Component<{}, AppState> {
                     <SplitPanelHor defaultPercentage={75} onResize={this.onResized}>
                         <PreviewPanel
                             ref={this.previewPanelRef}
-                            videoUrl={this.state.videoUrl}
-                        >
-                        </PreviewPanel>
+                            videoAspectRatio={this.state.videoAspectRatio}
+                            //videoManager={this.videoManager}
+                        ></PreviewPanel>
                         <div>Export options</div>
                     </SplitPanelHor>
                 </SplitPanelVer>
             </div>
         );
+    }
+
+    initializeVideoManager() {
+        if (this.videoManager) {
+            return;
+        }
+        let previewPanel = this.previewPanelRef.current;
+        if (previewPanel) {
+            let canvas = previewPanel.getCanvas();
+            if (canvas) {
+                this.videoManager = new VideoManager(
+                    canvas,
+                    previewPanel.renderToCanvas.bind(previewPanel),
+                    this.filterManager
+                );
+            }
+        }
     }
 
     createMenu() {
@@ -160,9 +189,18 @@ export class App extends React.Component<{}, AppState> {
                 if (value.canceled) {
                     return;
                 }
+                if (!this.videoManager) {
+                    return;
+                }
                 //console.log("File path is " + value.filePaths[0]);
-                let fileURL = pathToFileURL(value.filePaths[0]).toString();
-                this.setState({ videoUrl: fileURL });
+                //this.setState({ videoUrl: fileURL });
+                let fileURL = pathToFileURL(value.filePaths[0]);
+                this.videoManager.openVideo(fileURL);
+                let video = this.videoManager.video!.offscreenVideo;
+                video.play();
+                //TODO wait until the first frame is available and only then set the aspect ratio.
+                // Otherwise the videoWidth and height won't yet be available.
+                this.setState({ videoAspectRatio: video.videoWidth / video.videoHeight });
             });
     }
 }
