@@ -16,6 +16,10 @@ import { VideoPanel } from "./ui-presentational/video-panel/video-panel";
 import { PreviewPanel } from "./ui-mixed/preview-panel/preview-panel";
 import { VideoManager, Video } from "./video/video-manager";
 import { FilterManager } from "./video/filter-manager";
+import { Checklist } from "./ui-presentational/checklist/checklist";
+import { GrayscaleFilter, GRAYSCALE_FILTER_NAME } from "./filters/grayscale";
+import { FilterBase } from "./video/filter-base";
+import { FilterList } from "./ui-mixed/filter-list/filter-list";
 
 // TODO: move this to a redux store
 export interface AppState {
@@ -50,6 +54,12 @@ export class App extends React.Component<{}, AppState> {
             this.setState({ videoAspectRatio: aspectRatio });
         };
         this.filterManager = new FilterManager();
+        this.filterManager.registerFilter({
+            id: GRAYSCALE_FILTER_NAME,
+            creator: (gl, w, h): FilterBase => {
+                return new GrayscaleFilter(gl, w, h);
+            }
+        })
         this.videoManager = null;
     }
 
@@ -73,11 +83,20 @@ export class App extends React.Component<{}, AppState> {
     }
 
     render() {
+
+        let filterList;
+        if (this.videoManager) {
+            filterList = <FilterList pipeline={this.videoManager.pipeline}></FilterList>;
+        } else {
+            filterList = "--";
+        }
         return (
             <div className="app-contents">
                 <SplitPanelVer defaultPercentage={40} onResize={this.onResized}>
                     <SplitPanelHor defaultPercentage={25} onResize={this.onResized}>
-                        <div>Filter list</div>
+                        <div>
+                            {filterList}
+                        </div>
                         <div>Filter properties</div>
                     </SplitPanelHor>
                     <SplitPanelHor defaultPercentage={75} onResize={this.onResized}>
@@ -107,6 +126,7 @@ export class App extends React.Component<{}, AppState> {
                     this.filterManager
                 );
                 this.videoManager.addVideoReadyListener(this.onVideoReady);
+                this.videoManager.pipeline.setFilters([GRAYSCALE_FILTER_NAME]);
             }
         }
     }

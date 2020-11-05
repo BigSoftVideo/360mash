@@ -6,28 +6,104 @@ export interface GlTexture {
     readonly texture: WebGLTexture;
 }
 
-export interface MappedParameters {
-    fovY: number;
-    rotRight: number;
-    rotUp: number;
+export class RenderTexture {
+    gl: WebGLRenderingContext;
+    color: WebGLTexture;
+    width: number;
+    height: number;
+    framebuffer: WebGLFramebuffer;
+    constructor(gl: WebGLRenderingContext) {
+        this.gl = gl;
+        this.width = 2;
+        this.height = 2;
+        let color = gl.createTexture();
+        if (!color) {
+            throw new Error("Could not create texture." + gl.getError());
+        }
+        let framebuffer = gl.createFramebuffer();
+        if (!framebuffer) {
+            throw new Error("Could not create framebuffer: " + gl.getError());
+        }
+        this.color = color;
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, this.color);
+        gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,
+            gl.RGBA,
+            this.width,
+            this.height,
+            0,
+            gl.RGBA,
+            gl.UNSIGNED_BYTE,
+            null
+        );
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+
+        this.framebuffer = framebuffer;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, color, 0);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+
+    dispose() {
+        this.gl.deleteFramebuffer(this.framebuffer);
+        this.gl.deleteTexture(this.color);
+    }
+
+    ensureDimensions(w: number, h: number) {
+        let gl = this.gl;
+        w = Math.trunc(w);
+        h = Math.trunc(h);
+        if (w !== this.width || h !== this.height) {
+            this.width = w;
+            this.height = h;
+            gl.bindTexture(gl.TEXTURE_2D, this.color);
+            gl.texImage2D(
+                gl.TEXTURE_2D,
+                0,
+                gl.RGBA,
+                this.width,
+                this.height,
+                0,
+                gl.RGBA,
+                gl.UNSIGNED_BYTE,
+                null
+            );
+        }
+    }
 }
 
-export abstract class ProjectionShader {
+export abstract class FilterShader {
+    protected gl: WebGLRenderingContext;
     protected shaderProgram: WebGLProgram | null;
-    protected outTexture: WebGLTexture | null;
+    //protected outTexture: WebGLTexture | null;
     protected vertexBuffer: WebGLBuffer | null;
     protected indexBuffer: WebGLBuffer | null;
     constructor(
         gl: WebGLRenderingContext,
-        vertexShader: WebGLShader,
         fragmentShader: WebGLShader
     ) {
+        this.gl = gl;
+        let vertexSrc = `
+            attribute vec4 position;
+            attribute vec2 texCoord;
+            varying vec2 vTexCoord;
+            void main() {
+                vTexCoord = texCoord;
+                gl_Position = position;
+            }
+        `;
+        let vertexShader = FilterShader.createShader(gl, gl.VERTEX_SHADER, vertexSrc);
         this.shaderProgram = gl.createProgram();
-        this.outTexture = gl.createTexture();
+        //this.outTexture = gl.createTexture();
         this.vertexBuffer = gl.createBuffer();
         this.indexBuffer = gl.createBuffer();
-        if (!this.shaderProgram || !this.outTexture) {
-            console.error("Cannot create shader program.");
+        if (!this.shaderProgram) {
+            console.error("Cannot create shader program or texture.");
             return;
         }
         gl.attachShader(this.shaderProgram, fragmentShader);
@@ -50,22 +126,22 @@ export abstract class ProjectionShader {
             -1.0,
             -1.0, // position
             0.0,
-            1.0, // tex coords
+            0.0, // tex coords
 
             1.0,
             -1.0,
             1.0,
-            1.0,
+            0.0,
 
             1.0,
             1.0,
             1.0,
-            0.0,
+            1.0,
 
             -1.0,
             1.0,
             0.0,
-            0.0,
+            1.0,
         ];
         let floatSize = 4; // size of a 32bit float in bytes
 
@@ -87,33 +163,21 @@ export abstract class ProjectionShader {
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
 
-        gl.activeTexture(gl.TEXTURE0);
+        //gl.activeTexture(gl.TEXTURE0);
         gl.uniform1i(uSampler, 0);
-        gl.bindTexture(gl.TEXTURE_2D, this.outTexture);
-        gl.texImage2D(
-            gl.TEXTURE_2D,
-            0,
-            gl.RGBA,
-            2,
-            2,
-            0,
-            gl.RGBA,
-            gl.UNSIGNED_BYTE,
-            defaultTexture
-        );
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-        // On webgl1, if the wrap is not set to CLAMP_TO_EDGE then non-power-of-two textures
-        // are not allowed. Otherwise it won't give an error, it'll just give all black pixels.
-        // but we are using webgl2 so this doesn't affect this code.
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
     }
 
-    // Implementors should store apply their mapping (usually limiting to range)
-    // and then store the mapped parameters. The parameters should be sent to the
-    // uniforms of the shader at the render function
-    abstract updateParameters(mappedParameters: MappedParameters, aspect: number): void;
+    /**
+     * Releases all webgl resources owned by this instance.
+     */
+    dispose() {
+        let gl = this.gl;
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+        gl.deleteBuffer(gl.ELEMENT_ARRAY_BUFFER);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+        gl.deleteBuffer(gl.ARRAY_BUFFER);
+        gl.deleteProgram(this.shaderProgram);
+    }
 
     protected abstract updateUniforms(gl: WebGLRenderingContext): void;
 

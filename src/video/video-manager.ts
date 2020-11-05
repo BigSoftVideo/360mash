@@ -61,9 +61,9 @@ export class VideoManager {
         return this._video;
     }
 
-    // get pipeline(): FilterPipeline {
-    //     return this._pipeline;
-    // }
+    get pipeline(): FilterPipeline {
+        return this._pipeline;
+    }
 
     get video(): Video | null {
         return this._video;

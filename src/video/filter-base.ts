@@ -14,7 +14,7 @@ export interface FilterDescriptor {
     /**
      * This function should return a new instance of the filter.
      */
-    creator: (gl: WebGL2RenderingContext) => FilterBase;
+    creator: (gl: WebGL2RenderingContext, outWidth: number, outHeight: number) => FilterBase;
 }
 
 //////////////////////
@@ -27,11 +27,23 @@ export interface FilterDescriptor {
 // before the other could read the filter's output.
 ////////////////////////
 export abstract class FilterBase {
-    protected canvas: HTMLCanvasElement;
+    protected gl: WebGLRenderingContext;
 
-    constructor(canvas: HTMLCanvasElement) {
-        this.canvas = canvas;
+    constructor(gl: WebGLRenderingContext) {
+        this.gl = gl;
     }
+
+    /**
+     * The filter must resize its affected textures to the appripriate size.
+     */
+    abstract setOutputDimensions(width: number, height: number): void;
+
+    /**
+     * Called before the filter is released by the pipeline.
+     * 
+     * This should free up all GPU resources owned by the filter.
+     */
+    abstract dispose(): void;
 
     // This should probably not exist. I don't think that cloning
     // WebGL textures is a good idea.

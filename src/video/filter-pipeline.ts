@@ -6,6 +6,7 @@ import { GlTexture } from "./core";
 export interface FilterDesc {
     id: FilterId;
     filter: FilterBase;
+    active: boolean;
 }
 
 /**
@@ -17,6 +18,8 @@ export interface FilterDesc {
 export class FilterPipeline {
     filters: FilterDesc[];
     filterManager: FilterManager;
+    outWidth: number;
+    outHeight: number;
     gl: WebGL2RenderingContext;
 
     videoAsTexture: GlTexture | null;
@@ -39,6 +42,8 @@ export class FilterPipeline {
         canvas: HTMLCanvasElement,
         filterIds: FilterId[]
     ) {
+        this.outWidth = 1280;
+        this.outHeight = 720;
         this.filters = [];
         this.filterManager = filterManager;
         let gl = canvas.getContext("webgl2");
@@ -50,8 +55,17 @@ export class FilterPipeline {
         for (const id of filterIds) {
             this.filters.push({
                 id: id,
-                filter: filterManager.createFilter(id, this.gl),
+                filter: filterManager.createFilter(id, this.gl, this.outWidth, this.outHeight),
+                active: true,
             });
+        }
+    }
+
+    setOutputDimensions(width: number, height: number) {
+        this.outWidth = width;
+        this.outHeight = height;
+        for (const filter of this.filters) {
+            filter.filter.setOutputDimensions(width, height);
         }
     }
 
@@ -65,8 +79,66 @@ export class FilterPipeline {
      * @param id An identifier for a filtered registered with the filter manager.
      */
     insertFilter(index: number, id: FilterId) {
-        let newFilter = this.filterManager.createFilter(id, this.gl);
-        this.filters.splice(index, 0, { id: id, filter: newFilter });
+        let newFilter = this.filterManager.createFilter(id, this.gl, this.outWidth, this.outHeight);
+        this.filters.splice(index, 0, { id: id, filter: newFilter, active: true });
+    }
+
+    /**
+     * Rearranges the sequence of filters to match the sequence specified by the parameter.
+     * 
+     * @param indicies Each element in this array is an index of a specific filter in this pipeline.
+     * These filter indicies are identical to the indicies of the filters in the array returned by
+     * `getFilters`. The length of this parameter must match the number of filters in this pipeline.
+     */
+    setOrder(indicies: number[]) {
+        let newFilters = [];
+        for (let i = 0; i < indicies.length; i++) {
+            const oldIndex = indicies[i];
+            newFilters.push(this.filters[oldIndex]);
+        }
+        this.filters = newFilters;
+    }
+
+    /**
+     * 
+     * @param active The `n`th element in this array specifies whether the `n`th filter should be active
+     */
+    setActive(active: boolean[]) {
+        for (let i = 0; i < active.length; i++) {
+            this.filters[i].active = active[i];
+        }
+    }
+
+    /**
+     * Replace the existing set of filters with the one provided as an argument.
+     * 
+     * Note that existing filters that are also within the `ids` list are retained.
+     */
+    setFilters(ids: FilterId[]) {
+        let existing = new Map<FilterId, FilterDesc>();
+        for (const f of this.filters) {
+            existing.set(f.id, f);
+        }
+        let newFilters = [];
+        for (const id of ids) {
+            let filterDesc = existing.get(id);
+            if (filterDesc) {
+                existing.delete(id);
+            } else {
+                let f = this.filterManager.createFilter(id, this.gl, this.outWidth, this.outHeight);
+                filterDesc = {
+                    id: id,
+                    filter: f,
+                    active: true
+                };
+            }
+            newFilters.push(filterDesc);
+        }
+        // Delete the ones that are not needed anymore.
+        for (const f of existing.values()) {
+            f.filter.dispose();
+        }
+        this.filters = newFilters;
     }
 
     /**
@@ -106,8 +178,10 @@ export class FilterPipeline {
         gl.bindTexture(gl.TEXTURE_2D, videoTex.texture);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video.htmlVideo);
         let prevOutput: WebGLTexture = videoTex.texture;
-        for (const { filter } of this.filters) {
-            prevOutput = filter.execute(prevOutput);
+        for (const { filter, active } of this.filters) {
+            if (active) {
+                prevOutput = filter.execute(prevOutput);
+            }
         }
         return prevOutput;
     }

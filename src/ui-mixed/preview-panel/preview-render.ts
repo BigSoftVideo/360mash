@@ -1,19 +1,17 @@
-import { MappedParameters, ProjectionShader } from "../../video/core";
+import { FilterShader } from "../../video/core";
 
-export class Regular2DProjectionShader extends ProjectionShader {
+export interface MappedParameters {
+    fovY: number;
+    rotRight: number;
+    rotUp: number;
+}
+
+export class Regular2DProjectionShader extends FilterShader {
     protected uYaw: WebGLUniformLocation | null;
     protected uPitch: WebGLUniformLocation | null;
     protected uFov: WebGLUniformLocation | null;
     protected parameters: MappedParameters;
     constructor(gl: WebGLRenderingContext) {
-        let vertexSrc = `
-            attribute vec4 position;
-            attribute vec2 texCoord;
-            varying vec2 vTexCoord;
-            void main() {
-                vTexCoord = texCoord;
-                gl_Position = position;
-            }`;
         let fragmentSrc = `
             precision mediump float;
             varying vec2 vTexCoord;
@@ -23,17 +21,17 @@ export class Regular2DProjectionShader extends ProjectionShader {
             uniform float uFov;
             void main() {
                 const float PI = 3.1415926535;
-                float scaling = uFov / PI;
+                //Flipping the y axis at render
+                vec2 scaling = vec2(uFov / PI) * vec2(1.0, -1.0);
                 vec2 center = vec2(uYaw / (PI*2.0) + 0.5, uPitch / PI + 0.5);
                 gl_FragColor = texture2D(uSampler, center + (vTexCoord - vec2(0.5)) * scaling);
             }`;
-        let vertexShader = ProjectionShader.createShader(gl, gl.VERTEX_SHADER, vertexSrc);
-        let fragmentShader = ProjectionShader.createShader(
+        let fragmentShader = FilterShader.createShader(
             gl,
             gl.FRAGMENT_SHADER,
             fragmentSrc
         );
-        super(gl, vertexShader, fragmentShader);
+        super(gl, fragmentShader);
         if (this.shaderProgram) {
             this.uYaw = gl.getUniformLocation(this.shaderProgram, "uYaw");
             this.uPitch = gl.getUniformLocation(this.shaderProgram, "uPitch");
