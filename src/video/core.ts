@@ -6,9 +6,15 @@ export interface GlTexture {
     readonly texture: WebGLTexture;
 }
 
+export interface MappedParameters {
+    fovY: number;
+    rotRight: number;
+    rotUp: number;
+}
+
 export abstract class ProjectionShader {
     protected shaderProgram: WebGLProgram | null;
-    protected texture: WebGLTexture | null;
+    protected outTexture: WebGLTexture | null;
     protected vertexBuffer: WebGLBuffer | null;
     protected indexBuffer: WebGLBuffer | null;
     constructor(
@@ -17,11 +23,11 @@ export abstract class ProjectionShader {
         fragmentShader: WebGLShader
     ) {
         this.shaderProgram = gl.createProgram();
-        this.texture = gl.createTexture();
+        this.outTexture = gl.createTexture();
         this.vertexBuffer = gl.createBuffer();
         this.indexBuffer = gl.createBuffer();
-        if (!this.shaderProgram || !this.texture) {
-            console.error("Cannot create shader program or texture.");
+        if (!this.shaderProgram || !this.outTexture) {
+            console.error("Cannot create shader program.");
             return;
         }
         gl.attachShader(this.shaderProgram, fragmentShader);
@@ -83,7 +89,7 @@ export abstract class ProjectionShader {
 
         gl.activeTexture(gl.TEXTURE0);
         gl.uniform1i(uSampler, 0);
-        gl.bindTexture(gl.TEXTURE_2D, this.texture);
+        gl.bindTexture(gl.TEXTURE_2D, this.outTexture);
         gl.texImage2D(
             gl.TEXTURE_2D,
             0,
@@ -104,24 +110,24 @@ export abstract class ProjectionShader {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
     }
 
-    abstract updateUniforms(
-        gl: WebGLRenderingContext,
-        fovY: number,
-        rotRight: number,
-        rotUp: number,
-        aspect: number
-    ): void;
-    abstract mapParameters(
-        fovY: number,
-        rotRight: number,
-        rotUp: number
-    ): [number, number, number];
+    // Implementors should store apply their mapping (usually limiting to range)
+    // and then store the mapped parameters. The parameters should be sent to the
+    // uniforms of the shader at the render function
+    abstract updateParameters(mappedParameters: MappedParameters, aspect: number): void;
 
-    public useProgram(gl: WebGLRenderingContext) {
+    protected abstract updateUniforms(gl: WebGLRenderingContext): void;
+
+    protected useProgram(gl: WebGLRenderingContext) {
         gl.useProgram(this.shaderProgram);
-        gl.bindTexture(gl.TEXTURE_2D, this.texture);
+        //gl.bindTexture(gl.TEXTURE_2D, this.outTexture);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+    }
+
+    public draw(gl: WebGLRenderingContext) {
+        this.useProgram(gl);
+        this.updateUniforms(gl);
+        gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
     }
 
     public static createShader(

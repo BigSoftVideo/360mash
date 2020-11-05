@@ -1,3 +1,7 @@
+
+import "./common-style.css";
+import "./app.css";
+
 const packageJson = require("../package.json");
 
 const { Menu, MenuItem, dialog, getCurrentWindow, app } = require("electron").remote;
@@ -8,12 +12,9 @@ import * as React from "react";
 
 import { SplitPanelHor } from "./ui-presentational/split-panel/split-panel-hor";
 import { SplitPanelVer } from "./ui-presentational/split-panel/split-panel-ver";
-
-import "./common-style.css";
-import "./app.css";
 import { VideoPanel } from "./ui-presentational/video-panel/video-panel";
 import { PreviewPanel } from "./ui-mixed/preview-panel/preview-panel";
-import { VideoManager } from "./video/video-manager";
+import { VideoManager, Video } from "./video/video-manager";
 import { FilterManager } from "./video/filter-manager";
 
 // TODO: move this to a redux store
@@ -27,6 +28,7 @@ export class App extends React.Component<{}, AppState> {
     filterManager: FilterManager;
     videoManager: VideoManager | null;
     onResized: () => void;
+    onVideoReady: (video: Video) => void;
 
     constructor(params: any) {
         super(params);
@@ -39,6 +41,13 @@ export class App extends React.Component<{}, AppState> {
             if (this.previewPanelRef.current) {
                 this.previewPanelRef.current.resized();
             }
+        };
+        this.onVideoReady = (video) => {
+            let htmlVideo = video.htmlVideo;
+            let aspectRatio = htmlVideo.videoWidth / htmlVideo.videoHeight;
+            console.log("Setting aspect to " + aspectRatio);
+            video.htmlVideo.play();
+            this.setState({ videoAspectRatio: aspectRatio });
         };
         this.filterManager = new FilterManager();
         this.videoManager = null;
@@ -57,6 +66,10 @@ export class App extends React.Component<{}, AppState> {
 
     componentWillUnmount() {
         window.removeEventListener("resize", this.onResized);
+
+        if (this.videoManager) {
+            this.videoManager.removeVideoReadyListener(this.onVideoReady);
+        }
     }
 
     render() {
@@ -90,9 +103,10 @@ export class App extends React.Component<{}, AppState> {
             if (canvas) {
                 this.videoManager = new VideoManager(
                     canvas,
-                    previewPanel.renderToCanvas.bind(previewPanel),
+                    previewPanel.drawToCanvas.bind(previewPanel),
                     this.filterManager
                 );
+                this.videoManager.addVideoReadyListener(this.onVideoReady);
             }
         }
     }
@@ -196,11 +210,8 @@ export class App extends React.Component<{}, AppState> {
                 //this.setState({ videoUrl: fileURL });
                 let fileURL = pathToFileURL(value.filePaths[0]);
                 this.videoManager.openVideo(fileURL);
-                let video = this.videoManager.video!.offscreenVideo;
-                video.play();
                 //TODO wait until the first frame is available and only then set the aspect ratio.
                 // Otherwise the videoWidth and height won't yet be available.
-                this.setState({ videoAspectRatio: video.videoWidth / video.videoHeight });
             });
     }
 }

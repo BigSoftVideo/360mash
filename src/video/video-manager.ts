@@ -2,7 +2,7 @@ import { render } from "react-dom";
 import { FilterManager } from "./filter-manager";
 import { FilterPipeline } from "./filter-pipeline";
 
-export type VideoManagerListener = () => void;
+export type VideoReadyListener = (video: Video) => void;
 
 export type VideoRendererCallback = (canvas: HTMLCanvasElement, frame: WebGLTexture) => void;
 
@@ -14,10 +14,11 @@ export type VideoRendererCallback = (canvas: HTMLCanvasElement, frame: WebGLText
  * server to process multiple videos concurrently.
  */
 export class VideoManager {
-    protected listeners: Set<VideoManagerListener>;
+    protected videoReadyListeners: Set<VideoReadyListener>;
+    protected videoReady: (video: Video) => void;
     protected _video: Video | null;
     protected _pipeline: FilterPipeline;
-    protected renderToCanvas: VideoRendererCallback;
+    protected drawToCanvas: VideoRendererCallback;
     protected renderVideo: () => void;
 
     /**
@@ -26,32 +27,37 @@ export class VideoManager {
      */
     constructor(
         targetCanvas: HTMLCanvasElement,
-        renderToCanvas: VideoRendererCallback,
+        drawToCanvas: VideoRendererCallback,
         filterManager: FilterManager
     ) {
-        this.listeners = new Set();
+        this.videoReadyListeners = new Set();
         this._video = null;
         this._pipeline = new FilterPipeline(filterManager, targetCanvas, []);
-        this.renderToCanvas = renderToCanvas;
+        this.drawToCanvas = drawToCanvas;
+        this.videoReady = (video) => {
+            for (const cb of this.videoReadyListeners.values()) {
+                cb(video);
+            }
+        };
         this.renderVideo = () => {
             if (this._video) {
                 let outputFrame = this._pipeline.execute(this._video);
-                this.renderToCanvas(targetCanvas, outputFrame);
+                this.drawToCanvas(targetCanvas, outputFrame);
             }
             window.requestAnimationFrame(this.renderVideo);
         };
         window.requestAnimationFrame(this.renderVideo);
     }
 
-    addListener(listener: VideoManagerListener) {
-        this.listeners.add(listener);
+    addVideoReadyListener(listener: VideoReadyListener) {
+        this.videoReadyListeners.add(listener);
     }
-    removeListener(listener: VideoManagerListener) {
-        this.listeners.delete(listener);
+    removeVideoReadyListener(listener: VideoReadyListener) {
+        this.videoReadyListeners.delete(listener);
     }
 
     openVideo(fileUrl: URL): Video {
-        this._video = new Video(fileUrl);
+        this._video = new Video(fileUrl, this.videoReady);
         return this._video;
     }
 
@@ -74,13 +80,55 @@ export interface IVideo {
  * to play the video.
  */
 export class Video {
-    protected _offscreenVideo: HTMLVideoElement;
+    protected video: HTMLVideoElement;
     protected url: URL;
+    protected ready: boolean;
 
-    constructor(videoUrl: URL) {
+    constructor(videoUrl: URL, onReady: (self: Video) => void) {
+        let videoTextureReady = false;
+        let playing = false;
+        let timeupdate = false;
+        let checkReady = () => {
+            if (playing && timeupdate) {
+                if (!videoTextureReady) {
+                    this.video.pause();
+                    this.video.muted = false;
+                    videoTextureReady = true;
+                    // We use setImmediate to guarantee that the callback only gets
+                    // executed after this constructor has returned
+                    setImmediate(() => {
+                        this.ready = true;
+                        onReady(this);
+                    });
+                }
+                return true;
+            }
+            return false;
+        };
+
+        this.ready = false;
         this.url = videoUrl;
-        this._offscreenVideo = document.createElement("video");
-        this.offscreenVideo.src = videoUrl.href;
+        this.video = document.createElement("video");
+        this.video.autoplay = true;
+        this.video.muted = true;
+        this.video.addEventListener(
+            "playing",
+            () => {
+                playing = true;
+                checkReady();
+            },
+            true
+        );
+        this.video.addEventListener(
+            "timeupdate",
+            (event: MediaStreamEvent) => {
+                timeupdate = true;
+                checkReady();
+                //onTimeUpdate(event);
+            },
+            true
+        );
+        this.video.src = videoUrl.href;
     }
 
     toInterface(): IVideo {
@@ -89,7 +137,11 @@ export class Video {
         };
     }
 
-    get offscreenVideo(): HTMLVideoElement {
-        return this._offscreenVideo;
+    get htmlVideo(): HTMLVideoElement {
+        return this.video;
+    }
+
+    isReady(): boolean {
+        return this.ready;
     }
 }

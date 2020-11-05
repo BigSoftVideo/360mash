@@ -42,6 +42,14 @@ export class PreviewPanel extends React.Component<PreviewPanelProps> {
         //this.canvasRef = React.createRef();
     }
 
+    componentDidMount() {
+        this.resized();
+    }
+
+    componentDidUpdate() {
+        this.resized();
+    }
+
     render() {
         return (
             <AspectRatioFitter
@@ -67,7 +75,7 @@ export class PreviewPanel extends React.Component<PreviewPanelProps> {
         if (this.canvasElement) {
             let canvas = this.canvasElement;
             canvas.width = canvas.clientWidth;
-            canvas.height = canvas.clientHeight;
+            canvas.height = canvas.width / this.props.videoAspectRatio;
         }
     }
 
@@ -75,23 +83,25 @@ export class PreviewPanel extends React.Component<PreviewPanelProps> {
         return this.canvasElement;
     }
 
-    renderToCanvas(canvas: HTMLCanvasElement, videoFrame: WebGLTexture) {
+    drawToCanvas(canvas: HTMLCanvasElement, videoFrame: WebGLTexture) {
         if (!this.shader) {
             return;
         }
         let gl = canvas.getContext("webgl2")!;
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        this.shader.useProgram(gl);
+        //this.shader.useProgram(gl);
         gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, videoFrame);
         let aspect = canvas.width / canvas.height;
-        this.shader.updateUniforms(
-            gl,
-            Math.PI,
-            0,
-            0
-            //aspect
+        this.shader.updateParameters(
+            {
+                fovY: Math.PI,
+                rotRight: 0,
+                rotUp: 0,
+            },
+            aspect
         );
-        gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+        this.shader.draw(gl);
     }
 }

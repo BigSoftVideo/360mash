@@ -1,9 +1,10 @@
-import { ProjectionShader } from "../../video/core";
+import { MappedParameters, ProjectionShader } from "../../video/core";
 
 export class Regular2DProjectionShader extends ProjectionShader {
     protected uYaw: WebGLUniformLocation | null;
     protected uPitch: WebGLUniformLocation | null;
     protected uFov: WebGLUniformLocation | null;
+    protected parameters: MappedParameters;
     constructor(gl: WebGLRenderingContext) {
         let vertexSrc = `
             attribute vec4 position;
@@ -42,12 +43,32 @@ export class Regular2DProjectionShader extends ProjectionShader {
             this.uPitch = null;
             this.uFov = null;
         }
+        this.parameters = {
+            fovY: Math.PI,
+            rotUp: 0,
+            rotRight: 0,
+        };
     }
 
-    updateUniforms(gl: WebGLRenderingContext, fovY: number, rotRight: number, rotUp: number) {
-        gl.uniform1f(this.uYaw, rotUp);
-        gl.uniform1f(this.uPitch, rotRight);
-        gl.uniform1f(this.uFov, fovY);
+    updateParameters(mappedParameters: MappedParameters, aspect: number) {
+        let yaw = mappedParameters.rotUp;
+        let pitch = mappedParameters.rotRight;
+        let scaling = mappedParameters.fovY / Math.PI;
+        let x = yaw / (Math.PI * 2.0) + 0.5;
+        x = Math.max(scaling * 0.5, Math.min(1.0 - scaling * 0.5, x));
+        let y = pitch / Math.PI + 0.5;
+        y = Math.max(scaling * 0.5, Math.min(1.0 - scaling * 0.5, y));
+
+        this.parameters.fovY = mappedParameters.fovY;
+        this.parameters.rotRight = (y - 0.5) * Math.PI;
+        this.parameters.rotUp = (x - 0.5) * (Math.PI * 2.0);
+        return { ...this.parameters };
+    }
+
+    updateUniforms(gl: WebGLRenderingContext) {
+        gl.uniform1f(this.uYaw, this.parameters.rotUp);
+        gl.uniform1f(this.uPitch, this.parameters.rotRight);
+        gl.uniform1f(this.uFov, this.parameters.fovY);
     }
 
     mapParameters(fovY: number, rotRight: number, rotUp: number): [number, number, number] {
