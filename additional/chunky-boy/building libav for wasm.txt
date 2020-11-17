@@ -1,0 +1,76 @@
+
+
+IMPORTANT
+The following description is a general description of how to compile libav with emscripten
+and is not nesecarily tied to this library. So for example [YOUR PROJECTS FOLDER] may be /home/username/my-software/
+
+It recommended to do all of the following in an isolated environment such as a virtual machine just to avoid cluttering ones own development environment.
+
+Keep in mind that emscripten tools like emconfigure and emmake may need be a special setup to be invokeable.
+As of the time of writing this the way to set up emscripten is to execute the `source ./emsdk_env.sh` command in the emscripten folder
+after installing and activating an sdk. This may be different for different versions of emscripten so follow the emscripten setup tutorial
+(https://emscripten.org/docs/getting_started/downloads.html).
+
+Original from: https://gist.github.com/binarykitchen/5230096
+
+-----------------------------------------------------------------
+
+0. install common dependencies
+
+> sudo apt-get install build-essential pkg-config checkinstall yasm
+
+
+1. install libav
+
+The libav source is a copy of the libav repo at the v12.3 tag. You may compile it from there
+or obtain your own copy from the official repository
+
+> cd dep/libav
+> sudo ./configure
+
+// when it says it cannot find libx264, try the above command again but with the extra option '--extra-libs=-ldl'
+
+> sudo make
+> sudo make install
+> avconv -version
+
+shows something like
+> avconv version v9-823-g352dbdb, Copyright (c) 2000-2013 the Libav developers
+
+at this point, you have everything ready for local video encoding. now let's focus on emscripten:
+
+2. install emscripten
+
+You should preferably clone emscripten into a folder outside of this repo.
+For the version of emscipten that was most recently used for building chunky-boy, refer to the Readme file.
+Follow the official installation instructions found at https://emscripten.org/docs/getting_started/downloads.html
+
+3. final step: port libav to wasm!
+
+> cd dep/libav
+> find . -iname "*.o" -exec rm -f {} \;
+> make clean
+> make distclean
+> emconfigure ./configure --arch=x86_32 --cpu=generic --cc="emcc" --extra-cflags="-m32" --extra-ldflags="-m32" --disable-shared --disable-doc --disable-inline-asm --disable-asm --prefix="`pwd`/build/js/root"
+
+Again this next command will fail but just execute it anyways.
+> emmake make -j4
+
+Fix all the issues by running emranlib repeatedly on each file
+> emranlib libavdevice/libavdevice.a && emranlib libavfilter/libavfilter.a && emranlib libavformat/libavformat.a && emranlib libavcodec/libavcodec.a && emranlib libavresample/libavresample.a && emranlib libswscale/libswscale.a && emranlib libavutil/libavutil.a
+
+Let make finish its thing
+> emmake make -j4
+> emmake make install
+
+> cd build/js/root/lib
+> emranlib libavdevice.a && emranlib libavfilter.a && emranlib libavformat.a && emranlib libavcodec.a && emranlib libavresample.a && emranlib libswscale.a && emranlib libavutil.a
+
+IMPORTANT:
+If you'd like to publish the freshly built artifacts, make sure to run the `post_libav_build.sh` script from the chunky-boy root folder.
+
+------------------
+
+Then you may go back up to the chunky-boy folder and run
+> ./build.sh
+

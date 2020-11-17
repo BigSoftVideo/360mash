@@ -1,0 +1,14 @@
+prefix=dep/libav/build/js/root
+exec_prefix=${prefix}
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: libswscale
+Description: Libav image rescaling library
+Version: 4.0.0
+Requires: libavutil >= 55.20.0
+Requires.private: 
+Conflicts:
+Libs: -L${libdir} -lswscale -lm
+Libs.private: 
+Cflags: -I${includedir}

@@ -9,6 +9,8 @@ rules.push({
 module.exports = {
   module: {
     rules,
+    //noParse: /src\/dynamic-require.js$/,
+    noParse: /\/dynamic-require.js$/,
   },
   plugins: plugins,
   resolve: {

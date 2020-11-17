@@ -1,0 +1,14 @@
+prefix=dep/libav/build/js/root
+exec_prefix=${prefix}
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: libavformat
+Description: Libav container format library
+Version: 57.7.2
+Requires: libavcodec >= 57.25.0, libavresample >= 3.0.0, libavutil >= 55.20.0
+Requires.private: 
+Conflicts:
+Libs: -L${libdir} -lavformat -lX11 -lm -pthread
+Libs.private: 
+Cflags: -I${includedir}

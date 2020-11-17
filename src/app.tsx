@@ -20,8 +20,9 @@ import { Checklist } from "./ui-presentational/checklist/checklist";
 import { GrayscaleFilter, GRAYSCALE_FILTER_NAME } from "./filters/grayscale";
 import { FilterBase } from "./video/filter-base";
 import { FilterList } from "./ui-mixed/filter-list/filter-list";
+import { Codec } from "./video/codec";
 
-// TODO: move this to a redux store
+// TODO: move this to a redux store maybe
 export interface AppState {
     //videoUrl: string;
     videoAspectRatio: number;
@@ -39,6 +40,8 @@ export class App extends React.Component<{}, AppState> {
         this.state = {
             videoAspectRatio: 16 / 9,
         };
+
+        let codec = new Codec();
 
         this.previewPanelRef = React.createRef();
         this.onResized = () => {
