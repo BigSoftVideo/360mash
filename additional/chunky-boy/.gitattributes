@@ -1,4 +1,0 @@
-*.wasm binary
-chunky-boy.js -diff
-chunky-boy.worker.js -diff
-

@@ -1,1 +1,0 @@
-config:x86_32::generic:linux:emcc (Emscripten gcc/clang-like replacement) 2.0.8 (d059fd603d0b45b584f634dc2365bc9e9a6ec1dd):--arch=x86_32 --cpu=generic --cc=emcc --extra-cflags=-m32 --extra-ldflags=-m32 --disable-shared --disable-doc --disable-inline-asm --disable-asm --prefix=/home/artur/software/chunky-boy/dep/libav/build/js/root
