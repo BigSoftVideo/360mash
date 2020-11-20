@@ -1,4 +1,4 @@
-import { Filter } from "electron/main";
+import { RenderTexture } from "../video/core";
 
 export type FilterId = string;
 
@@ -57,5 +57,5 @@ export abstract class FilterBase {
      * Implementors must create all webgl resources using `this.canvas` in the constructor then
      * `this.canvas` must be used within this function to get the webgl context.
      */
-    abstract execute(source: WebGLTexture): WebGLTexture;
+    abstract execute(source: WebGLTexture): RenderTexture;
 }

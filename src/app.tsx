@@ -21,6 +21,7 @@ import { GrayscaleFilter, GRAYSCALE_FILTER_NAME } from "./filters/grayscale";
 import { FilterBase } from "./video/filter-base";
 import { FilterList } from "./ui-mixed/filter-list/filter-list";
 import { Codec } from "./video/codec";
+import { ExportPanel } from "./ui-mixed/export-panel/export-panel";
 
 // TODO: move this to a redux store maybe
 export interface AppState {
@@ -88,11 +89,15 @@ export class App extends React.Component<{}, AppState> {
     render() {
 
         let filterList;
+        let exportPanel;
         if (this.videoManager) {
             filterList = <FilterList pipeline={this.videoManager.pipeline}></FilterList>;
+            exportPanel = <ExportPanel pipeline={this.videoManager.pipeline}></ExportPanel>;
         } else {
             filterList = "--";
+            exportPanel = <div> -- </div>;
         }
+
         return (
             <div className="app-contents">
                 <SplitPanelVer defaultPercentage={40} onResize={this.onResized}>
@@ -108,7 +113,7 @@ export class App extends React.Component<{}, AppState> {
                             videoAspectRatio={this.state.videoAspectRatio}
                             //videoManager={this.videoManager}
                         ></PreviewPanel>
-                        <div>Export options</div>
+                        {exportPanel}
                     </SplitPanelHor>
                 </SplitPanelVer>
             </div>

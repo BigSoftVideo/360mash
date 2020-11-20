@@ -1,12 +1,18 @@
 import { FilterBase, FilterId } from "./filter-base";
 import { FilterManager } from "./filter-manager";
 import { Video } from "./video-manager";
-import { GlTexture } from "./core";
+import { GlTexture, RenderTexture } from "./core";
 
 export interface FilterDesc {
     id: FilterId;
     filter: FilterBase;
     active: boolean;
+}
+
+export interface PixelData {
+    data: Uint8Array;
+    w: number;
+    h: number;
 }
 
 /**
@@ -16,13 +22,20 @@ export interface FilterDesc {
  * and writes the final output to a WebGL texture object
  */
 export class FilterPipeline {
-    filters: FilterDesc[];
-    filterManager: FilterManager;
-    outWidth: number;
-    outHeight: number;
-    gl: WebGL2RenderingContext;
+    protected filters: FilterDesc[];
+    protected filterManager: FilterManager;
+    protected outWidth: number;
+    protected outHeight: number;
+    protected gl: WebGL2RenderingContext;
 
-    videoAsTexture: GlTexture | null;
+    protected videoAsTexture: GlTexture | null;
+
+    protected pixelDataValid: boolean;
+    protected _pixelData: PixelData;
+
+    protected lastRt: RenderTexture | null;
+
+    //copyToCpu: boolean;
 
     /**
      * Each filter pipeline is associated with a specific <canvas> object. This
@@ -46,6 +59,14 @@ export class FilterPipeline {
         this.outHeight = 720;
         this.filters = [];
         this.filterManager = filterManager;
+        //this.copyToCpu = true;
+        this.pixelDataValid = false;
+        this._pixelData = {
+            data: new Uint8Array(0),
+            w: 0,
+            h: 0,
+        };
+        this.lastRt = null;
         let gl = canvas.getContext("webgl2");
         if (!gl) {
             throw new Error("FATAL: Requested webgl context was null.");
@@ -180,9 +201,38 @@ export class FilterPipeline {
         let prevOutput: WebGLTexture = videoTex.texture;
         for (const { filter, active } of this.filters) {
             if (active) {
-                prevOutput = filter.execute(prevOutput);
+                this.lastRt = filter.execute(prevOutput);
+                prevOutput = this.lastRt.color;
             }
         }
+        this.pixelDataValid = false;
         return prevOutput;
+    }
+
+    public get pixelData(): PixelData | null {
+        if (!this.pixelDataValid) {
+            let gl = this.gl;
+            if (!this.lastRt) {
+                // TODO: allow having no active filter
+                console.error("Copy to CPU enabled, so there has to be at least one filter active. TODO: allow having no active filter.");
+                return null;
+            }
+            let prevActiveFb = gl.getParameter(gl.READ_FRAMEBUFFER_BINDING);
+            gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.lastRt.framebuffer);
+            let w = this.lastRt.width;
+            let h = this.lastRt.height;
+            let pixelBufferSize = w * h * 4;
+            if (pixelBufferSize != this._pixelData.data.length) {
+                this._pixelData = {
+                    data: new Uint8Array(pixelBufferSize),
+                    w: w,
+                    h: h,
+                };
+            }
+            gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, this._pixelData.data);
+            gl.bindFramebuffer(gl.READ_FRAMEBUFFER, prevActiveFb);
+            this.pixelDataValid = true;
+        }
+        return this._pixelData;
     }
 }

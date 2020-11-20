@@ -48,7 +48,7 @@ export class GrayscaleFilter extends FilterBase {
         this.rt.dispose();
         this.shader.dispose();
     }
-    execute(source: WebGLTexture): WebGLTexture {
+    execute(source: WebGLTexture): RenderTexture {
         let gl = this.gl;
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.rt.framebuffer);
@@ -56,6 +56,6 @@ export class GrayscaleFilter extends FilterBase {
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, source);
         this.shader.draw(gl);
-        return this.rt.color;
+        return this.rt;
     }
 }
