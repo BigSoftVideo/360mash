@@ -25,15 +25,31 @@ if (process.env.NODE_ENV === "development") {
  * A 
  */
 export class Codec {
-
     //chunkyBoy: any;
     chunkyBoyInitialized: boolean;
 
+    chunkyCtx: number;
+    readCbPtr!: number;
+    metadataCbPtr!: number;
+    mediaFile!: number;
+    decodedAudioCbPtr!: number;
+    finishedCbPtr!: number;
+    runningNative: boolean;
+
     constructor() {
         this.chunkyBoyInitialized = false;
+        this.runningNative = false;
+        this.chunkyCtx = 0;
+        return;
+
+        this.mediaFile = fs.openSync(
+            "D:/personal/Documents/DoteExample/Camerawork training Panasonic HD.mp4",
+            "r"
+        );
+
         //const chunkyBoy: any = chunkyBoyInitialize();
         //this.chunkyBoy = chunkyBoy;
-        chunkyBoy.onChunkyBoyInitialized = () => {
+        chunkyBoy.whenInitialized(() => {
             const cbPtr = chunkyBoy.addFunction((ptr: number, length: number) => {
                 for (let index = 0; index < length; index++) {
                     chunkyBoy.HEAP32[ptr / 4 + index] *= 3;
@@ -44,66 +60,55 @@ export class Codec {
             console.log("Function retval: " + retval);
             chunkyBoy.removeFunction(cbPtr);
 
-            /*
-                const read = util.promisify(fs.read);
-                this.readCbPtr = chunkyBoy.userJsCallbacks.length;
-                chunkyBoy.userJsCallbacks[this.readCbPtr] = async (
-                    ptr: number,
-                    length: number
-                ) => {
-                    //const retval = fs.readSync(this.mediaFile, chunky_boy.HEAP8, ptr, length, null);
-                    //return retval;
-                    try {
-                        let result = await read(
-                            this.mediaFile,
-                            chunkyBoy.HEAP8,
-                            ptr,
-                            length,
-                            null
-                        );
-                        return result.bytesRead;
-                    } catch (error) {
-                        console.exception(error);
-                        return 0;
-                    }
-                };
-                this.metadataCbPtr = chunkyBoy.userJsCallbacks.length;
-                chunkyBoy.userJsCallbacks[this.metadataCbPtr] = (
-                    duration: number,
-                    sampleRate: number
-                ) => {
-                    console.log("Duration of the stream is " + duration + " seconds.");
-                    this.sourceSampleRate = sampleRate;
-                    this.sourceSampleCount = duration * sampleRate;
-                    this.duration = duration;
-                    this.bufferSampleCount = Math.min(this.sourceSampleCount, this.maxSamples);
-                    this.sampleStep = this.sourceSampleCount / this.bufferSampleCount;
-                    this.bufferSampleRate = this.bufferSampleCount / duration;
-                    if (this.metadataReceivedUserCb) {
-                        this.metadataReceivedUserCb();
-                    }
-                };
-                this.decodedAudioCbPtr = chunkyBoy.userJsCallbacks.length;
-                chunkyBoy.userJsCallbacks[this.decodedAudioCbPtr] = (
-                    samplesPtr: number,
-                    numSamples: number,
-                    numChannels: number
-                ) => {
-                    for (let i = 0; i < numSamples; i++) {
-                        const sample = chunkyBoy.HEAPF32[samplesPtr / 4 + i * numChannels];
-                        this.unprocessedSamples.push(sample);
-                    }
-                    this.processBufferSamples();
-                    if (this.newSamplesReadyUserCb) {
-                        this.newSamplesReadyUserCb();
-                    }
-                };
-                this.finishedCbPtr = chunkyBoy.userJsCallbacks.length;
-                chunkyBoy.userJsCallbacks[this.finishedCbPtr] = () => {
-                    console.log("Setting runningNative to false.");
-                    this.runningNative = false;
-                };
-            */
+            const read = util.promisify(fs.read);
+            this.readCbPtr = chunkyBoy.userJsCallbacks.length;
+            chunkyBoy.userJsCallbacks[this.readCbPtr] = async (
+                ptr: number,
+                length: number
+            ) => {
+                try {
+                    let result = await read(
+                        this.mediaFile,
+                        chunkyBoy.HEAP8,
+                        ptr,
+                        length,
+                        null
+                    );
+                    return result.bytesRead;
+                } catch (error) {
+                    console.exception(error);
+                    return 0;
+                }
+            };
+            this.metadataCbPtr = chunkyBoy.userJsCallbacks.length;
+            chunkyBoy.userJsCallbacks[this.metadataCbPtr] = (
+                duration: number,
+                sampleRate: number
+            ) => {
+                console.log("METADATA: Duration " + duration + " seconds. Sample rate ", sampleRate);
+            };
+            this.decodedAudioCbPtr = chunkyBoy.userJsCallbacks.length;
+            chunkyBoy.userJsCallbacks[this.decodedAudioCbPtr] = (
+                samplesPtr: number,
+                numSamples: number,
+                numChannels: number
+            ) => {
+                // for (let i = 0; i < numSamples; i++) {
+                //     const sample = chunkyBoy.HEAPF32[samplesPtr / 4 + i * numChannels];
+                //     this.unprocessedSamples.push(sample);
+                // }
+                // this.processBufferSamples();
+                // if (this.newSamplesReadyUserCb) {
+                //     this.newSamplesReadyUserCb();
+                // }
+            };
+            this.finishedCbPtr = chunkyBoy.userJsCallbacks.length;
+            chunkyBoy.userJsCallbacks[this.finishedCbPtr] = () => {
+                console.log("Finished decoding. Setting runningNative to false.");
+                this.runningNative = false;
+                fs.closeSync(this.mediaFile);
+            };
+            
 
             /// DO NOT CALL `_start_event_loop` HERE. IT'S BAD. IT WILL HURT YOU.
             /// 1, this function is called from the `main` function of the wasm module
@@ -113,6 +118,34 @@ export class Codec {
             ///    the idea
 
             this.chunkyBoyInitialized = true;
-        };
+
+            // By using setImmediate the stuff within set immediate won't be called from
+            // this function. This function will have returned by the time the stuff
+            // in there gets called.
+            setImmediate(() => {
+                //----------------------------------------
+                // TEST ONLY
+                setImmediate(() => {
+                    chunkyBoy._decode_from_callback(
+                        this.chunkyCtx,
+                        this.readCbPtr,
+                        this.metadataCbPtr,
+                        this.decodedAudioCbPtr,
+                        this.finishedCbPtr
+                    );
+                });
+                //----------------------------------------
+
+                this.chunkyCtx = chunkyBoy._create_context();
+                // `_start_event_loop` doesn't return
+                chunkyBoy._start_event_loop(this.chunkyCtx);
+            });
+        });
+    }
+
+    async dispose() {
+        if (this.chunkyCtx) {
+            await chunkyBoy.delete_context(this.chunkyCtx);
+        }
     }
 }
