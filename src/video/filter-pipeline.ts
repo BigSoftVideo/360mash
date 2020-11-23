@@ -9,8 +9,19 @@ export interface FilterDesc {
     active: boolean;
 }
 
+/**
+ * Each value in data is the value of a single chanel of a single pixel within the image.
+ * The order of the channels is (RED, GREEN, BLUE, ALPHA). Each channel takes up a single byte
+ * so each pixel takes up 4 bytes.
+ * 
+ * To access the first channel (RED) of the pixel at (x, y) index the `data`
+ * field with `y*linesize + x*4`
+ */
 export interface PixelData {
     data: Uint8Array;
+
+    /** Size of each row in BYTES. See the documentation for `PixelData` for more */
+    linesize: number;
     w: number;
     h: number;
 }
@@ -31,7 +42,7 @@ export class FilterPipeline {
     protected videoAsTexture: GlTexture | null;
 
     protected pixelDataValid: boolean;
-    protected _pixelData: PixelData;
+    protected pixelData: PixelData;
 
     protected lastRt: RenderTexture | null;
 
@@ -61,8 +72,9 @@ export class FilterPipeline {
         this.filterManager = filterManager;
         //this.copyToCpu = true;
         this.pixelDataValid = false;
-        this._pixelData = {
+        this.pixelData = {
             data: new Uint8Array(0),
+            linesize: 0,
             w: 0,
             h: 0,
         };
@@ -88,6 +100,10 @@ export class FilterPipeline {
         for (const filter of this.filters) {
             filter.filter.setOutputDimensions(width, height);
         }
+    }
+
+    getOutputDimensions(): [number, number] {
+        return [this.outWidth, this.outHeight];
     }
 
     getFilters(): FilterId[] {
@@ -209,30 +225,71 @@ export class FilterPipeline {
         return prevOutput;
     }
 
-    public get pixelData(): PixelData | null {
+    /**
+     * @param linesize The number of bytes to go from the beggining of a row to the begginig of
+     * the next. Also known as stride or pitch. See: https://docs.microsoft.com/en-us/windows/win32/medfound/image-stride
+     * 
+     * This corresponds to `PACK_ROW_LENGTH` for the `readPixels` operation HOWEVER it's not the
+     * same value. `PACK_ROW_LENGTH` is measured in pixels while `linesize` is measured in bytes.
+     * Thererfore, here `linesize` must be a multiple of 4 (which is the size of a pixel in bytes).
+     * 
+     * If specified, the RED component of the pixel at (x, y) can be accessed by indexing
+     * the result with `y*linesize + x*4`. Otherwise it's `(y*width + x)*4`
+     */
+    public getPixelData(linesize?: number): PixelData | null {
         if (!this.pixelDataValid) {
-            let gl = this.gl;
+            linesize = linesize || 0;
             if (!this.lastRt) {
                 // TODO: allow having no active filter
-                console.error("Copy to CPU enabled, so there has to be at least one filter active. TODO: allow having no active filter.");
+                console.error("Trying to copy to CPU, so there has to be at least one filter active. TODO: allow having no active filter.");
                 return null;
             }
-            let prevActiveFb = gl.getParameter(gl.READ_FRAMEBUFFER_BINDING);
-            gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.lastRt.framebuffer);
             let w = this.lastRt.width;
             let h = this.lastRt.height;
-            let pixelBufferSize = w * h * 4;
-            if (pixelBufferSize != this._pixelData.data.length) {
-                this._pixelData = {
-                    data: new Uint8Array(pixelBufferSize),
+            if (linesize === 0) {
+                linesize = w * 4;
+            }
+            let targetBufferSize = h * linesize;
+            if (targetBufferSize != this.pixelData.data.length) {
+                this.pixelData = {
+                    data: new Uint8Array(targetBufferSize),
+                    linesize: linesize,
                     w: w,
                     h: h,
                 };
             }
-            gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, this._pixelData.data);
-            gl.bindFramebuffer(gl.READ_FRAMEBUFFER, prevActiveFb);
+            this.fillPixelData(this.pixelData);
             this.pixelDataValid = true;
         }
-        return this._pixelData;
+        return this.pixelData;
+    }
+
+    /**
+     * Just like `getPixelData` but it fills an already allocated buffer
+     * rather than creating a buffer.
+     */
+    public fillPixelData(buffer: PixelData) {
+        if (buffer.linesize % 4 != 0) {
+            throw new Error("`linesize` was not a multiple of 4. Note `linesize` has to be specified in bytes and each pixel is 4 bytes.");
+        }
+        let gl = this.gl;
+        if (!this.lastRt) {
+            // TODO: allow having no active filter
+            console.error("Trying to copy to CPU, so there has to be at least one filter active. TODO: allow having no active filter.");
+            return null;
+        }
+        let prevActiveFb = gl.getParameter(gl.READ_FRAMEBUFFER_BINDING);
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.lastRt.framebuffer);
+        let w = this.lastRt.width;
+        let h = this.lastRt.height;
+        if (buffer.w != w || buffer.h != h) {
+            throw new Error(`The target buffer dimensions must match the framebuffer dimensions. Target buffer (${buffer.w}, ${buffer.h}). Framebuffer (${w}, ${h})`);
+        }
+        if (buffer.linesize > 0 && (w*4) > buffer.linesize) {
+            throw new Error("The width of the image was larger than `linesize` which is invalid. Note `linesize` has to be specified in bytes and each pixel is 4 bytes.");
+        }
+        gl.pixelStorei(gl.PACK_ROW_LENGTH, buffer.linesize / 4);
+        gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buffer.data);
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, prevActiveFb);
     }
 }

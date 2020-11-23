@@ -36,13 +36,15 @@ export class App extends React.Component<{}, AppState> {
     onResized: () => void;
     onVideoReady: (video: Video) => void;
 
+    codec: Codec;
+
     constructor(params: any) {
         super(params);
         this.state = {
             videoAspectRatio: 16 / 9,
         };
 
-        let codec = new Codec();
+        this.codec = new Codec();
 
         this.previewPanelRef = React.createRef();
         this.onResized = () => {
@@ -87,12 +89,14 @@ export class App extends React.Component<{}, AppState> {
     }
 
     render() {
-
         let filterList;
         let exportPanel;
         if (this.videoManager) {
             filterList = <FilterList pipeline={this.videoManager.pipeline}></FilterList>;
-            exportPanel = <ExportPanel pipeline={this.videoManager.pipeline}></ExportPanel>;
+            exportPanel = (
+                <ExportPanel codec={this.codec} videoManager={this.videoManager}>
+                </ExportPanel>
+            );
         } else {
             filterList = "--";
             exportPanel = <div> -- </div>;

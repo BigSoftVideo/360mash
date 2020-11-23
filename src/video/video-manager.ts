@@ -21,6 +21,10 @@ export class VideoManager {
     protected drawToCanvas: VideoRendererCallback;
     protected renderVideo: () => void;
 
+    protected requestedAnimId: number;
+
+    protected keepRendering: boolean;
+
     /**
      * Consider creating a canvas using `document.createElement('canvas')` when
      * the contents aren't needed to show up on the screen.
@@ -34,19 +38,24 @@ export class VideoManager {
         this._video = null;
         this._pipeline = new FilterPipeline(filterManager, targetCanvas, []);
         this.drawToCanvas = drawToCanvas;
+        this.keepRendering = true;
+        this.requestedAnimId = 0;
         this.videoReady = (video) => {
             for (const cb of this.videoReadyListeners.values()) {
                 cb(video);
             }
         };
         this.renderVideo = () => {
+            this.requestedAnimId = 0;
             if (this._video) {
                 let outputFrame = this._pipeline.execute(this._video);
                 this.drawToCanvas(targetCanvas, outputFrame);
             }
-            window.requestAnimationFrame(this.renderVideo);
+            if (this.keepRendering) {
+                this.requestRender();
+            }
         };
-        window.requestAnimationFrame(this.renderVideo);
+        this.requestRender();
     }
 
     addVideoReadyListener(listener: VideoReadyListener) {
@@ -61,12 +70,46 @@ export class VideoManager {
         return this._video;
     }
 
+    /**
+     * Stops rendering and executes the pipeline sychronously.
+     * 
+     * This function does not use `window.requestAnimationFrame`, instead it immediately
+     * initiates the execution of the pipeline. This guarantees that by the time this function
+     * returns the pipeline has finished executing.
+     * 
+     * (The GPU may still have work to do but all OpenGL calls are already dispatched.)
+     */
+    renderOnce() {
+        this.stopRendering();
+        this.renderVideo();
+    }
+
+    /**
+     * Calls requestAnimationFrame with an inner renderer function.
+     * That function also does this unless `stopRendering` was called prior.
+     */
+    renderContinously() {
+        this.keepRendering = true;
+        this.requestRender();
+    }
+
+    stopRendering() {
+        if (this.requestedAnimId) {
+            window.cancelAnimationFrame(this.requestedAnimId);
+        }
+        this.keepRendering = false;
+    }
+
     get pipeline(): FilterPipeline {
         return this._pipeline;
     }
 
     get video(): Video | null {
         return this._video;
+    }
+
+    protected requestRender() {
+        this.requestedAnimId = window.requestAnimationFrame(this.renderVideo);
     }
 }
 
