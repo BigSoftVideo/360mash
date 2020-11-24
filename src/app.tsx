@@ -17,8 +17,9 @@ import { PreviewPanel } from "./ui-mixed/preview-panel/preview-panel";
 import { VideoManager, Video } from "./video/video-manager";
 import { FilterManager } from "./video/filter-manager";
 import { Checklist } from "./ui-presentational/checklist/checklist";
-import { GrayscaleFilter, GRAYSCALE_FILTER_NAME } from "./filters/grayscale";
 import { Conv360To2DFilter, CONV360T02D_FILTER_NAME } from "./filters/conv360to2d";
+import { GrayscaleFilter, GRAYSCALE_FILTER_NAME } from "./filters/grayscale";
+import { HsvQuantizeFilter, HSV_QUANTIZE_FILTER_NAME } from "./filters/hsv-quantize";
 import { FilterBase, FilterId } from "./video/filter-base";
 import { FilterList } from "./ui-mixed/filter-list/filter-list";
 import { Codec } from "./video/codec";
@@ -66,18 +67,26 @@ export class App extends React.Component<{}, AppState> {
         };
         this.filterManager = new FilterManager();
         this.filterAttribs = new Map();
-        this.filterAttribs.set(GRAYSCALE_FILTER_NAME, GrayscaleAttribsCreator);
-        this.filterManager.registerFilter({
-            id: GRAYSCALE_FILTER_NAME,
-            creator: (gl, w, h): FilterBase => {
-                return new GrayscaleFilter(gl, w, h);
-            }
-        });
         this.filterAttribs.set(CONV360T02D_FILTER_NAME, Conv360To2DAttribsCreator);
         this.filterManager.registerFilter({
             id: CONV360T02D_FILTER_NAME,
             creator: (gl, w, h): FilterBase => {
                 return new Conv360To2DFilter(gl, w, h);
+            }
+        });
+        // TODO: replace this with a real attribute creator
+        this.filterAttribs.set(HSV_QUANTIZE_FILTER_NAME, GrayscaleAttribsCreator);
+        this.filterManager.registerFilter({
+            id: HSV_QUANTIZE_FILTER_NAME,
+            creator: (gl, w, h): FilterBase => {
+                return new HsvQuantizeFilter(gl, w, h);
+            }
+        });
+        this.filterAttribs.set(GRAYSCALE_FILTER_NAME, GrayscaleAttribsCreator);
+        this.filterManager.registerFilter({
+            id: GRAYSCALE_FILTER_NAME,
+            creator: (gl, w, h): FilterBase => {
+                return new GrayscaleFilter(gl, w, h);
             }
         });
         this.videoManager = null;
@@ -174,6 +183,7 @@ export class App extends React.Component<{}, AppState> {
                 // Add all filters here.
                 this.videoManager.pipeline.setFilters([
                     CONV360T02D_FILTER_NAME,
+                    HSV_QUANTIZE_FILTER_NAME,
                     GRAYSCALE_FILTER_NAME
                 ]);
             }
