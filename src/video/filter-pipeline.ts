@@ -106,8 +106,8 @@ export class FilterPipeline {
         return [this.outWidth, this.outHeight];
     }
 
-    getFilters(): FilterId[] {
-        return this.filters.map((desc) => desc.id);
+    getFilters(): readonly FilterDesc[] {
+        return this.filters;
     }
 
     /**
@@ -197,8 +197,8 @@ export class FilterPipeline {
             }
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, tex);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
             // On webgl1, if the wrap is not set to CLAMP_TO_EDGE then non-power-of-two textures
             // are not allowed. Otherwise it won't give an error, it'll just give all black pixels.
             // but we are using webgl2 so this doesn't affect this code.

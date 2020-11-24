@@ -73,10 +73,11 @@ export class Codec {
         this.runningNative = false;
         this.chunkyCtx = 0;
 
-        this.inputFile = fs.openSync(
-            "D:/personal/Documents/DoteExample/Camerawork training Panasonic HD.mp4",
-            "r"
-        );
+        this.inputFile = 0;
+        // this.inputFile = fs.openSync(
+        //     "D:/personal/Documents/DoteExample/Camerawork training Panasonic HD.mp4",
+        //     "r"
+        // );
 
         // As a defult, define a function that fills the image with a solid color
         this.userGetImage = 
@@ -187,15 +188,15 @@ export class Codec {
             setImmediate(() => {
                 //----------------------------------------
                 // TEST ONLY
-                setImmediate(() => {
-                    chunkyBoy._decode_from_callback(
-                        this.chunkyCtx,
-                        this.readCbPtr,
-                        this.metadataCbPtr,
-                        this.decodedAudioCbPtr,
-                        this.finishedDecodeCbPtr
-                    );
-                });
+                // setImmediate(() => {
+                //     chunkyBoy._decode_from_callback(
+                //         this.chunkyCtx,
+                //         this.readCbPtr,
+                //         this.metadataCbPtr,
+                //         this.decodedAudioCbPtr,
+                //         this.finishedDecodeCbPtr
+                //     );
+                // });
                 //----------------------------------------
 
                 this.chunkyCtx = chunkyBoy._create_context();

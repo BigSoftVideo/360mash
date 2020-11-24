@@ -18,10 +18,12 @@ import { VideoManager, Video } from "./video/video-manager";
 import { FilterManager } from "./video/filter-manager";
 import { Checklist } from "./ui-presentational/checklist/checklist";
 import { GrayscaleFilter, GRAYSCALE_FILTER_NAME } from "./filters/grayscale";
-import { FilterBase } from "./video/filter-base";
+import { Conv360To2DFilter, CONV360T02D_FILTER_NAME } from "./filters/conv360to2d";
+import { FilterBase, FilterId } from "./video/filter-base";
 import { FilterList } from "./ui-mixed/filter-list/filter-list";
 import { Codec } from "./video/codec";
 import { ExportPanel } from "./ui-mixed/export-panel/export-panel";
+import { Conv360To2DAttribsCreator, GrayscaleAttribsCreator } from "./ui-mixed/filter-attributes/creators";
 
 // TODO: move this to a redux store maybe
 export interface AppState {
@@ -37,6 +39,9 @@ export class App extends React.Component<{}, AppState> {
     onVideoReady: (video: Video) => void;
 
     codec: Codec;
+
+    selectedFilterId: FilterId | null;
+    filterAttribs: Map<string, (f: FilterBase) => JSX.Element>;
 
     constructor(params: any) {
         super(params);
@@ -60,13 +65,23 @@ export class App extends React.Component<{}, AppState> {
             this.setState({ videoAspectRatio: aspectRatio });
         };
         this.filterManager = new FilterManager();
+        this.filterAttribs = new Map();
+        this.filterAttribs.set(GRAYSCALE_FILTER_NAME, GrayscaleAttribsCreator);
         this.filterManager.registerFilter({
             id: GRAYSCALE_FILTER_NAME,
             creator: (gl, w, h): FilterBase => {
                 return new GrayscaleFilter(gl, w, h);
             }
-        })
+        });
+        this.filterAttribs.set(CONV360T02D_FILTER_NAME, Conv360To2DAttribsCreator);
+        this.filterManager.registerFilter({
+            id: CONV360T02D_FILTER_NAME,
+            creator: (gl, w, h): FilterBase => {
+                return new Conv360To2DFilter(gl, w, h);
+            }
+        });
         this.videoManager = null;
+        this.selectedFilterId = CONV360T02D_FILTER_NAME;
     }
 
     componentDidMount() {
@@ -91,12 +106,27 @@ export class App extends React.Component<{}, AppState> {
     render() {
         let filterList;
         let exportPanel;
+        let filterAttributes = undefined;
         if (this.videoManager) {
             filterList = <FilterList pipeline={this.videoManager.pipeline}></FilterList>;
             exportPanel = (
                 <ExportPanel codec={this.codec} videoManager={this.videoManager}>
                 </ExportPanel>
             );
+            if (this.selectedFilterId) {
+                let creator = this.filterAttribs.get(this.selectedFilterId);
+                if (creator) {
+                    let filters = this.videoManager.pipeline.getFilters();
+                    let selFilter = filters.find(v => v.id === this.selectedFilterId);
+                    if (selFilter) {
+                        filterAttributes = creator(selFilter.filter);
+                    } else {
+                        console.error("The selected filter was not found.");
+                    }
+                } else {
+                    console.error("The filter creator was not found.");
+                }
+            }
         } else {
             filterList = "--";
             exportPanel = <div> -- </div>;
@@ -109,7 +139,9 @@ export class App extends React.Component<{}, AppState> {
                         <div>
                             {filterList}
                         </div>
-                        <div>Filter properties</div>
+                        <div>
+                            {filterAttributes}
+                        </div>
                     </SplitPanelHor>
                     <SplitPanelHor defaultPercentage={75} onResize={this.onResized}>
                         <PreviewPanel
@@ -138,7 +170,12 @@ export class App extends React.Component<{}, AppState> {
                     this.filterManager
                 );
                 this.videoManager.addVideoReadyListener(this.onVideoReady);
-                this.videoManager.pipeline.setFilters([GRAYSCALE_FILTER_NAME]);
+
+                // Add all filters here.
+                this.videoManager.pipeline.setFilters([
+                    CONV360T02D_FILTER_NAME,
+                    GRAYSCALE_FILTER_NAME
+                ]);
             }
         }
     }

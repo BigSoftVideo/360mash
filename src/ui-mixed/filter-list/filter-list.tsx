@@ -25,20 +25,25 @@ export class FilterList extends React.Component<FilterListProps, FilterListState
     constructor(params: any) {
         super(params);
 
-        this.state = {
-            filters: [
+        let thisFilters: FilterDesc[] = [];
+        let filterDescs = this.props.pipeline.getFilters();
+        for (const desc of filterDescs) {
+            thisFilters.push(
                 {
-                    id: GRAYSCALE_FILTER_NAME,
+                    id: desc.id,
                     inUse: true
                 }
-            ]
+            );
+        }
+        this.state = {
+            filters: thisFilters
         };
         this.onChanged = (elements) => {
             let oldFilters = this.props.pipeline.getFilters();
             let oldIndicies = new Map<FilterId, number>();
             let i = 0
-            for (const fid of oldFilters) {
-                oldIndicies.set(fid, i);
+            for (const desc of oldFilters) {
+                oldIndicies.set(desc.id, i);
                 i++;
             }
             let newOrder = elements.map(e => oldIndicies.get(e.name)!);
