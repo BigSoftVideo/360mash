@@ -109,8 +109,8 @@ export class HsvQuantizeShader extends FilterShader {
                 vec3 hsv = toHsv(c.rgb);
 
                 //hsv.x = quantize(hsv.x / 360.0, 8.0) * 360.0;
-                hsv.y = quantize(hsv.y, 8.0);
-                hsv.z = quantize(hsv.z, 8.0);
+                hsv.y = quantize(hsv.y, 6.0);
+                hsv.z = quantize(hsv.z, 6.0);
                 vec3 outRgb = fromHsv(hsv);
 
                 float edge = edgeStrength(vTexCoord);

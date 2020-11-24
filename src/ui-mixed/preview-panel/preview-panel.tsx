@@ -1,3 +1,5 @@
+import "./preview-panel.css";
+
 import * as React from "react";
 
 import { VideoPanel } from "../../ui-presentational/video-panel/video-panel";
@@ -5,14 +7,17 @@ import { AspectRatioFitter } from "../../ui-presentational/aspect-ratio-fitter/a
 import { VideoManager } from "../../video/video-manager";
 import { Regular2DProjectionShader } from "./preview-render";
 
-import "./preview-panel.css";
-
 export interface PreviewPanelProps {
     //videoManager: VideoManager | null;
     videoAspectRatio: number;
+    video: HTMLVideoElement | undefined;
 }
 
-export class PreviewPanel extends React.Component<PreviewPanelProps> {
+interface PreviewPanelState {
+    videoTime: number;
+}
+
+export class PreviewPanel extends React.Component<PreviewPanelProps, PreviewPanelState> {
     protected aspectFitterRef: React.RefObject<AspectRatioFitter>;
     //protected canvasRef: React.RefObject<HTMLCanvasElement>;
     protected shader: Regular2DProjectionShader | null;
@@ -20,11 +25,23 @@ export class PreviewPanel extends React.Component<PreviewPanelProps> {
     protected canvasElement: HTMLCanvasElement | null;
     protected canvasRefSet: (canvas: HTMLCanvasElement) => void;
 
+    protected videoTimeUpdate: () => void;
+
     constructor(params: any) {
         super(params);
+
+        this.state = {
+            videoTime: 0
+        };
+
         this.aspectFitterRef = React.createRef();
         this.canvasElement = null;
         this.shader = null;
+        this.videoTimeUpdate = () => {
+            if (this.props.video) {
+                this.setState({videoTime: this.props.video.currentTime});
+            }
+        }
         this.canvasRefSet = (canvas: HTMLCanvasElement) => {
             if (this.canvasElement !== canvas) {
                 if (this.canvasElement !== null) {
@@ -46,25 +63,52 @@ export class PreviewPanel extends React.Component<PreviewPanelProps> {
         this.resized();
     }
 
-    componentDidUpdate() {
+    componentDidUpdate(prevProps: PreviewPanelProps) {
         this.resized();
+
+        if (prevProps.video !== this.props.video) {
+            if (prevProps.video) {
+                prevProps.video.removeEventListener('timeupdate', this.videoTimeUpdate);
+            }
+
+            if (this.props.video) {
+                this.setState({ videoTime: this.props.video.currentTime})
+                this.props.video.addEventListener('timeupdate', this.videoTimeUpdate);
+            }
+        }
     }
 
     render() {
+        let videoLen = this.props.video?.duration || 0;
+
         return (
-            <AspectRatioFitter
-                ref={this.aspectFitterRef}
-                aspectRatio={this.props.videoAspectRatio}
-            >
-                <canvas ref={this.canvasRefSet} className="preview-video"></canvas>
-                {/* <VideoPanel
-                    className="preview-video"
-                    videoUrl={this.props.videoUrl}
-                    requestedTime={0}
-                    isPlaying={true}
+            <div>
+                <div className="preview-playback-controls">
+                    <button onClick={this.togglePlay.bind(this)}>Toggle Play</button>
+                    <input
+                        className="preview-timeline"
+                        type="range"
+                        min={0}
+                        max={videoLen}
+                        onChange={this.videoTimeSet.bind(this)}
+                        value={this.state.videoTime}
+                    >
+                    </input>
+                </div>
+                <AspectRatioFitter
+                    ref={this.aspectFitterRef}
+                    aspectRatio={this.props.videoAspectRatio}
                 >
-                </VideoPanel> */}
-            </AspectRatioFitter>
+                    <canvas ref={this.canvasRefSet} className="preview-video"></canvas>
+                    {/* <VideoPanel
+                        className="preview-video"
+                        videoUrl={this.props.videoUrl}
+                        requestedTime={0}
+                        isPlaying={true}
+                    >
+                    </VideoPanel> */}
+                </AspectRatioFitter>
+            </div>
         );
     }
 
@@ -103,5 +147,21 @@ export class PreviewPanel extends React.Component<PreviewPanelProps> {
             aspect
         );
         this.shader.draw(gl);
+    }
+
+    protected togglePlay() {
+        if (this.props.video) {
+            if (this.props.video.paused) {
+                this.props.video.play();
+            } else {
+                this.props.video.pause();
+            }
+        }
+    }
+
+    protected videoTimeSet(event: React.ChangeEvent<HTMLInputElement>) {
+        if (this.props.video) {
+            this.props.video.currentTime = event.target.valueAsNumber;
+        }
     }
 }

@@ -156,7 +156,7 @@ export class App extends React.Component<{}, AppState> {
                         <PreviewPanel
                             ref={this.previewPanelRef}
                             videoAspectRatio={this.state.videoAspectRatio}
-                            //videoManager={this.videoManager}
+                            video={this.videoManager?.video?.htmlVideo}
                         ></PreviewPanel>
                         {exportPanel}
                     </SplitPanelHor>
