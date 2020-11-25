@@ -52,9 +52,7 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
         let totalTime = video.duration;
         
         const [width, height] = this.props.videoManager.pipeline.getOutputDimensions();
-        const inFps = 24;
-        const outFps = 24;
-        const inFrameTime = 1 / inFps;
+        const outFps = 29.97;
 
         let nextFrameId = 0;
         let readyFrameId = -1;
@@ -70,11 +68,11 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
         video.addEventListener("seeked", seeked);
         video.currentTime = 0;
         let getImage = async (
-            frameId: number,
+            outFrameId: number,
             buffer: Uint8Array,
             linesize: number
         ): Promise<number> => {
-            while (readyFrameId < frameId) {
+            while (readyFrameId < outFrameId) {
                 await setImmedateAsync();
             }
             let targetPixelBuffer: PixelData = {
@@ -84,23 +82,23 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
                 h: height,
             };
             this.props.videoManager.pipeline.fillPixelData(targetPixelBuffer);
-            nextFrameId = frameId + 1;
+            nextFrameId = outFrameId + 1;
 
-            let inTime = frameId / inFps;
-            if ((inTime + 4*inFrameTime) > totalTime) {
+            const nextTime = nextFrameId / outFps;
+            if (nextTime > totalTime) {
                 video.removeEventListener("seeked", seeked);
                 return 1;
             }
-
             // Initiate loading and rendering the next frame while this one is being encoded.
-            video.currentTime = nextFrameId / inFps;
+            video.currentTime = nextTime;
 
             return 0;
         };
 
         let filename = this.dateToFilename(new Date()) + ".mp4";
         let fullpath = path.join(this.pathRef.current!.value, filename);
-        this.props.codec.startEncoding(fullpath, width, height, outFps, getImage);
+        let roundedFps = Math.round(outFps);
+        this.props.codec.startEncoding(fullpath, width, height, roundedFps, getImage);
     }
 
     fetchFrame() {
