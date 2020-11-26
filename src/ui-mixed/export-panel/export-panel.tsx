@@ -97,8 +97,7 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
 
         let filename = this.dateToFilename(new Date()) + ".mp4";
         let fullpath = path.join(this.pathRef.current!.value, filename);
-        let roundedFps = Math.round(outFps);
-        this.props.codec.startEncoding(fullpath, width, height, roundedFps, getImage);
+        this.props.codec.startEncoding(fullpath, width, height, outFps, getImage);
     }
 
     fetchFrame() {
