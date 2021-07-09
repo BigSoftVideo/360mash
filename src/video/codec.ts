@@ -2,24 +2,7 @@
 import * as util from "util";
 import * as fs from "fs";
 import * as path from "path";
-import dynamic_require from "../dynamic-require";
-
-// The `copy-webpack-plugin` copies the appropriate chunky-boy files
-// to the build, where it can be accessed at the top level
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-//const chunkyBoy = dynamic_require("/chunky-boy.js");
-//const chunkyBoy = dynamic_require("D:/personal/software/contribution/360mash/.webpack/renderer/chunky-boy.js");
-
-let chunkyBoy: any;
-if (process.env.NODE_ENV === "development") {
-    let target = path.join(__dirname, "../../../../../../additional/chunky-boy/chunky-boy.js");
-    console.log("chunky boy from: ", target);
-    chunkyBoy = dynamic_require(target);
-} else {
-    // Todo figure out how to bundle a group of files into the build
-    let target = path.join(__dirname, "chunky-boy.js");
-    chunkyBoy = dynamic_require(target);
-}
+import { spawn, ChildProcess } from "child_process";
 
 /**
  * Called during encoding to retreive the pixel data for a video frame.
@@ -49,13 +32,7 @@ export type GetImageCallback = (frameId: number, buffer: Uint8Array, linesize: n
  * A 
  */
 export class Codec {
-    //chunkyBoy: any;
-    chunkyBoyInitialized: boolean;
 
-    inputFile!: number;
-    outputFile!: number;
-
-    chunkyCtx: number;
     readCbPtr!: number;
     metadataCbPtr!: number;
     decodedAudioCbPtr!: number;
@@ -64,146 +41,50 @@ export class Codec {
     getImageCbPtr!: number;
     writeCbPtr!: number;
     finishedEncodeCbPtr!: number;
-    runningNative: boolean;
+    runningEncoding: boolean;
 
     userGetImage: GetImageCallback;
+    pixelBuffer: Uint8Array;
+
+    width: number;
+    height: number;
+    frameId: number;
+    ffmpegProc: ChildProcess | null;
+    encStartTime: Date;
+
+    ffmpegStdout: string;
+    // ffmpegStderr: string;
 
     constructor() {
-        this.chunkyBoyInitialized = false;
-        this.runningNative = false;
-        this.chunkyCtx = 0;
+        this.runningEncoding = false;
 
-        this.inputFile = 0;
         // this.inputFile = fs.openSync(
         //     "D:/personal/Documents/DoteExample/Camerawork training Panasonic HD.mp4",
         //     "r"
         // );
+        this.pixelBuffer = new Uint8Array();
+        this.ffmpegProc = null;
+        this.width = 0;
+        this.height = 0;
+        this.frameId = 0;
+        this.ffmpegStdout = "";
+        this.encStartTime = new Date();
+        // this.ffmpegStderr = "";
 
-        // As a defult, define a function that fills the image with a solid color
-        this.userGetImage = 
+        this.userGetImage = async (fid, buff, linesize): Promise<number> => {
+            console.warn("USING THE DEFAULT GET IMAGE FUNCTION. THIS PROBABLY INDICATES YOU FORGOT TO SET THE `userGetImage` FUNCTION");
+            return 0;
+        };
+    }
 
-        //const chunkyBoy: any = chunkyBoyInitialize();
-        //this.chunkyBoy = chunkyBoy;
-        chunkyBoy.whenInitialized(() => {
-            const cbPtr = chunkyBoy.addFunction((ptr: number, length: number) => {
-                for (let index = 0; index < length; index++) {
-                    chunkyBoy.HEAP32[ptr / 4 + index] *= 3;
-                }
-            }, "vii");
-            console.log("Calling test function");
-            const retval = chunkyBoy._heap_test(cbPtr) as number;
-            console.log("Function retval: " + retval);
-            chunkyBoy.removeFunction(cbPtr);
-
-            const read = util.promisify(fs.read);
-            const write = util.promisify(fs.write);
-
-            ////////////////////////////////////////////////////////////
-            // Decoding
-            ////////////////////////////////////////////////////////////
-            this.readCbPtr = chunkyBoy.userJsCallbacks.length;
-            chunkyBoy.userJsCallbacks[this.readCbPtr] = async (
-                ptr: number,
-                length: number
-            ) => {
-                try {
-                    let result = await read(
-                        this.inputFile,
-                        chunkyBoy.HEAP8,
-                        ptr,
-                        length,
-                        null
-                    );
-                    return result.bytesRead;
-                } catch (error) {
-                    console.exception(error);
-                    return 0;
-                }
-            };
-            this.metadataCbPtr = chunkyBoy.userJsCallbacks.length;
-            chunkyBoy.userJsCallbacks[this.metadataCbPtr] = (
-                duration: number,
-                sampleRate: number
-            ) => {
-                console.log("METADATA: Duration " + duration + " seconds. Sample rate ", sampleRate);
-            };
-            this.decodedAudioCbPtr = chunkyBoy.userJsCallbacks.length;
-            chunkyBoy.userJsCallbacks[this.decodedAudioCbPtr] = (
-                samplesPtr: number,
-                numSamples: number,
-                numChannels: number
-            ) => {
-            };
-            this.finishedDecodeCbPtr = chunkyBoy.userJsCallbacks.length;
-            chunkyBoy.userJsCallbacks[this.finishedDecodeCbPtr] = () => {
-                console.log("Finished decoding. Setting runningNative to false.");
-                this.runningNative = false;
-                fs.closeSync(this.inputFile);
-            };
-            ////////////////////////////////////////////////////////////
-
-            ////////////////////////////////////////////////////////////
-            // Encoding
-            ////////////////////////////////////////////////////////////
-            this.getImageCbPtr = chunkyBoy.userJsCallbacks.length;
-            chunkyBoy.userJsCallbacks[this.getImageCbPtr] = async (
-                frameId: number, buffer: number, len: number, linesize: number
-            ) => {
-                let bufArray = chunkyBoy.HEAPU8.subarray(buffer, buffer+len);
-                return await this.userGetImage(frameId, bufArray, linesize);
-            };
-
-            this.writeCbPtr = chunkyBoy.userJsCallbacks.length;
-            chunkyBoy.userJsCallbacks[this.writeCbPtr] = async (
-                ptr: number, len: number, pos: number
-            ) => {
-                let bytesWritten = (await write(
-                    this.outputFile,
-                    chunkyBoy.HEAP8,
-                    ptr,
-                    len,
-                    pos
-                )).bytesWritten;
-                return bytesWritten;
-            };
-
-            this.finishedEncodeCbPtr = chunkyBoy.userJsCallbacks.length;
-            chunkyBoy.userJsCallbacks[this.finishedEncodeCbPtr] = (result: any) => {
-                console.log("Finished encoding. Result was", result);
-                this.runningNative = false;
-                fs.closeSync(this.outputFile);
-            };
-            ////////////////////////////////////////////////////////////
-
-            /// DO NOT CALL `_start_event_loop` HERE. IT'S BAD. IT WILL HURT YOU.
-            /// 1, this function is called from a function within the wasm module
-            ///    which does not support async magic
-            /// 2, and `_start_event_loop` does emscripten async magic
-
-            this.chunkyBoyInitialized = true;
-
-            // By using setImmediate the stuff within set immediate won't be called from
-            // this function. This function will have returned by the time the stuff
-            // in there gets called.
-            setImmediate(() => {
-                //----------------------------------------
-                // TEST ONLY
-                // setImmediate(() => {
-                //     chunkyBoy._decode_from_callback(
-                //         this.chunkyCtx,
-                //         this.readCbPtr,
-                //         this.metadataCbPtr,
-                //         this.decodedAudioCbPtr,
-                //         this.finishedDecodeCbPtr
-                //     );
-                // });
-                //----------------------------------------
-
-                this.chunkyCtx = chunkyBoy._create_context();
-                // `_start_event_loop` doesn't return
-                chunkyBoy._start_event_loop(this.chunkyCtx);
-            });
-        });
+    resetEncodingSession() {
+        this.pixelBuffer = new Uint8Array();
+        this.ffmpegProc = null;
+        this.width = 0;
+        this.height = 0;
+        this.frameId = 0;
+        this.ffmpegStdout = "";
+        // this.ffmpegStderr = "";
     }
 
     /**
@@ -220,37 +101,151 @@ export class Codec {
         fps: number,
         getImage: GetImageCallback
     ): boolean {
-        if (!this.chunkyBoyInitialized) {
+        if (this.runningEncoding) {
+            // It should be possible in theory to be able to encode multiple streams at once
+            // but it is not implemented at the moment.
+            console.error("An encoding is already going on. There cannot be multiple encoding at once.");
             return false;
         }
-        if (this.runningNative) {
-            throw new Error("Cannot initiate an action while there's another still in-progress on this codec");
-        }
-        this.runningNative = true;
+        this.runningEncoding = true;
+        this.encStartTime = new Date();
 
-        this.outputFile = fs.openSync(outFileName, "w");
         this.userGetImage = getImage;
+        this.pixelBuffer = new Uint8Array(width * height * 4);
+        this.width = width;
+        this.height = height;
+        this.frameId = 0;
 
-        chunkyBoy._encode_video_from_callback(
-            this.chunkyCtx,
-            width,
-            height,
-            fps,
-            5_000_000,
-            44100,
-            192_000,
-            this.writeCbPtr,
-            this.getImageCbPtr,
-            -1,
-            this.finishedEncodeCbPtr
-        );
+        let resStr = width + "x" + height;
+        let outFileNameArg = outFileName.replace(/\\/g, "/");
+        let ffmpegBin = "C:\\Users\\Dighumlab2\\Desktop\\Media Tools\\ffmpeg-4.4-full_build\\bin\\ffmpeg";
+        this.ffmpegProc = spawn(ffmpegBin, [
+            "-f", "rawvideo", "-vcodec", "rawvideo", "-pixel_format", "rgba", "-video_size", resStr, "-i", "-", "-an", /*"-vf", "hwupload",*/ "-vcodec", "h264_nvenc", "-f", "mp4", outFileNameArg
+        ], {
+            stdio: ["pipe", "pipe", "pipe"]
+        });
+
+        this.ffmpegProc.stdin?.on("finish", () => {
+            console.log("The stdin of ffmpeg was successfully closed");
+            this.resetEncodingSession();
+        });
+
+        this.ffmpegProc.stdout?.on("data", data => {
+            this.ffmpegStdout += data;
+        });
+        this.ffmpegProc.stderr?.on("data", data => {
+            this.ffmpegStdout += data;
+        })
+
+        // Make sure we return before calling the callback. This is just nice because this guarantees
+        // for the caller that their callback is always only called after this function has returned
+        setImmediate(() => {
+            this.writeFrame();
+        });
+
+        // chunkyBoy._encode_video_from_callback(
+        //     this.chunkyCtx,
+        //     width,
+        //     height,
+        //     fps,
+        //     5_000_000,
+        //     44100,
+        //     192_000,
+        //     this.writeCbPtr,
+        //     this.getImageCbPtr,
+        //     -1,
+        //     this.finishedEncodeCbPtr
+        // );
 
         return true;
     }
 
     async dispose() {
-        if (this.chunkyCtx) {
-            await chunkyBoy.delete_context(this.chunkyCtx);
+        
+    }
+
+    writeFrame() {
+        // TODO it might give some speedup to use double buffering: 
+        // While one frame is getting filled up by the "getimage" callback
+        // the other could be sent down the pipe to ffmpeg
+        let frameId = this.frameId;
+        this.frameId += 1;
+        this.userGetImage(frameId, this.pixelBuffer, this.width * 4).then(getImgRetVal => {
+            let isLastFrame = getImgRetVal == 1;
+
+            //////////////////////////////////////////////
+            // TEST
+            if (isLastFrame) {
+                this.endEncoding();
+            } else {
+                this.writeFrame();
+            }
+            return;
+            //////////////////////////////////////////////
+
+
+            if (getImgRetVal < 0) {
+                // Indicates an error
+                console.error("There was an error during the generation of the pixel buffer. Stopping the encoding process.");
+                this.endEncoding();
+                return;
+            }
+            if (!this.ffmpegProc) {
+                console.error("Expected to have a reference to ffmpegProc here but there wasn't any");
+                return;
+            }
+            if (!this.ffmpegProc.stdin) {
+                console.error("Expected that the ffmpeg process has an stdin but it didn't");
+                return;
+            }
+            let canWriteMore = false;
+            let writeDone = (err: Error | null | undefined) => {
+                // console.log("Write done - " + frameId);
+                if (err) {
+                    console.error("There was an error while writing to ffmpeg: " + err + "\nProc output: " + this.ffmpegStdout)
+                    return;
+                }
+                if (isLastFrame) {
+                    // This was the last frame
+                    this.endEncoding();
+                    return;
+                }
+                if (canWriteMore) {
+                    // If the pipe can accept more data immediately, then we just immediately fetch the
+                    // next frame.
+                    // TODO this should be handled differently when using double buffering
+                    this.writeFrame();
+                } else {
+                    // console.log("canWriteMore was false after the write completed, not sending frames immediately");
+                }
+            }
+            // console.log("Calling write - " + frameId);
+            canWriteMore = this.ffmpegProc.stdin.write(this.pixelBuffer, writeDone);
+            if (!canWriteMore && !isLastFrame) {
+                // The pipe is full, we need to wait a while before we can push more data
+                // into it.
+                this.ffmpegProc.stdin.once("drain", () => {
+                    // console.log("The drain event was triggered on the ffmpeg pipe");
+                    this.writeFrame();
+                });
+            }
+        })
+    }
+
+    endEncoding() {
+        this.runningEncoding = false;
+        if (!this.ffmpegProc) {
+            console.error("Expected to have a reference to ffmpegProc here but there wasn't any");
+            this.resetEncodingSession();
+            return;
         }
+
+        let endTime = new Date();
+        let elapsedSecs = (endTime.getTime() - this.encStartTime.getTime()) / 1000;
+        let avgFramerate = this.frameId / elapsedSecs;
+        console.log("The avg Framerate was: " + avgFramerate);
+
+        // The encoding settings are reset by the callback that listens on the "finish" event.
+        this.ffmpegProc.stdin?.end();
     }
 }
