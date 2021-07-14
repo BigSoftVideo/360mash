@@ -1,4 +1,3 @@
-
 import "./common-style.css";
 import "./app.css";
 
@@ -22,9 +21,12 @@ import { GrayscaleFilter, GRAYSCALE_FILTER_NAME } from "./filters/grayscale";
 import { HsvQuantizeFilter, HSV_QUANTIZE_FILTER_NAME } from "./filters/hsv-quantize";
 import { FilterBase, FilterId } from "./video/filter-base";
 import { FilterList } from "./ui-mixed/filter-list/filter-list";
-import { Codec } from "./video/codec";
+import { Encoder } from "./video/codec";
 import { ExportPanel } from "./ui-mixed/export-panel/export-panel";
-import { Conv360To2DAttribsCreator, GrayscaleAttribsCreator } from "./ui-mixed/filter-attributes/creators";
+import {
+    Conv360To2DAttribsCreator,
+    GrayscaleAttribsCreator,
+} from "./ui-mixed/filter-attributes/creators";
 
 // TODO: move this to a redux store maybe
 export interface AppState {
@@ -39,7 +41,7 @@ export class App extends React.Component<{}, AppState> {
     onResized: () => void;
     onVideoReady: (video: Video) => void;
 
-    codec: Codec;
+    encoder: Encoder;
 
     selectedFilterId: FilterId | null;
     filterAttribs: Map<string, (f: FilterBase) => JSX.Element>;
@@ -50,7 +52,7 @@ export class App extends React.Component<{}, AppState> {
             videoAspectRatio: 16 / 9,
         };
 
-        this.codec = new Codec();
+        this.encoder = new Encoder();
 
         this.previewPanelRef = React.createRef();
         this.onResized = () => {
@@ -72,7 +74,7 @@ export class App extends React.Component<{}, AppState> {
             id: CONV360T02D_FILTER_NAME,
             creator: (gl, w, h): FilterBase => {
                 return new Conv360To2DFilter(gl, w, h);
-            }
+            },
         });
         // TODO: replace this with a real attribute creator
         this.filterAttribs.set(HSV_QUANTIZE_FILTER_NAME, GrayscaleAttribsCreator);
@@ -80,14 +82,14 @@ export class App extends React.Component<{}, AppState> {
             id: HSV_QUANTIZE_FILTER_NAME,
             creator: (gl, w, h): FilterBase => {
                 return new HsvQuantizeFilter(gl, w, h);
-            }
+            },
         });
         this.filterAttribs.set(GRAYSCALE_FILTER_NAME, GrayscaleAttribsCreator);
         this.filterManager.registerFilter({
             id: GRAYSCALE_FILTER_NAME,
             creator: (gl, w, h): FilterBase => {
                 return new GrayscaleFilter(gl, w, h);
-            }
+            },
         });
         this.videoManager = null;
         this.selectedFilterId = CONV360T02D_FILTER_NAME;
@@ -119,14 +121,16 @@ export class App extends React.Component<{}, AppState> {
         if (this.videoManager) {
             filterList = <FilterList pipeline={this.videoManager.pipeline}></FilterList>;
             exportPanel = (
-                <ExportPanel codec={this.codec} videoManager={this.videoManager}>
-                </ExportPanel>
+                <ExportPanel
+                    encoder={this.encoder}
+                    videoManager={this.videoManager}
+                ></ExportPanel>
             );
             if (this.selectedFilterId) {
                 let creator = this.filterAttribs.get(this.selectedFilterId);
                 if (creator) {
                     let filters = this.videoManager.pipeline.getFilters();
-                    let selFilter = filters.find(v => v.id === this.selectedFilterId);
+                    let selFilter = filters.find((v) => v.id === this.selectedFilterId);
                     if (selFilter) {
                         filterAttributes = creator(selFilter.filter);
                     } else {
@@ -145,12 +149,8 @@ export class App extends React.Component<{}, AppState> {
             <div className="app-contents">
                 <SplitPanelVer defaultPercentage={40} onResize={this.onResized}>
                     <SplitPanelHor defaultPercentage={25} onResize={this.onResized}>
-                        <div>
-                            {filterList}
-                        </div>
-                        <div>
-                            {filterAttributes}
-                        </div>
+                        <div>{filterList}</div>
+                        <div>{filterAttributes}</div>
                     </SplitPanelHor>
                     <SplitPanelHor defaultPercentage={75} onResize={this.onResized}>
                         <PreviewPanel
@@ -184,7 +184,7 @@ export class App extends React.Component<{}, AppState> {
                 this.videoManager.pipeline.setFilters([
                     CONV360T02D_FILTER_NAME,
                     HSV_QUANTIZE_FILTER_NAME,
-                    GRAYSCALE_FILTER_NAME
+                    GRAYSCALE_FILTER_NAME,
                 ]);
             }
         }

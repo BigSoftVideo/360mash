@@ -1,16 +1,15 @@
-
 import * as React from "react";
 import * as path from "path";
 import * as util from "util";
-import { Codec } from "../../video/codec";
+import { Encoder } from "../../video/codec";
 import { VideoManager } from "../../video/video-manager";
 import { PixelData } from "../../video/filter-pipeline";
 
-/** Wait for the next event loop iteration */ 
+/** Wait for the next event loop iteration */
 const setImmedateAsync = util.promisify(setImmediate);
 
 export interface ExportPanelProps {
-    codec: Codec;
+    encoder: Encoder;
     videoManager: VideoManager;
 }
 
@@ -26,18 +25,16 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
     }
 
     render() {
-        return (<div>
-            <input ref={this.pathRef} placeholder="Output file path"></input>
+        return (
             <div>
-                <button onClick={this.startExport.bind(this)}>
-                    Export
-                </button>
+                <input ref={this.pathRef} placeholder="Output file path"></input>
+                <div>
+                    <button onClick={this.startExport.bind(this)}>Export</button>
+                </div>
+                <button onClick={this.fetchFrame.bind(this)}>Get current frame</button>
+                <canvas ref={this.canvasRef} width={800} height={400}></canvas>
             </div>
-            <button onClick={this.fetchFrame.bind(this)}>
-                Get current frame
-            </button>
-            <canvas ref={this.canvasRef} width={800} height={400}></canvas>
-        </div>);
+        );
     }
 
     protected startExport() {
@@ -50,7 +47,7 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
         this.props.videoManager.stopRendering();
 
         let totalTime = video.duration;
-        
+
         const [width, height] = this.props.videoManager.pipeline.getOutputDimensions();
         const outFps = 29.97;
 
@@ -97,12 +94,12 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
 
         let filename = this.dateToFilename(new Date()) + ".mp4";
         let fullpath = path.join(this.pathRef.current!.value, filename);
-        this.props.codec.startEncoding(fullpath, width, height, outFps, getImage);
+        this.props.encoder.startEncoding(fullpath, width, height, outFps, getImage);
     }
 
     fetchFrame() {
         if (this.canvasRef.current) {
-            let ctx = this.canvasRef.current.getContext('2d');
+            let ctx = this.canvasRef.current.getContext("2d");
             if (!ctx) {
                 console.error("Could not get 2d context");
                 return;
@@ -116,14 +113,14 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
             let imgData = ctx.createImageData(pixelData.w, pixelData.h);
             for (let y = 0; y < pixelData.h; y++) {
                 for (let x = 0; x < pixelData.w; x++) {
-                    let index = y*pixelData.w + x;
-                    imgData.data[index*4 + 0] = pixelData.data[index*4 + 0];
-                    imgData.data[index*4 + 1] = pixelData.data[index*4 + 1];
-                    imgData.data[index*4 + 2] = pixelData.data[index*4 + 2];
-                    imgData.data[index*4 + 3] = 255;
+                    let index = y * pixelData.w + x;
+                    imgData.data[index * 4 + 0] = pixelData.data[index * 4 + 0];
+                    imgData.data[index * 4 + 1] = pixelData.data[index * 4 + 1];
+                    imgData.data[index * 4 + 2] = pixelData.data[index * 4 + 2];
+                    imgData.data[index * 4 + 3] = 255;
                 }
             }
-            createImageBitmap(imgData, {resizeWidth: 800, resizeHeight: 400}).then(img => {
+            createImageBitmap(imgData, { resizeWidth: 800, resizeHeight: 400 }).then((img) => {
                 ctx?.drawImage(img, 0, 0);
             });
         }
@@ -131,11 +128,16 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
 
     protected dateToFilename(date: Date): string {
         return (
-            date.getFullYear() + "-" +
-            (date.getMonth()+1) + "-" +
-            date.getDate() + "--" +
-            date.getHours() + "-" +
-            date.getMinutes() + "-" +
+            date.getFullYear() +
+            "-" +
+            (date.getMonth() + 1) +
+            "-" +
+            date.getDate() +
+            "--" +
+            date.getHours() +
+            "-" +
+            date.getMinutes() +
+            "-" +
             date.getSeconds()
         );
     }
