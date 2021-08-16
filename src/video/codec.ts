@@ -355,7 +355,7 @@ export class Decoder {
         inFilePath: string,
         receivedMetadata: ReceivedMetadataCallback,
         receivedImage: ReceivedImageCallback,
-        done: (success: boolean) => void,
+        done: (success: boolean) => void
     ): void {
         this.decStartTime = new Date();
 
@@ -394,9 +394,9 @@ export class Decoder {
         getFramerateProc.stdout?.on("data", (data) => {
             framerateStr += data;
         });
-        getFramerateProc.on("exit", code => {
+        getFramerateProc.on("exit", (code) => {
             if (code !== 0) {
-                console.error("Error while trying to obtain the framerate.")
+                console.error("Error while trying to obtain the framerate.");
                 this.finishedDecoding(false);
                 return;
             }
@@ -406,7 +406,7 @@ export class Decoder {
                 .split("/")
                 .map((s) => Number.parseInt(s));
             this.metadata.framerate = num / denom;
-            
+
             let getDimensionsProc = spawn(
                 ffprobeBin,
                 [
@@ -429,9 +429,9 @@ export class Decoder {
             getDimensionsProc.stdout?.on("data", (data) => {
                 dimensionsStr += data;
             });
-            getDimensionsProc.on("exit", code => {
+            getDimensionsProc.on("exit", (code) => {
                 if (code !== 0) {
-                    console.error("Error while trying to obtain the dimensions.")
+                    console.error("Error while trying to obtain the dimensions.");
                     this.finishedDecoding(false);
                     return;
                 }
@@ -462,7 +462,7 @@ export class Decoder {
                 "-pix_fmt",
                 "rgba",
                 "-an",
-                "pipe:1"
+                "pipe:1",
             ],
             {
                 stdio: ["pipe", "pipe", "pipe"],
@@ -512,7 +512,9 @@ export class Decoder {
     protected finishedDecoding(success: boolean) {
         let now = new Date();
         let elapsed = (now.getTime() - this.decStartTime.getTime()) / 1000;
-        console.log(`Elapsed time is ${elapsed}, avg decode framerate ${this.frameId / elapsed}`)
+        console.log(
+            `Elapsed time is ${elapsed}, avg decode framerate ${this.frameId / elapsed}`
+        );
         this.doneCb(success);
     }
 }

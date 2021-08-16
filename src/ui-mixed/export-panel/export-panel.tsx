@@ -169,7 +169,7 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
             let pixelData: PackedPixelData = {
                 data: buffer,
                 w: inWidth,
-                h: inHeight
+                h: inHeight,
             };
             this.props.videoManager.renderOnce(pixelData);
             readyOutFrameId = nextOutFrameId;
@@ -184,7 +184,12 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
             isDone = true;
         };
 
-        this.props.decoder.startDecoding(video.filePath, receivedMetadata, receivedImage, inputDone);
+        this.props.decoder.startDecoding(
+            video.filePath,
+            receivedMetadata,
+            receivedImage,
+            inputDone
+        );
     }
 
     fetchFrame() {

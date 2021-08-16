@@ -73,11 +73,11 @@ export class VideoManager {
 
     /**
      * Stops rendering and executes the pipeline sychronously.
-     * 
+     *
      * This function does not use `window.requestAnimationFrame`, instead it immediately
      * initiates the execution of the pipeline. This guarantees that by the time this function
      * returns the pipeline has finished executing.
-     * 
+     *
      * (The GPU may still have work to do but all OpenGL calls are already dispatched.)
      */
     renderOnce(pixelSource?: PackedPixelData) {
@@ -185,7 +185,7 @@ export class Video {
 
     get filePath(): string {
         return this._filePath;
-    }    
+    }
 
     get htmlVideo(): HTMLVideoElement {
         return this.video;

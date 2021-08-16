@@ -34,20 +34,22 @@ export interface AlignedPixelData {
 /**
  * Similar to `AlignedPixelData` but each row starts immediately after the previous, there's no
  * padding
-*/
+ */
 export interface PackedPixelData {
     data: Uint8Array;
     w: number;
     h: number;
 }
 function isPackedPixelData(a: any): a is PackedPixelData {
-    return a.data && (typeof a.w == 'number') && (typeof a.h == 'number') && (a.linesize === undefined);
+    return (
+        a.data && typeof a.w == "number" && typeof a.h == "number" && a.linesize === undefined
+    );
 }
 {
     let a: PackedPixelData = {
         data: new Uint8Array(),
         w: 0,
-        h: 0
+        h: 0,
     };
     if (!isPackedPixelData(a)) {
         console.error("isPackedPixelData seems to have a faulty implementation");
@@ -144,13 +146,18 @@ export class FilterPipeline {
      * @param id An identifier for a filtered registered with the filter manager.
      */
     insertFilter(index: number, id: FilterId) {
-        let newFilter = this.filterManager.createFilter(id, this.gl, this.outWidth, this.outHeight);
+        let newFilter = this.filterManager.createFilter(
+            id,
+            this.gl,
+            this.outWidth,
+            this.outHeight
+        );
         this.filters.splice(index, 0, { id: id, filter: newFilter, active: true });
     }
 
     /**
      * Rearranges the sequence of filters to match the sequence specified by the parameter.
-     * 
+     *
      * @param indicies Each element in this array is an index of a specific filter in this pipeline.
      * These filter indicies are identical to the indicies of the filters in the array returned by
      * `getFilters`. The length of this parameter must match the number of filters in this pipeline.
@@ -165,7 +172,7 @@ export class FilterPipeline {
     }
 
     /**
-     * 
+     *
      * @param active The `n`th element in this array specifies whether the `n`th filter should be active
      */
     setActive(active: boolean[]) {
@@ -176,7 +183,7 @@ export class FilterPipeline {
 
     /**
      * Replace the existing set of filters with the one provided as an argument.
-     * 
+     *
      * Note that existing filters that are also within the `ids` list are retained.
      */
     setFilters(ids: FilterId[]) {
@@ -190,11 +197,16 @@ export class FilterPipeline {
             if (filterDesc) {
                 existing.delete(id);
             } else {
-                let f = this.filterManager.createFilter(id, this.gl, this.outWidth, this.outHeight);
+                let f = this.filterManager.createFilter(
+                    id,
+                    this.gl,
+                    this.outWidth,
+                    this.outHeight
+                );
                 filterDesc = {
                     id: id,
                     filter: f,
-                    active: true
+                    active: true,
                 };
             }
             newFilters.push(filterDesc);
@@ -253,14 +265,22 @@ export class FilterPipeline {
             this.videoAsTexture = {
                 width,
                 height,
-                texture: this.videoAsTexture.texture
+                texture: this.videoAsTexture.texture,
             };
         }
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.videoAsTexture.texture);
         if (isPackedPixelData(imgSource)) {
             gl.texImage2D(
-                gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgSource.data
+                gl.TEXTURE_2D,
+                0,
+                gl.RGBA,
+                width,
+                height,
+                0,
+                gl.RGBA,
+                gl.UNSIGNED_BYTE,
+                imgSource.data
             );
         } else {
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imgSource);
@@ -279,11 +299,11 @@ export class FilterPipeline {
     /**
      * @param linesize The number of bytes to go from the beggining of a row to the begginig of
      * the next. Also known as stride or pitch. See: https://docs.microsoft.com/en-us/windows/win32/medfound/image-stride
-     * 
+     *
      * This corresponds to `PACK_ROW_LENGTH` for the `readPixels` operation HOWEVER it's not the
      * same value. `PACK_ROW_LENGTH` is measured in pixels while `linesize` is measured in bytes.
      * Thererfore, here `linesize` must be a multiple of 4 (which is the size of a pixel in bytes).
-     * 
+     *
      * If specified, the RED component of the pixel at (x, y) can be accessed by indexing
      * the result with `y*linesize + x*4`. Otherwise it's `(y*width + x)*4`
      */
@@ -292,7 +312,9 @@ export class FilterPipeline {
             linesize = linesize || 0;
             if (!this.lastRt) {
                 // TODO: allow having no active filter
-                console.error("Trying to copy to CPU, so there has to be at least one filter active. TODO: allow having no active filter.");
+                console.error(
+                    "Trying to copy to CPU, so there has to be at least one filter active. TODO: allow having no active filter."
+                );
                 return null;
             }
             let w = this.lastRt.width;
@@ -321,12 +343,16 @@ export class FilterPipeline {
      */
     public fillPixelData(buffer: AlignedPixelData) {
         if (buffer.linesize % 4 != 0) {
-            throw new Error("`linesize` was not a multiple of 4. Note `linesize` has to be specified in bytes and each pixel is 4 bytes.");
+            throw new Error(
+                "`linesize` was not a multiple of 4. Note `linesize` has to be specified in bytes and each pixel is 4 bytes."
+            );
         }
         let gl = this.gl;
         if (!this.lastRt) {
             // TODO: allow having no active filter
-            console.error("Trying to copy to CPU, so there has to be at least one filter active. TODO: allow having no active filter.");
+            console.error(
+                "Trying to copy to CPU, so there has to be at least one filter active. TODO: allow having no active filter."
+            );
             return null;
         }
         let prevActiveFb = gl.getParameter(gl.READ_FRAMEBUFFER_BINDING);
@@ -334,10 +360,14 @@ export class FilterPipeline {
         let w = this.lastRt.width;
         let h = this.lastRt.height;
         if (buffer.w != w || buffer.h != h) {
-            throw new Error(`The target buffer dimensions must match the framebuffer dimensions. Target buffer (${buffer.w}, ${buffer.h}). Framebuffer (${w}, ${h})`);
+            throw new Error(
+                `The target buffer dimensions must match the framebuffer dimensions. Target buffer (${buffer.w}, ${buffer.h}). Framebuffer (${w}, ${h})`
+            );
         }
-        if (buffer.linesize > 0 && (w*4) > buffer.linesize) {
-            throw new Error("The width of the image was larger than `linesize` which is invalid. Note `linesize` has to be specified in bytes and each pixel is 4 bytes.");
+        if (buffer.linesize > 0 && w * 4 > buffer.linesize) {
+            throw new Error(
+                "The width of the image was larger than `linesize` which is invalid. Note `linesize` has to be specified in bytes and each pixel is 4 bytes."
+            );
         }
         gl.pixelStorei(gl.PACK_ROW_LENGTH, buffer.linesize / 4);
         gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buffer.data);
