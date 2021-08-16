@@ -1,15 +1,16 @@
 import * as React from "react";
 import * as path from "path";
 import * as util from "util";
-import { Encoder } from "../../video/codec";
+import { Decoder, Encoder, MediaMetadata } from "../../video/codec";
 import { VideoManager } from "../../video/video-manager";
-import { PixelData } from "../../video/filter-pipeline";
+import { AlignedPixelData, PackedPixelData } from "../../video/filter-pipeline";
 
 /** Wait for the next event loop iteration */
 const setImmedateAsync = util.promisify(setImmediate);
 
 export interface ExportPanelProps {
     encoder: Encoder;
+    decoder: Decoder;
     videoManager: VideoManager;
 }
 
@@ -29,7 +30,7 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
             <div>
                 <input ref={this.pathRef} placeholder="Output file path"></input>
                 <div>
-                    <button onClick={this.startExport.bind(this)}>Export</button>
+                    <button onClick={this.startFFmpegExport.bind(this)}>Export</button>
                 </div>
                 <button onClick={this.fetchFrame.bind(this)}>Get current frame</button>
                 <canvas ref={this.canvasRef} width={800} height={400}></canvas>
@@ -72,7 +73,7 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
             while (readyFrameId < outFrameId) {
                 await setImmedateAsync();
             }
-            let targetPixelBuffer: PixelData = {
+            let targetPixelBuffer: AlignedPixelData = {
                 data: buffer,
                 linesize: linesize,
                 w: width,
@@ -95,6 +96,95 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
         let filename = this.dateToFilename(new Date()) + ".mp4";
         let fullpath = path.join(this.pathRef.current!.value, filename);
         this.props.encoder.startEncoding(fullpath, width, height, outFps, getImage);
+    }
+
+    protected startFFmpegExport() {
+        console.log("Starting ffmpeg export");
+        if (!this.props.videoManager.video) {
+            throw new Error("There must be an initialized video");
+        }
+        let video = this.props.videoManager.video;
+
+        this.props.videoManager.stopRendering();
+
+        const [outWidth, outHeight] = this.props.videoManager.pipeline.getOutputDimensions();
+
+        // This is just a default, but actually we will use the same framerate as the input
+        let outFps = 29.97;
+
+        let nextOutFrameId = 0;
+        let readyOutFrameId = -1;
+        let isDone = false;
+
+        let getImage = async (
+            outFrameId: number,
+            buffer: Uint8Array,
+            linesize: number
+        ): Promise<number> => {
+            // When this function gets called, the next frame may not yet be decoded. In this case
+            // we wait until it's ready.
+            while (readyOutFrameId < outFrameId) {
+                await setImmedateAsync();
+            }
+            let targetPixelBuffer: AlignedPixelData = {
+                data: buffer,
+                linesize: linesize,
+                w: outWidth,
+                h: outHeight,
+            };
+            this.props.videoManager.pipeline.fillPixelData(targetPixelBuffer);
+            nextOutFrameId = outFrameId + 1;
+
+            if (isDone) {
+                return 1;
+            }
+
+            return 0;
+        };
+
+        // Decoding portion
+        let inWidth = 0;
+        let inHeight = 0;
+        let inFrameIdx = -1;
+
+        let receivedMetadata = (metadata: MediaMetadata) => {
+            console.log("Received metadata: " + JSON.stringify(metadata));
+            // A custom output framerate could be allowed later but having it identical to the input framerate,
+            // makes things easier for now.
+            outFps = metadata.framerate;
+            inWidth = metadata.width;
+            inHeight = metadata.height;
+
+            let filename = this.dateToFilename(new Date()) + ".mp4";
+            let fullpath = path.join(this.pathRef.current!.value, filename);
+            this.props.encoder.startEncoding(fullpath, outWidth, outHeight, outFps, getImage);
+        };
+        let receivedImage = (buffer: Uint8Array) => {
+            inFrameIdx += 1;
+
+            // TODO if the input framerate is different from the output framerate
+            // we need to check if we even need to render this frame
+
+            // console.log("Video finished seeking. Time", video.currentTime);
+            let pixelData: PackedPixelData = {
+                data: buffer,
+                w: inWidth,
+                h: inHeight
+            };
+            this.props.videoManager.renderOnce(pixelData);
+            readyOutFrameId = nextOutFrameId;
+        };
+        let inputDone = (success: boolean) => {
+            console.log("Called done, success was", success);
+
+            // TODO This is a bit of a hack, we are rendering the last frame one more time
+            // optimally the getImage function should be able to indicate when the current frame
+            // is PAST the end (not when the current frame is the last)
+            readyOutFrameId = nextOutFrameId;
+            isDone = true;
+        };
+
+        this.props.decoder.startDecoding(video.filePath, receivedMetadata, receivedImage, inputDone);
     }
 
     fetchFrame() {

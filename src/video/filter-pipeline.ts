@@ -10,20 +10,48 @@ export interface FilterDesc {
 }
 
 /**
- * Each value in data is the value of a single chanel of a single pixel within the image.
- * The order of the channels is (RED, GREEN, BLUE, ALPHA). Each channel takes up a single byte
- * so each pixel takes up 4 bytes.
- * 
- * To access the first channel (RED) of the pixel at (x, y) index the `data`
- * field with `y*linesize + x*4`
+ * Each value in data is the value of a single chanel of a single pixel within the image. The order
+ * of the channels is (RED, GREEN, BLUE, ALPHA). Each channel takes up a single byte so each pixel
+ * takes up 4 bytes.
+ *
+ * The word 'aligned' mean that there may be some padding bytes between the last pixel of a row and
+ * the fist pixel of the next. The number of bytes from the START of one row to the start of the
+ * next is stored in `linesize`. This is also known as stride. (Note that linesize is always at
+ * least `w*4`)
+ *
+ * To access the first channel (RED) of the pixel at (x, y) index the `data` field with `y*linesize
+ * + x*4`
  */
-export interface PixelData {
+export interface AlignedPixelData {
     data: Uint8Array;
 
-    /** Size of each row in BYTES. See the documentation for `PixelData` for more */
+    /** Size of each row in BYTES. See the documentation of the type for more */
     linesize: number;
     w: number;
     h: number;
+}
+
+/**
+ * Similar to `AlignedPixelData` but each row starts immediately after the previous, there's no
+ * padding
+*/
+export interface PackedPixelData {
+    data: Uint8Array;
+    w: number;
+    h: number;
+}
+function isPackedPixelData(a: any): a is PackedPixelData {
+    return a.data && (typeof a.w == 'number') && (typeof a.h == 'number') && (a.linesize === undefined);
+}
+{
+    let a: PackedPixelData = {
+        data: new Uint8Array(),
+        w: 0,
+        h: 0
+    };
+    if (!isPackedPixelData(a)) {
+        console.error("isPackedPixelData seems to have a faulty implementation");
+    }
 }
 
 /**
@@ -42,7 +70,7 @@ export class FilterPipeline {
     protected videoAsTexture: GlTexture | null;
 
     protected pixelDataValid: boolean;
-    protected pixelData: PixelData;
+    protected pixelData: AlignedPixelData;
 
     protected lastRt: RenderTexture | null;
 
@@ -184,13 +212,24 @@ export class FilterPipeline {
      *
      * @param video The video to which the filters should be applied
      */
-    execute(video: Video) {
+    execute(imgSource: HTMLVideoElement | PackedPixelData) {
         let gl = this.gl;
-        let videoTex = this.videoAsTexture;
-        let htmlVideo = video.htmlVideo;
-        let videoW = htmlVideo.videoWidth;
-        let videoH = htmlVideo.videoHeight;
-        if (videoTex === null) {
+
+        let width: number;
+        let height: number;
+        if (isPackedPixelData(imgSource)) {
+            width = imgSource.w;
+            height = imgSource.h;
+        } else {
+            width = imgSource.videoWidth;
+            height = imgSource.videoHeight;
+        }
+
+        // let htmlVideo = video.htmlVideo;
+
+        // let videoW = htmlVideo.videoWidth;
+        // let videoH = htmlVideo.videoHeight;
+        if (this.videoAsTexture === null) {
             let tex = gl.createTexture();
             if (!tex) {
                 throw new Error("Could not create texture");
@@ -204,17 +243,29 @@ export class FilterPipeline {
             // but we are using webgl2 so this doesn't affect this code.
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-            videoTex = {
-                width: htmlVideo.videoWidth,
-                height: htmlVideo.videoHeight,
+            this.videoAsTexture = {
+                width: width,
+                height: height,
                 texture: tex,
             };
-            this.videoAsTexture = videoTex;
+        }
+        if (width != this.videoAsTexture.width || height != this.videoAsTexture.height) {
+            this.videoAsTexture = {
+                width,
+                height,
+                texture: this.videoAsTexture.texture
+            };
         }
         gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, videoTex.texture);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video.htmlVideo);
-        let prevOutput: WebGLTexture = videoTex.texture;
+        gl.bindTexture(gl.TEXTURE_2D, this.videoAsTexture.texture);
+        if (isPackedPixelData(imgSource)) {
+            gl.texImage2D(
+                gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgSource.data
+            );
+        } else {
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imgSource);
+        }
+        let prevOutput: WebGLTexture = this.videoAsTexture.texture;
         for (const { filter, active } of this.filters) {
             if (active) {
                 this.lastRt = filter.execute(prevOutput);
@@ -236,7 +287,7 @@ export class FilterPipeline {
      * If specified, the RED component of the pixel at (x, y) can be accessed by indexing
      * the result with `y*linesize + x*4`. Otherwise it's `(y*width + x)*4`
      */
-    public getPixelData(linesize?: number): PixelData | null {
+    public getPixelData(linesize?: number): AlignedPixelData | null {
         if (!this.pixelDataValid) {
             linesize = linesize || 0;
             if (!this.lastRt) {
@@ -268,7 +319,7 @@ export class FilterPipeline {
      * Just like `getPixelData` but it fills an already allocated buffer
      * rather than creating a buffer.
      */
-    public fillPixelData(buffer: PixelData) {
+    public fillPixelData(buffer: AlignedPixelData) {
         if (buffer.linesize % 4 != 0) {
             throw new Error("`linesize` was not a multiple of 4. Note `linesize` has to be specified in bytes and each pixel is 4 bytes.");
         }

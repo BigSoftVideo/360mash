@@ -39,7 +39,7 @@ export type GetImageCallback = (
 export type ReceivedMetadataCallback = (metadata: MediaMetadata) => void;
 export type ReceivedImageCallback = (buffer: Uint8Array) => void;
 
-interface MediaMetadata {
+export interface MediaMetadata {
     framerate: number;
     width: number;
     height: number;
@@ -145,7 +145,7 @@ export class Encoder {
                 "rawvideo",
                 "-vcodec",
                 "rawvideo",
-                "-pixel_format",
+                "-pix_fmt",
                 "rgba",
                 "-video_size",
                 resStr,
@@ -300,8 +300,8 @@ export class Decoder {
     // runningDecoding: boolean;
     decStartTime: Date;
 
-    receivedMetadataCb: ReceivedMetadataCallback;
     receivedImageCb: ReceivedImageCallback;
+    doneCb: (success: boolean) => void;
 
     pixelBuffer: Uint8Array;
 
@@ -332,14 +332,19 @@ export class Decoder {
         // this.runningDecoding = false;
         this.decStartTime = new Date();
 
-        this.receivedMetadataCb = () => {
-            console.error(
-                "This is the default callback for the received metadata. This indicates that the appropriate callback was not set"
-            );
-        };
+        // this.receivedMetadataCb = () => {
+        //     console.error(
+        //         "This is the default callback for the received metadata. This indicates that the appropriate callback was not set"
+        //     );
+        // };
         this.receivedImageCb = () => {
             console.error(
                 "This is the default callback for the received image. This indicates that the appropriate callback was not set"
+            );
+        };
+        this.doneCb = () => {
+            console.error(
+                "This is the default callback for 'done'. This indicates that the appropriate callback was not set"
             );
         };
 
@@ -349,11 +354,13 @@ export class Decoder {
     startDecoding(
         inFilePath: string,
         receivedMetadata: ReceivedMetadataCallback,
-        receivedImage: ReceivedImageCallback
-    ): boolean {
+        receivedImage: ReceivedImageCallback,
+        done: (success: boolean) => void,
+    ): void {
         this.decStartTime = new Date();
 
         this.receivedImageCb = receivedImage;
+        this.doneCb = done;
         // this.pixelBuffer = new Uint8Array(width * height * 4);
         this.metadata = {
             width: 0,
@@ -387,7 +394,12 @@ export class Decoder {
         getFramerateProc.stdout?.on("data", (data) => {
             framerateStr += data;
         });
-        getFramerateProc.on("exit", () => {
+        getFramerateProc.on("exit", code => {
+            if (code !== 0) {
+                console.error("Error while trying to obtain the framerate.")
+                this.finishedDecoding(false);
+                return;
+            }
             console.log("Get framerate process completed");
             let [num, denom] = framerateStr
                 .trim()
@@ -417,7 +429,12 @@ export class Decoder {
             getDimensionsProc.stdout?.on("data", (data) => {
                 dimensionsStr += data;
             });
-            getDimensionsProc.on("exit", () => {
+            getDimensionsProc.on("exit", code => {
+                if (code !== 0) {
+                    console.error("Error while trying to obtain the dimensions.")
+                    this.finishedDecoding(false);
+                    return;
+                }
                 let [w, h] = dimensionsStr
                     .trim()
                     .split(",")
@@ -430,8 +447,6 @@ export class Decoder {
                 this.startProcessingFrames(inFilePath);
             });
         });
-
-        return true;
     }
 
     protected startProcessingFrames(inFilePath: string) {
@@ -444,9 +459,10 @@ export class Decoder {
                 "rawvideo",
                 "-vcodec",
                 "rawvideo",
-                "-pixel_format",
+                "-pix_fmt",
                 "rgba",
                 "-an",
+                "pipe:1"
             ],
             {
                 stdio: ["pipe", "pipe", "pipe"],
@@ -456,7 +472,7 @@ export class Decoder {
         this.ffmpegProc.on("exit", (code) => {
             if (code === 0) {
                 console.log("FFmpeg exited successfully");
-                this.finishedDecoding();
+                this.finishedDecoding(true);
                 return;
             }
             if (code === null) {
@@ -465,6 +481,7 @@ export class Decoder {
                 console.warn("ffmpeg returned with the exit code:", code);
             }
             console.warn("ffmpeg stderr was:\n" + this.ffmpegStderr);
+            this.finishedDecoding(false);
         });
         this.ffmpegProc.stdout?.on("data", (src: Buffer) => {
             let copiedSrcBytes = 0;
@@ -483,6 +500,7 @@ export class Decoder {
                 if (this.recvPixelBytes == this.pixelBuffer.length) {
                     this.receivedImageCb(this.pixelBuffer);
                     this.recvPixelBytes = 0;
+                    this.frameId += 1;
                 }
             }
         });
@@ -491,5 +509,10 @@ export class Decoder {
         });
     }
 
-    protected finishedDecoding() {}
+    protected finishedDecoding(success: boolean) {
+        let now = new Date();
+        let elapsed = (now.getTime() - this.decStartTime.getTime()) / 1000;
+        console.log(`Elapsed time is ${elapsed}, avg decode framerate ${this.frameId / elapsed}`)
+        this.doneCb(success);
+    }
 }

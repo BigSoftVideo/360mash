@@ -5,8 +5,6 @@ const packageJson = require("../package.json");
 
 const { Menu, MenuItem, dialog, getCurrentWindow, app } = require("electron").remote;
 
-import { pathToFileURL } from "url";
-
 import * as React from "react";
 
 import { SplitPanelHor } from "./ui-presentational/split-panel/split-panel-hor";
@@ -21,7 +19,7 @@ import { GrayscaleFilter, GRAYSCALE_FILTER_NAME } from "./filters/grayscale";
 import { HsvQuantizeFilter, HSV_QUANTIZE_FILTER_NAME } from "./filters/hsv-quantize";
 import { FilterBase, FilterId } from "./video/filter-base";
 import { FilterList } from "./ui-mixed/filter-list/filter-list";
-import { Encoder } from "./video/codec";
+import { Decoder, Encoder } from "./video/codec";
 import { ExportPanel } from "./ui-mixed/export-panel/export-panel";
 import {
     Conv360To2DAttribsCreator,
@@ -42,6 +40,7 @@ export class App extends React.Component<{}, AppState> {
     onVideoReady: (video: Video) => void;
 
     encoder: Encoder;
+    decoder: Decoder;
 
     selectedFilterId: FilterId | null;
     filterAttribs: Map<string, (f: FilterBase) => JSX.Element>;
@@ -53,6 +52,7 @@ export class App extends React.Component<{}, AppState> {
         };
 
         this.encoder = new Encoder();
+        this.decoder = new Decoder();
 
         this.previewPanelRef = React.createRef();
         this.onResized = () => {
@@ -123,6 +123,7 @@ export class App extends React.Component<{}, AppState> {
             exportPanel = (
                 <ExportPanel
                     encoder={this.encoder}
+                    decoder={this.decoder}
                     videoManager={this.videoManager}
                 ></ExportPanel>
             );
@@ -287,8 +288,7 @@ export class App extends React.Component<{}, AppState> {
                 }
                 //console.log("File path is " + value.filePaths[0]);
                 //this.setState({ videoUrl: fileURL });
-                let fileURL = pathToFileURL(value.filePaths[0]);
-                this.videoManager.openVideo(fileURL);
+                this.videoManager.openVideo(value.filePaths[0]);
                 //TODO wait until the first frame is available and only then set the aspect ratio.
                 // Otherwise the videoWidth and height won't yet be available.
             });

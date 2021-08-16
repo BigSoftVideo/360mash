@@ -1,6 +1,7 @@
 import { render } from "react-dom";
+import { pathToFileURL } from "url";
 import { FilterManager } from "./filter-manager";
-import { FilterPipeline } from "./filter-pipeline";
+import { FilterPipeline, PackedPixelData } from "./filter-pipeline";
 
 export type VideoReadyListener = (video: Video) => void;
 
@@ -19,7 +20,7 @@ export class VideoManager {
     protected _video: Video | null;
     protected _pipeline: FilterPipeline;
     protected drawToCanvas: VideoRendererCallback;
-    protected renderVideo: () => void;
+    protected renderVideo: (pixelSource?: PackedPixelData) => void;
 
     protected requestedAnimId: number;
 
@@ -45,10 +46,10 @@ export class VideoManager {
                 cb(video);
             }
         };
-        this.renderVideo = () => {
+        this.renderVideo = (pixelSource?: PackedPixelData) => {
             this.requestedAnimId = 0;
             if (this._video) {
-                let outputFrame = this._pipeline.execute(this._video);
+                let outputFrame = this._pipeline.execute(pixelSource || this._video.htmlVideo);
                 this.drawToCanvas(targetCanvas, outputFrame);
             }
             if (this.keepRendering) {
@@ -65,8 +66,8 @@ export class VideoManager {
         this.videoReadyListeners.delete(listener);
     }
 
-    openVideo(fileUrl: URL): Video {
-        this._video = new Video(fileUrl, this.videoReady);
+    openVideo(filePath: string): Video {
+        this._video = new Video(filePath, this.videoReady);
         return this._video;
     }
 
@@ -79,9 +80,9 @@ export class VideoManager {
      * 
      * (The GPU may still have work to do but all OpenGL calls are already dispatched.)
      */
-    renderOnce() {
+    renderOnce(pixelSource?: PackedPixelData) {
         this.stopRendering();
-        this.renderVideo();
+        this.renderVideo(pixelSource);
     }
 
     /**
@@ -109,7 +110,7 @@ export class VideoManager {
     }
 
     protected requestRender() {
-        this.requestedAnimId = window.requestAnimationFrame(this.renderVideo);
+        this.requestedAnimId = window.requestAnimationFrame(() => this.renderVideo());
     }
 }
 
@@ -125,9 +126,10 @@ export interface IVideo {
 export class Video {
     protected video: HTMLVideoElement;
     protected url: URL;
+    protected _filePath: string; // the path to the video represented as a file system path
     protected ready: boolean;
 
-    constructor(videoUrl: URL, onReady: (self: Video) => void) {
+    constructor(filePath: string, onReady: (self: Video) => void) {
         let videoTextureReady = false;
         let playing = false;
         let timeupdate = false;
@@ -150,7 +152,8 @@ export class Video {
         };
 
         this.ready = false;
-        this.url = videoUrl;
+        this.url = pathToFileURL(filePath);
+        this._filePath = filePath;
         this.video = document.createElement("video");
         this.video.autoplay = true;
         this.video.muted = true;
@@ -171,7 +174,7 @@ export class Video {
             },
             true
         );
-        this.video.src = videoUrl.href;
+        this.video.src = this.url.href;
     }
 
     toInterface(): IVideo {
@@ -179,6 +182,10 @@ export class Video {
             videoUrl: this.url,
         };
     }
+
+    get filePath(): string {
+        return this._filePath;
+    }    
 
     get htmlVideo(): HTMLVideoElement {
         return this.video;
