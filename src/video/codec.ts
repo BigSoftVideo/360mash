@@ -3,10 +3,10 @@ import * as fs from "fs";
 import * as path from "path";
 import { spawn, ChildProcess, ChildProcessWithoutNullStreams } from "child_process";
 
-const ffmpegBin =
-    "C:\\Users\\Dighumlab2\\Desktop\\Media Tools\\ffmpeg-4.4-full_build\\bin\\ffmpeg";
-const ffprobeBin =
-    "C:\\Users\\Dighumlab2\\Desktop\\Media Tools\\ffmpeg-4.4-full_build\\bin\\ffprobe";
+// const ffmpegBin =
+//     "C:\\Users\\Dighumlab2\\Desktop\\Media Tools\\ffmpeg-4.4-full_build\\bin\\ffmpeg";
+// const ffprobeBin =
+//     "C:\\Users\\Dighumlab2\\Desktop\\Media Tools\\ffmpeg-4.4-full_build\\bin\\ffprobe";
 
 const READ_CHUNK_SIZE = 8 * 1024;
 
@@ -47,6 +47,15 @@ export interface MediaMetadata {
     height: number;
 }
 
+export interface EncoderDesc {
+    width: number,
+    height: number,
+    fps: number,
+    bitrate?: number,
+    encoder?: string,
+    audioFilePath: string,
+}
+
 /**
  * A
  */
@@ -82,7 +91,7 @@ export class Encoder {
     encStartTime: Date;
 
     ffmpegStdout: string;
-    // ffmpegStderr: string;
+    ffmpegStderr: string;
 
     constructor() {
         this.runningEncoding = false;
@@ -100,7 +109,7 @@ export class Encoder {
         this.frameId = 0;
         this.ffmpegStdout = "";
         this.encStartTime = new Date();
-        // this.ffmpegStderr = "";
+        this.ffmpegStderr = "";
 
         this.userGetImage = async (fid, buff, linesize): Promise<number> => {
             console.warn(
@@ -117,7 +126,7 @@ export class Encoder {
         this.height = 0;
         this.frameId = 0;
         this.ffmpegStdout = "";
-        // this.ffmpegStderr = "";
+        this.ffmpegStderr = "";
     }
 
     /**
@@ -126,14 +135,18 @@ export class Encoder {
      *
      * This function returns immedately and then `getImage` will be called peridically
      * in an asychronnous fashion.
+     * 
+     * The bitrate is specified in kbps
      */
     startEncoding(
+        ffmpegBinParentPath: string,
         outFileName: string,
-        width: number,
-        height: number,
-        fps: number,
-        getImage: GetImageCallback
+        encoderDesc: EncoderDesc,
+        getImage: GetImageCallback,
+        onExit: (code: number | null, stderr: string) => void,
     ): boolean {
+        const ffmpegBin = path.join(ffmpegBinParentPath, "ffmpeg");
+
         this.sumWriteMs = 0;
         this.sumDrainWaitMs = 0;
         if (this.runningEncoding) {
@@ -148,31 +161,51 @@ export class Encoder {
         this.encStartTime = new Date();
 
         this.userGetImage = getImage;
-        this.pixelBuffer = new Uint8Array(width * height * 4);
-        this.width = width;
-        this.height = height;
+        this.pixelBuffer = new Uint8Array(encoderDesc.width * encoderDesc.height * 4);
+        this.width = encoderDesc.width;
+        this.height = encoderDesc.height;
         this.frameId = 0;
 
-        let resStr = width + "x" + height;
+        let defaultBitrate = Math.round(Math.sqrt(encoderDesc.width * encoderDesc.height) * 1.5);
+        let bitrate = encoderDesc.bitrate || defaultBitrate;
+        console.log("Setting output bitrate to", bitrate);
+
+        let encoder = encoderDesc.encoder || "h264";
+
+        let resStr = encoderDesc.width + "x" + encoderDesc.height;
         let outFileNameArg = outFileName.replace(/\\/g, "/");
         this.ffmpegProc = spawn(
             ffmpegBin,
             [
+                "-hide_banner",
+                "-loglevel",
+                "warning",
                 "-f",
                 "rawvideo",
                 "-vcodec",
                 "rawvideo",
                 "-pix_fmt",
                 "rgba",
+                "-framerate",
+                encoderDesc.fps.toString(),
                 "-video_size",
                 resStr,
                 "-i",
                 "-",
-                "-an",
-                /*"-vf", "hwupload",*/ "-vcodec",
-                "h264_nvenc",
+                "-i",
+                encoderDesc.audioFilePath,
+                "-c:a",
+                "aac",
+                "-vcodec",
+                encoder,
+                "-b:v",
+                bitrate + "k",
                 "-f",
                 "mp4",
+                "-map",
+                "0:v:0",
+                "-map",
+                "1:a:0",
                 outFileNameArg,
             ],
             {
@@ -189,8 +222,12 @@ export class Encoder {
             this.ffmpegStdout += data;
         });
         this.ffmpegProc.stderr.on("data", (data) => {
-            this.ffmpegStdout += data;
+            this.ffmpegStderr += data;
         });
+
+        this.ffmpegProc.on('exit', code => {
+            onExit(code, this.ffmpegStderr);
+        })
 
         // Make sure we return before calling the callback. This is just nice because this guarantees
         // for the caller that their callback is always only called after this function has returned
@@ -218,6 +255,10 @@ export class Encoder {
     async dispose() {}
 
     writeFrame() {
+        if (!this.ffmpegProc || !this.ffmpegProc.stdin.writable) {
+            return;
+        }
+
         // TODO it might give some speedup to use double buffering:
         // While one frame is getting filled up by the "getimage" callback
         // the other could be sent down the pipe to ffmpeg
@@ -281,7 +322,12 @@ export class Encoder {
                     // console.log("canWriteMore was false after the write completed, not sending frames immediately");
                 }
             };
-            // console.log("Calling write - " + frameId);
+
+            if (!this.ffmpegProc.stdin.writable) {
+                console.log("The stream was not writeable, this likely indicates that the process was prematurely terminated");
+                return;
+            }
+
             let writeStart = new Date();
             canWriteMore = this.ffmpegProc.stdin.write(this.pixelBuffer, writeDone);
             if (!canWriteMore && !isLastFrame) {
@@ -398,11 +444,15 @@ export class Decoder {
     }
 
     startDecoding(
+        ffmpegBinParentPath: string,
         inFilePath: string,
         receivedMetadata: ReceivedMetadataCallback,
         receivedImage: ReceivedImageCallback,
         done: (success: boolean) => void
     ): void {
+        const ffmpegBin = path.join(ffmpegBinParentPath, "ffmpeg");
+        const ffprobeBin = path.join(ffmpegBinParentPath, "ffprobe");
+
         this.decStartTime = new Date();
         this.sumInterframeSec = 0;
         this.prevFrameProcessedTime = new Date();
@@ -494,12 +544,12 @@ export class Decoder {
 
                 this.pixelBuffer = new Uint8Array(w * h * 4);
                 receivedMetadata(this.metadata);
-                this.startProcessingFrames(inFilePath);
+                this.startProcessingFrames(inFilePath, ffmpegBin);
             });
         });
     }
 
-    protected startProcessingFrames(inFilePath: string) {
+    protected startProcessingFrames(inFilePath: string, ffmpegBin: string) {
         this.ffmpegProc = spawn(
             `${ffmpegBin}`,
             [
@@ -533,6 +583,8 @@ export class Decoder {
             this.finishedDecoding(false);
         });
 
+        // Another way of potentially making the read faster is to ask ffmpeg to send the data over
+        // a tcp/udp connection. (instead of a pipe)
         this.ffmpegProc.stdout.pause();
         this.ffmpegProc.stdout.on("readable", () => {
             while (true) {
@@ -599,5 +651,11 @@ export class Decoder {
             ].join("\n")
         );
         this.doneCb(success);
+    }
+
+    stopDecoding() {
+        if (this.ffmpegProc) {
+            this.ffmpegProc.kill();
+        }
     }
 }

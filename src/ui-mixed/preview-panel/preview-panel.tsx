@@ -82,7 +82,7 @@ export class PreviewPanel extends React.Component<PreviewPanelProps, PreviewPane
         let videoLen = this.props.video?.duration || 0;
 
         return (
-            <div>
+            <div className="preview-root">
                 <div className="preview-playback-controls">
                     <button onClick={this.togglePlay.bind(this)}>Toggle Play</button>
                     <input

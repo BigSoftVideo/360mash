@@ -25,11 +25,13 @@ import {
     Conv360To2DAttribsCreator,
     GrayscaleAttribsCreator,
 } from "./ui-mixed/filter-attributes/creators";
+import { ExportInfoProvider, ExportOverlay } from "./ui-mixed/export-overlay/export-overlay";
 
 // TODO: move this to a redux store maybe
 export interface AppState {
     //videoUrl: string;
     videoAspectRatio: number;
+    exportInProgress: boolean;
 }
 
 export class App extends React.Component<{}, AppState> {
@@ -42,6 +44,8 @@ export class App extends React.Component<{}, AppState> {
     encoder: Encoder;
     decoder: Decoder;
 
+    exportInfoProvider: ExportInfoProvider;
+
     selectedFilterId: FilterId | null;
     filterAttribs: Map<string, (f: FilterBase) => JSX.Element>;
 
@@ -49,10 +53,13 @@ export class App extends React.Component<{}, AppState> {
         super(params);
         this.state = {
             videoAspectRatio: 16 / 9,
+            exportInProgress: false,
         };
 
         this.encoder = new Encoder();
         this.decoder = new Decoder();
+
+        this.exportInfoProvider = new ExportInfoProvider();
 
         this.previewPanelRef = React.createRef();
         this.onResized = () => {
@@ -125,6 +132,10 @@ export class App extends React.Component<{}, AppState> {
                     encoder={this.encoder}
                     decoder={this.decoder}
                     videoManager={this.videoManager}
+                    exportStateChange={inProgress => {
+                        this.setState({exportInProgress: inProgress});
+                    }}
+                    infoProvider={this.exportInfoProvider}
                 ></ExportPanel>
             );
             if (this.selectedFilterId) {
@@ -146,6 +157,15 @@ export class App extends React.Component<{}, AppState> {
             exportPanel = <div> -- </div>;
         }
 
+        let exportOverlay = undefined;
+        if (this.state.exportInProgress) {
+            exportOverlay = (
+                <ExportOverlay
+                    infoProvider={this.exportInfoProvider}
+                ></ExportOverlay>
+            );
+        }
+
         return (
             <div className="app-contents">
                 <SplitPanelVer defaultPercentage={40} onResize={this.onResized}>
@@ -162,6 +182,7 @@ export class App extends React.Component<{}, AppState> {
                         {exportPanel}
                     </SplitPanelHor>
                 </SplitPanelVer>
+                {exportOverlay}
             </div>
         );
     }

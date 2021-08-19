@@ -1,0 +1,47 @@
+
+.export-overlay-root {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    /* display: table; */
+    background-color: white;
+}
+
+.export-overlay-center {
+    position: absolute;
+    top: 50%;
+    width: 100%;
+    transform: translateY(-50%);
+}
+
+.export-overlay-contents {
+    margin-left: auto;
+    margin-right: auto;
+    width: 75%;
+    height: 50px;
+}
+
+.export-overlay-progress-bar-parent {
+    position: relative;
+    margin-top: 1em;
+}
+
+.export-overlay-progress-bar-outline {
+    position: absolute;
+    width: 100%;
+    border: 1px solid black;
+    border-radius: 2px;
+    height: 10px;
+    box-sizing: border-box;
+}
+
+.export-overlay-progress-bar {
+    position: absolute;
+    background-color: rgb(73, 158, 255);
+    width: 50%;
+    height: 10px;
+    border-radius: 2px;
+}

@@ -1,9 +1,17 @@
+
+import "./export-panel.css";
+
 import * as React from "react";
 import * as path from "path";
 import * as util from "util";
-import { Decoder, Encoder, MediaMetadata } from "../../video/codec";
+import { Decoder, Encoder, EncoderDesc, MediaMetadata } from "../../video/codec";
 import { VideoManager } from "../../video/video-manager";
 import { AlignedPixelData, PackedPixelData } from "../../video/filter-pipeline";
+import { ExportInfoProvider } from "../export-overlay/export-overlay";
+
+const settings = require("settings-store");
+
+let settingsInitialized = false;
 
 /** Wait for the next event loop iteration */
 const setImmedateAsync = util.promisify(setImmediate);
@@ -12,30 +20,112 @@ export interface ExportPanelProps {
     encoder: Encoder;
     decoder: Decoder;
     videoManager: VideoManager;
+    exportStateChange: (inProgress: boolean) => void;
+    infoProvider: ExportInfoProvider;
 }
 
-export class ExportPanel extends React.Component<ExportPanelProps> {
+interface ExportPanelState {
+    statusMessage: string | null;
+}
+
+export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelState> {
     sumInputFrameWaitMs: number;
 
     canvasRef: React.RefObject<HTMLCanvasElement>;
 
     pathRef: React.RefObject<HTMLInputElement>;
+    ffmpegFolderRef: React.RefObject<HTMLInputElement>;
+
+    selectedOutputHeight: number;
+    selectedEncoder: string;
 
     constructor(params: any) {
         super(params);
         this.canvasRef = React.createRef();
         this.pathRef = React.createRef();
+        this.ffmpegFolderRef = React.createRef();
         this.sumInputFrameWaitMs = 0;
+        this.selectedOutputHeight = 2160;
+        this.selectedEncoder = "h264";
+        this.state = {
+            statusMessage: null
+        };
+    }
+
+    componentDidMount() {
+        if (!settingsInitialized) {
+            settingsInitialized = true;
+            settings.init({
+                appName: "360mash", //required,
+                reverseDNS: "com.BigVideo.360mash", //required for macOS
+            });
+        }
+
+        if (this.ffmpegFolderRef.current) {
+            let saved = settings.value("ffmpegFolderPath");
+            if (saved) {
+                this.ffmpegFolderRef.current.value = saved;
+            }
+        }
+        if (this.pathRef.current) {
+            let saved = settings.value("outputPath");
+            if (saved) {
+                this.pathRef.current.value = saved;
+            }
+        }
     }
 
     render() {
-        return (
-            <div>
-                <input ref={this.pathRef} placeholder="Output file path"></input>
-                <div>
-                    <button onClick={this.startFFmpegExport.bind(this)}>Export</button>
+        let statusMessage = undefined;
+        if (this.state.statusMessage) {
+            let elements = [];
+            let i = 0;
+            for (const segment of this.state.statusMessage.split("\n")) {
+                elements.push((
+                    <div key={i++}>{segment}</div>
+                ));
+            }
+            statusMessage = (
+                <div className="export-panel-status-message">
+                    {elements}
                 </div>
-                <button onClick={this.fetchFrame.bind(this)}>Get current frame</button>
+            );
+        }
+
+        return (
+            <div className="export-panel-root">
+                <div className="export-panel-flex-section">
+                    <div className="export-panel-text-line">
+                        <input ref={this.ffmpegFolderRef} placeholder="ffmpeg.exe folder path" onChange={event => {
+                            settings.setValue("ffmpegFolderPath", event.target.value);
+                        }}></input>
+                    </div>
+                    <div className="export-panel-text-line">
+                        <input ref={this.pathRef} placeholder="Output folder path" onChange={event => {
+                            settings.setValue("outputPath", event.target.value);
+                        }}></input>
+                    </div>
+                    <select name="resolutions" onChange={event => {
+                        this.selectedOutputHeight = Number.parseInt(event.target.value);
+                    }}>
+                        <option value="2160">4K (3840 × 2160)</option>
+                        <option value="1080">Full HD (1920 × 1080)</option>
+                        <option value="720">HD (1280 × 720)</option>
+                        <option value="480">480p (854 × 480)</option>
+                    </select>
+                    <select name="encoders" onChange={event => {
+                        this.selectedEncoder = event.target.value;
+                    }}>
+                        <option value="h264">H.264 (CPU)</option>
+                        <option value="h264_nvenc">H.264 NVENC (GPU)</option>
+                        <option value="h264_videotoolbox">H.264 VideoToolbox (GPU)</option>
+                    </select>
+                    <div>
+                        <button onClick={this.startFFmpegExport.bind(this)}>Export</button>
+                    </div>
+                    {statusMessage}
+                    <button onClick={this.fetchFrame.bind(this)}>Get current frame</button>
+                </div>
                 <canvas ref={this.canvasRef} width={800} height={400}></canvas>
             </div>
         );
@@ -45,6 +135,13 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
         if (!this.props.videoManager.video) {
             throw new Error("There must be an initialized video");
         }
+        if (!this.ffmpegFolderRef.current) {
+            throw new Error("There must be an initialized ffmpegFolderRef");
+        }
+
+        this.props.exportStateChange(true);
+
+        let ffmpegParentPath = this.ffmpegFolderRef.current.value;
         let video = this.props.videoManager.video.htmlVideo;
         this.sumInputFrameWaitMs = 0;
         video.pause();
@@ -100,20 +197,40 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
 
         let filename = this.dateToFilename(new Date()) + ".mp4";
         let fullpath = path.join(this.pathRef.current!.value, filename);
-        this.props.encoder.startEncoding(fullpath, width, height, outFps, getImage);
+        let encoderDesc: EncoderDesc = {
+            width,
+            height,
+            fps: outFps,
+            audioFilePath: this.props.videoManager.video.filePath,
+        };
+        this.props.encoder.startEncoding(ffmpegParentPath, fullpath, encoderDesc, getImage, this.encodingExitHandler.bind(this));
     }
 
     protected startFFmpegExport() {
+        if (!this.ffmpegFolderRef.current) {
+            throw new Error("There must be an initialized ffmpegFolderRef");
+        }
+        let ffmpegParentPath = this.ffmpegFolderRef.current.value;
         console.log("Starting ffmpeg export");
         if (!this.props.videoManager.video) {
             throw new Error("There must be an initialized video");
         }
+
+        this.setState({ statusMessage: "Exporting" });
+        this.props.exportStateChange(true);
+        this.props.infoProvider.reportProgress(0);
+
         this.sumInputFrameWaitMs = 0;
         let video = this.props.videoManager.video;
+        let duration = video.htmlVideo.duration;
 
         this.props.videoManager.stopRendering();
 
-        const [outWidth, outHeight] = this.props.videoManager.pipeline.getOutputDimensions();
+        const htmlVideo = this.props.videoManager.video.htmlVideo;
+        const videoAspect = htmlVideo.videoWidth / htmlVideo.videoHeight;
+        const outHeight = this.selectedOutputHeight;
+        const outWidth = Math.ceil(outHeight * videoAspect);
+        this.props.videoManager.pipeline.setOutputDimensions(outWidth, outHeight);
 
         // This is just a default, but actually we will use the same framerate as the input
         let outFps = 29.97;
@@ -141,7 +258,10 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
                 h: outHeight,
             };
             this.props.videoManager.pipeline.fillPixelData(targetPixelBuffer);
+            let progress = (outFrameId / outFps) / duration;
             nextOutFrameId = outFrameId + 1;
+
+            this.props.infoProvider.reportProgress(progress);
 
             if (isDone) {
                 console.log(
@@ -169,7 +289,14 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
 
             let filename = this.dateToFilename(new Date()) + ".mp4";
             let fullpath = path.join(this.pathRef.current!.value, filename);
-            this.props.encoder.startEncoding(fullpath, outWidth, outHeight, outFps, getImage);
+            let encoderDesc: EncoderDesc = {
+                width: outWidth,
+                height: outHeight,
+                fps: outFps,
+                encoder: this.selectedEncoder,
+                audioFilePath: video.filePath
+            };
+            this.props.encoder.startEncoding(ffmpegParentPath, fullpath, encoderDesc, getImage, this.encodingExitHandler.bind(this));
         };
         let receivedImage = (buffer: Uint8Array) => {
             inFrameIdx += 1;
@@ -197,6 +324,7 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
         };
 
         this.props.decoder.startDecoding(
+            ffmpegParentPath,
             video.filePath,
             receivedMetadata,
             receivedImage,
@@ -247,5 +375,17 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
             "-" +
             date.getSeconds()
         );
+    }
+
+    protected encodingExitHandler(code: number | null, stderr: string) {
+        if (code === null || code !== 0) {
+            this.setState({ statusMessage: `Encoder error. Output:\n${stderr}` });
+            this.props.decoder.stopDecoding();
+        } else {
+            this.setState({ statusMessage: "Finished exporting" });
+        }
+        this.props.exportStateChange(false);
+        // Re-start rendering after the export has finished
+        this.props.videoManager.renderContinously();
     }
 }
