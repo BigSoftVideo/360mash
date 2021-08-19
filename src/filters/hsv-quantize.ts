@@ -20,8 +20,18 @@ export class HsvQuantizeShader extends FilterShader {
             uniform float uInvHeight;
             uniform sampler2D uSampler;
 
+            // Assuming a gamma of 2, convert from the display gamma to linear color space
+            vec3 displayToLinear(vec3 color) {
+                return pow(color, vec3(0.455));
+            }
+            // Assuming a gamma of 2, convert from linear color space to the display color space
+            vec3 linearToDisplay(vec3 color) {
+                return pow(color, vec3(2.2));
+            }
+
             // From: https://en.wikipedia.org/wiki/HSL_and_HSV
             vec3 toHsv(vec3 color) {
+                color = displayToLinear(color);
                 float r = color.r;
                 float g = color.g;
                 float b = color.b;
@@ -64,7 +74,7 @@ export class HsvQuantizeShader extends FilterShader {
                 float R = fromHsvHelper(5.0, hsv);
                 float G = fromHsvHelper(3.0, hsv);
                 float B = fromHsvHelper(1.0, hsv);
-                return vec3(R, G, B);
+                return linearToDisplay(vec3(R, G, B));
             }
 
             // v has to be in [0, 1]
@@ -109,7 +119,7 @@ export class HsvQuantizeShader extends FilterShader {
                 vec3 hsv = toHsv(c.rgb);
 
                 //hsv.x = quantize(hsv.x / 360.0, 8.0) * 360.0;
-                hsv.y = quantize(hsv.y, 6.0);
+                hsv.y = quantize(hsv.y, 8.0);
                 hsv.z = quantize(hsv.z, 6.0);
                 vec3 outRgb = fromHsv(hsv);
 
