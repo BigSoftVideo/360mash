@@ -1,12 +1,14 @@
 import * as util from "util";
 import * as fs from "fs";
 import * as path from "path";
-import { spawn, ChildProcess } from "child_process";
+import { spawn, ChildProcess, ChildProcessWithoutNullStreams } from "child_process";
 
 const ffmpegBin =
     "C:\\Users\\Dighumlab2\\Desktop\\Media Tools\\ffmpeg-4.4-full_build\\bin\\ffmpeg";
 const ffprobeBin =
     "C:\\Users\\Dighumlab2\\Desktop\\Media Tools\\ffmpeg-4.4-full_build\\bin\\ffprobe";
+
+const READ_CHUNK_SIZE = 8 * 1024;
 
 /**
  * Called during encoding to retreive the pixel data for a video frame.
@@ -49,13 +51,12 @@ export interface MediaMetadata {
  * A
  */
 export class Encoder {
-
     /** Measures the time in milliseconds between the start and completion of a pipeline write and the end of it. */
     sumWriteMs: number;
 
     /**
      * Measures the time in milliseconds spent between the start of a write request and the following drain event in case the pipeline was full.
-     * 
+     *
      * I believe that when this is larger than 0, it means that the ffmpeg encoding + pipeline transfer is slower than
      * the decoding and filter application.
      */
@@ -77,7 +78,7 @@ export class Encoder {
     width: number;
     height: number;
     frameId: number;
-    ffmpegProc: ChildProcess | null;
+    ffmpegProc: ChildProcessWithoutNullStreams | null;
     encStartTime: Date;
 
     ffmpegStdout: string;
@@ -179,15 +180,15 @@ export class Encoder {
             }
         );
 
-        this.ffmpegProc.stdin?.on("finish", () => {
+        this.ffmpegProc.stdin.on("finish", () => {
             console.log("The stdin of ffmpeg was successfully closed");
             this.resetEncodingSession();
         });
 
-        this.ffmpegProc.stdout?.on("data", (data) => {
+        this.ffmpegProc.stdout.on("data", (data) => {
             this.ffmpegStdout += data;
         });
-        this.ffmpegProc.stderr?.on("data", (data) => {
+        this.ffmpegProc.stderr.on("data", (data) => {
             this.ffmpegStdout += data;
         });
 
@@ -309,7 +310,14 @@ export class Encoder {
         let endTime = new Date();
         let elapsedSecs = (endTime.getTime() - this.encStartTime.getTime()) / 1000;
         let avgFramerate = this.frameId / elapsedSecs;
-        console.log("ENCODING: The avg frametime (ms) was: " + (elapsedSecs / this.frameId) * 1000 + ". Avg inter frame ms was " + this.sumWriteMs / this.frameId + ". Avg drain wait time was " + this.sumDrainWaitMs / this.frameId);
+        console.log(
+            "ENCODING: The avg frametime (ms) was: " +
+                (elapsedSecs / this.frameId) * 1000 +
+                ". Avg inter frame ms was " +
+                this.sumWriteMs / this.frameId +
+                ". Avg drain wait time was " +
+                this.sumDrainWaitMs / this.frameId
+        );
 
         // The encoding settings are reset by the callback that listens on the "finish" event.
         this.ffmpegProc.stdin?.end();
@@ -327,7 +335,7 @@ export class Decoder {
 
     prevFrameProcessedTime: Date;
 
-    /** The time in seconds between the end of processing a frame and the moment the next frame 
+    /** The time in seconds between the end of processing a frame and the moment the next frame
      * is finished transfering. This measures the decoder speed + the speed of the transfer through the pipeline
      */
     sumInterframeSec: number;
@@ -345,7 +353,7 @@ export class Decoder {
      */
     recvPixelBytes: number;
 
-    ffmpegProc: ChildProcess | null;
+    ffmpegProc: ChildProcessWithoutNullStreams | null;
     frameId: number;
     metadata: MediaMetadata;
 
@@ -433,7 +441,7 @@ export class Decoder {
         );
 
         let framerateStr = "";
-        getFramerateProc.stdout?.on("data", (data) => {
+        getFramerateProc.stdout.on("data", (data) => {
             framerateStr += data;
         });
         getFramerateProc.on("exit", (code) => {
@@ -524,38 +532,56 @@ export class Decoder {
             console.warn("ffmpeg stderr was:\n" + this.ffmpegStderr);
             this.finishedDecoding(false);
         });
-        this.ffmpegProc.stdout?.on("data", (src: Buffer) => {
-            let packetProcStart = new Date();
-            if (this.prevPacketEndTime > 0) {
-                this.sumInterPacketMs += packetProcStart.getTime() - this.prevPacketEndTime;
-            }
-            this.avgChunkSize = (src.length + this.avgChunkSize * this.frameId) / (this.frameId + 1);
-            let copiedSrcBytes = 0;
-            while (copiedSrcBytes < src.length) {
-                // First copy as many bytes into the pixel buffer as we can
-                let pixBufRemaining = this.pixelBuffer.length - this.recvPixelBytes;
-                let remainingSrcBytes = src.length - copiedSrcBytes;
-                let copyAmount = Math.min(remainingSrcBytes, pixBufRemaining);
 
-                let srcSlice = src.slice(copiedSrcBytes, copiedSrcBytes + copyAmount);
-                this.pixelBuffer.set(srcSlice, this.recvPixelBytes);
-
-                this.recvPixelBytes += copyAmount;
-                copiedSrcBytes += copyAmount;
-
-                if (this.recvPixelBytes == this.pixelBuffer.length) {
-                    this.sumInterframeSec += (new Date().getTime() - this.prevFrameProcessedTime.getTime()) / 1000;
-                    this.receivedImageCb(this.pixelBuffer);
-                    this.prevFrameProcessedTime = new Date();
-                    this.recvPixelBytes = 0;
-                    this.frameId += 1;
+        this.ffmpegProc.stdout.pause();
+        this.ffmpegProc.stdout.on("readable", () => {
+            while (true) {
+                // A single readable event may signal that multiple 'read' chunks are available.
+                let src: Buffer | null = this.ffmpegProc?.stdout.read();
+                if (!src || src.length === 0) {
+                    return;
                 }
+                let packetProcStart = new Date();
+                if (this.prevPacketEndTime > 0) {
+                    this.sumInterPacketMs +=
+                        packetProcStart.getTime() - this.prevPacketEndTime;
+                }
+                this.avgChunkSize =
+                    (src.length + this.avgChunkSize * this.frameId) / (this.frameId + 1);
+                let copiedSrcBytes = 0;
+                while (copiedSrcBytes < src.length) {
+                    // First copy as many bytes into the pixel buffer as we can
+                    let pixBufRemaining = this.pixelBuffer.length - this.recvPixelBytes;
+                    let remainingSrcBytes = src.length - copiedSrcBytes;
+                    let copyAmount = Math.min(remainingSrcBytes, pixBufRemaining);
+
+                    let srcSlice = src.slice(copiedSrcBytes, copiedSrcBytes + copyAmount);
+                    this.pixelBuffer.set(srcSlice, this.recvPixelBytes);
+
+                    this.recvPixelBytes += copyAmount;
+                    copiedSrcBytes += copyAmount;
+
+                    if (this.recvPixelBytes == this.pixelBuffer.length) {
+                        this.sumInterframeSec +=
+                            (new Date().getTime() - this.prevFrameProcessedTime.getTime()) /
+                            1000;
+                        this.receivedImageCb(this.pixelBuffer);
+                        this.prevFrameProcessedTime = new Date();
+                        this.recvPixelBytes = 0;
+                        this.frameId += 1;
+                    }
+                }
+                let endTime = new Date().getTime();
+                this.sumPacketProcMs += endTime - packetProcStart.getTime();
+                this.prevPacketEndTime = endTime;
             }
-            let endTime = new Date().getTime();
-            this.sumPacketProcMs += endTime - packetProcStart.getTime();
-            this.prevPacketEndTime = endTime;
         });
-        this.ffmpegProc.stderr?.on("data", (data) => {
+
+        // this.ffmpegProc.stdout.on("data", (src: Buffer) => {
+        //     // This was moved to the readable callback in an attempt to better control the chunk
+        //     // size that is read
+        // });
+        this.ffmpegProc.stderr.on("data", (data) => {
             this.ffmpegStderr += data;
         });
     }

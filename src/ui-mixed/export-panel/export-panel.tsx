@@ -15,7 +15,6 @@ export interface ExportPanelProps {
 }
 
 export class ExportPanel extends React.Component<ExportPanelProps> {
-
     sumInputFrameWaitMs: number;
 
     canvasRef: React.RefObject<HTMLCanvasElement>;
@@ -145,7 +144,10 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
             nextOutFrameId = outFrameId + 1;
 
             if (isDone) {
-                console.log("Export panel done. Avg ms spent waiting on the input frame " + this.sumInputFrameWaitMs / outFrameId);
+                console.log(
+                    "Export panel done. Avg ms spent waiting on the input frame " +
+                        this.sumInputFrameWaitMs / outFrameId
+                );
                 return 1;
             }
 
