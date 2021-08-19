@@ -49,6 +49,18 @@ export interface MediaMetadata {
  * A
  */
 export class Encoder {
+
+    /** Measures the time in milliseconds between the start and completion of a pipeline write and the end of it. */
+    sumWriteMs: number;
+
+    /**
+     * Measures the time in milliseconds spent between the start of a write request and the following drain event in case the pipeline was full.
+     * 
+     * I believe that when this is larger than 0, it means that the ffmpeg encoding + pipeline transfer is slower than
+     * the decoding and filter application.
+     */
+    sumDrainWaitMs: number;
+
     readCbPtr!: number;
     metadataCbPtr!: number;
     decodedAudioCbPtr!: number;
@@ -73,6 +85,8 @@ export class Encoder {
 
     constructor() {
         this.runningEncoding = false;
+        this.sumWriteMs = 0;
+        this.sumDrainWaitMs = 0;
 
         // this.inputFile = fs.openSync(
         //     "D:/personal/Documents/DoteExample/Camerawork training Panasonic HD.mp4",
@@ -119,6 +133,8 @@ export class Encoder {
         fps: number,
         getImage: GetImageCallback
     ): boolean {
+        this.sumWriteMs = 0;
+        this.sumDrainWaitMs = 0;
         if (this.runningEncoding) {
             // It should be possible in theory to be able to encode multiple streams at once
             // but it is not implemented at the moment.
@@ -239,6 +255,7 @@ export class Encoder {
             }
             let canWriteMore = false;
             let writeDone = (err: Error | null | undefined) => {
+                this.sumWriteMs += new Date().getTime() - writeStart.getTime();
                 // console.log("Write done - " + frameId);
                 if (err) {
                     console.error(
@@ -264,11 +281,14 @@ export class Encoder {
                 }
             };
             // console.log("Calling write - " + frameId);
+            let writeStart = new Date();
             canWriteMore = this.ffmpegProc.stdin.write(this.pixelBuffer, writeDone);
             if (!canWriteMore && !isLastFrame) {
                 // The pipe is full, we need to wait a while before we can push more data
                 // into it.
+                let drainWaitStart = new Date();
                 this.ffmpegProc.stdin.once("drain", () => {
+                    this.sumDrainWaitMs += new Date().getTime() - drainWaitStart.getTime();
                     // console.log("The drain event was triggered on the ffmpeg pipe");
                     this.writeFrame();
                 });
@@ -289,7 +309,7 @@ export class Encoder {
         let endTime = new Date();
         let elapsedSecs = (endTime.getTime() - this.encStartTime.getTime()) / 1000;
         let avgFramerate = this.frameId / elapsedSecs;
-        console.log("The avg Framerate was: " + avgFramerate);
+        console.log("ENCODING: The avg frametime (ms) was: " + (elapsedSecs / this.frameId) * 1000 + ". Avg inter frame ms was " + this.sumWriteMs / this.frameId + ". Avg drain wait time was " + this.sumDrainWaitMs / this.frameId);
 
         // The encoding settings are reset by the callback that listens on the "finish" event.
         this.ffmpegProc.stdin?.end();
@@ -299,6 +319,18 @@ export class Encoder {
 export class Decoder {
     // runningDecoding: boolean;
     decStartTime: Date;
+    /** Size in bytes of the average pipe data size */
+    avgChunkSize: number;
+    sumPacketProcMs: number;
+    sumInterPacketMs: number;
+    prevPacketEndTime: number;
+
+    prevFrameProcessedTime: Date;
+
+    /** The time in seconds between the end of processing a frame and the moment the next frame 
+     * is finished transfering. This measures the decoder speed + the speed of the transfer through the pipeline
+     */
+    sumInterframeSec: number;
 
     receivedImageCb: ReceivedImageCallback;
     doneCb: (success: boolean) => void;
@@ -331,6 +363,12 @@ export class Decoder {
         this.recvPixelBytes = 0;
         // this.runningDecoding = false;
         this.decStartTime = new Date();
+        this.prevFrameProcessedTime = new Date();
+        this.sumInterframeSec = 0;
+        this.avgChunkSize = 0;
+        this.sumPacketProcMs = 0;
+        this.sumInterPacketMs = 0;
+        this.prevPacketEndTime = 0;
 
         // this.receivedMetadataCb = () => {
         //     console.error(
@@ -358,6 +396,10 @@ export class Decoder {
         done: (success: boolean) => void
     ): void {
         this.decStartTime = new Date();
+        this.sumInterframeSec = 0;
+        this.prevFrameProcessedTime = new Date();
+        this.sumPacketProcMs = 0;
+        this.prevPacketEndTime = 0;
 
         this.receivedImageCb = receivedImage;
         this.doneCb = done;
@@ -451,10 +493,10 @@ export class Decoder {
 
     protected startProcessingFrames(inFilePath: string) {
         this.ffmpegProc = spawn(
-            ffmpegBin,
+            `${ffmpegBin}`,
             [
                 "-i",
-                inFilePath,
+                `${inFilePath}`,
                 "-f",
                 "rawvideo",
                 "-vcodec",
@@ -468,7 +510,6 @@ export class Decoder {
                 stdio: ["pipe", "pipe", "pipe"],
             }
         );
-
         this.ffmpegProc.on("exit", (code) => {
             if (code === 0) {
                 console.log("FFmpeg exited successfully");
@@ -484,6 +525,11 @@ export class Decoder {
             this.finishedDecoding(false);
         });
         this.ffmpegProc.stdout?.on("data", (src: Buffer) => {
+            let packetProcStart = new Date();
+            if (this.prevPacketEndTime > 0) {
+                this.sumInterPacketMs += packetProcStart.getTime() - this.prevPacketEndTime;
+            }
+            this.avgChunkSize = (src.length + this.avgChunkSize * this.frameId) / (this.frameId + 1);
             let copiedSrcBytes = 0;
             while (copiedSrcBytes < src.length) {
                 // First copy as many bytes into the pixel buffer as we can
@@ -498,11 +544,16 @@ export class Decoder {
                 copiedSrcBytes += copyAmount;
 
                 if (this.recvPixelBytes == this.pixelBuffer.length) {
+                    this.sumInterframeSec += (new Date().getTime() - this.prevFrameProcessedTime.getTime()) / 1000;
                     this.receivedImageCb(this.pixelBuffer);
+                    this.prevFrameProcessedTime = new Date();
                     this.recvPixelBytes = 0;
                     this.frameId += 1;
                 }
             }
+            let endTime = new Date().getTime();
+            this.sumPacketProcMs += endTime - packetProcStart.getTime();
+            this.prevPacketEndTime = endTime;
         });
         this.ffmpegProc.stderr?.on("data", (data) => {
             this.ffmpegStderr += data;
@@ -513,7 +564,13 @@ export class Decoder {
         let now = new Date();
         let elapsed = (now.getTime() - this.decStartTime.getTime()) / 1000;
         console.log(
-            `Elapsed time is ${elapsed}, avg decode framerate ${this.frameId / elapsed}`
+            [
+                `Elapsed time is ${elapsed}, avg decode framerate ${this.frameId / elapsed}.`,
+                `Avg inter frame ms ${(this.sumInterframeSec * 1000) / this.frameId}.`,
+                `Avg pipe chunk kb ${this.avgChunkSize / 1000}`,
+                `Avg inter packet ms ${this.sumInterPacketMs / this.frameId}`,
+                `Avg packet proccess ms ${this.sumPacketProcMs / this.frameId}`,
+            ].join("\n")
         );
         this.doneCb(success);
     }

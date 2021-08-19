@@ -15,6 +15,9 @@ export interface ExportPanelProps {
 }
 
 export class ExportPanel extends React.Component<ExportPanelProps> {
+
+    sumInputFrameWaitMs: number;
+
     canvasRef: React.RefObject<HTMLCanvasElement>;
 
     pathRef: React.RefObject<HTMLInputElement>;
@@ -23,6 +26,7 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
         super(params);
         this.canvasRef = React.createRef();
         this.pathRef = React.createRef();
+        this.sumInputFrameWaitMs = 0;
     }
 
     render() {
@@ -43,7 +47,7 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
             throw new Error("There must be an initialized video");
         }
         let video = this.props.videoManager.video.htmlVideo;
-
+        this.sumInputFrameWaitMs = 0;
         video.pause();
         this.props.videoManager.stopRendering();
 
@@ -70,9 +74,11 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
             buffer: Uint8Array,
             linesize: number
         ): Promise<number> => {
+            const waitStart = new Date();
             while (readyFrameId < outFrameId) {
                 await setImmedateAsync();
             }
+            this.sumInputFrameWaitMs += (new Date().getTime() - waitStart.getTime()) / 1000;
             let targetPixelBuffer: AlignedPixelData = {
                 data: buffer,
                 linesize: linesize,
@@ -103,6 +109,7 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
         if (!this.props.videoManager.video) {
             throw new Error("There must be an initialized video");
         }
+        this.sumInputFrameWaitMs = 0;
         let video = this.props.videoManager.video;
 
         this.props.videoManager.stopRendering();
@@ -121,11 +128,13 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
             buffer: Uint8Array,
             linesize: number
         ): Promise<number> => {
+            const waitStart = new Date();
             // When this function gets called, the next frame may not yet be decoded. In this case
             // we wait until it's ready.
             while (readyOutFrameId < outFrameId) {
                 await setImmedateAsync();
             }
+            this.sumInputFrameWaitMs += new Date().getTime() - waitStart.getTime();
             let targetPixelBuffer: AlignedPixelData = {
                 data: buffer,
                 linesize: linesize,
@@ -136,6 +145,7 @@ export class ExportPanel extends React.Component<ExportPanelProps> {
             nextOutFrameId = outFrameId + 1;
 
             if (isDone) {
+                console.log("Export panel done. Avg ms spent waiting on the input frame " + this.sumInputFrameWaitMs / outFrameId);
                 return 1;
             }
 

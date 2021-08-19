@@ -1,5 +1,6 @@
 
 import { app, BrowserWindow, Menu, protocol } from "electron";
+import { spawn } from "child_process";
 declare const MAIN_WINDOW_WEBPACK_ENTRY: any;
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -29,8 +30,43 @@ const createWindow = (): void => {
   // Open the DevTools.
   mainWindow.webContents.openDevTools();
 };
-
 const appReady = () => {
+
+  // setTimeout(() => {
+  //   console.log("Starting decode test");
+  //   // DEBUG TEST
+  //   let testProcStart = new Date();
+  //   let testProc = spawn(
+  //     "C:\\Users\\Dighumlab2\\Desktop\\Media Tools\\ffmpeg-4.4-full_build\\bin\\ffmpeg",
+  //     [
+  //       "-i",
+  //       "Y:\\Dote-Projects\\New Horizon\\GoPro Back.mp4",
+  //       "-f",
+  //       "rawvideo",
+  //       "-vcodec",
+  //       "rawvideo",
+  //       "-pix_fmt",
+  //       "rgba",
+  //       "-an",
+  //       "pipe:1",
+  //     ],
+  //     {
+  //       stdio: ["pipe", "pipe", "pipe"],
+  //     }
+  //   );
+  //   let stderr = "";
+  //   let packetCnt = 0;
+  //   testProc.stderr.on("data", (msg) => stderr += msg);
+  //   testProc.stdout.on("data", buff => {
+  //     packetCnt += 1;
+  //   });
+  //   testProc.on("exit", code => {
+  //     let elapsedSec = (new Date().getTime() - testProcStart.getTime()) / 1000;
+  //     console.log("Test process exited with", code, "it took " + elapsedSec + " seconds. Packet count was " + packetCnt);
+  //   });
+  // },
+  // 5000);
+
   if (isDevMode) {
     protocol.registerFileProtocol('file', (request, callback) => {
         const path = decodeURI(request.url.replace("file:///", ""));
