@@ -176,7 +176,7 @@ export class App extends React.Component<{}, AppState> {
                 <SplitPanelVer defaultPercentage={40} onResize={this.onResized}>
                     <SplitPanelHor defaultPercentage={25} onResize={this.onResized}>
                         <div>{filterList}</div>
-                        <div>{filterAttributes}</div>
+                        <div className="filter-attribs-parent">{filterAttributes}</div>
                     </SplitPanelHor>
                     <SplitPanelHor defaultPercentage={75} onResize={this.onResized}>
                         <PreviewPanel

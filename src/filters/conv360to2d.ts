@@ -1,10 +1,12 @@
-
 import * as glm from "gl-matrix";
 
 import { FilterShader, RenderTexture } from "../video/core";
 import { FilterBase } from "../video/filter-base";
 
 export const CONV360T02D_FILTER_NAME = "360 to 2D";
+
+// TODO: make this so that it dynamically adjusts to fill the most space
+const PREVIEW_CANVAS_WIDTH = 600;
 
 export class MashProjectionShader extends FilterShader {
     public fovY: number;
@@ -60,11 +62,7 @@ export class MashProjectionShader extends FilterShader {
                 
                 gl_FragColor = texture2D(uSampler, vec2(azimuth / (2.0*PI), elevation / PI + 0.5));
             }`;
-        let fragmentShader = FilterShader.createShader(
-            gl,
-            gl.FRAGMENT_SHADER,
-            fragmentSrc
-        );
+        let fragmentShader = FilterShader.createShader(gl, gl.FRAGMENT_SHADER, fragmentSrc);
 
         super(gl, fragmentShader);
 
@@ -110,11 +108,26 @@ export class Conv360To2DFilter extends FilterBase {
     protected shader: MashProjectionShader;
     protected rt: RenderTexture;
 
+    previewCanvas: HTMLCanvasElement | null;
+    // protected previewTexture: WebGLTexture;
+    previewPixelArray: Uint8Array;
+
     constructor(gl: WebGLRenderingContext, outw: number, outh: number) {
         super(gl);
         this.gl = gl;
         this.shader = new MashProjectionShader(gl);
         this.rt = new RenderTexture(gl);
+        this.previewPixelArray = new Uint8Array();
+
+        this.previewCanvas = null;
+        // {
+        //     let previewGl = this.previewCanvas.getContext("webgl2");
+        //     let tex = previewGl!.createTexture();
+        //     if (!tex) {
+        //         throw new Error("FATAL: we expected to be able to create the texture");
+        //     }
+        //     this.previewTexture = tex;
+        // }
 
         this.setOutputDimensions(outw, outh);
     }
@@ -122,6 +135,7 @@ export class Conv360To2DFilter extends FilterBase {
     setOutputDimensions(width: number, height: number): void {
         this.shader.aspect = width / height;
         this.rt.ensureDimensions(width, height);
+        this.previewPixelArray = new Uint8Array(width * height * 4);
     }
     dispose(): void {
         this.rt.dispose();
@@ -135,6 +149,7 @@ export class Conv360To2DFilter extends FilterBase {
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, source);
         this.shader.draw(gl);
+        this.copyResultToPreview();
         return this.rt;
     }
 
@@ -155,5 +170,51 @@ export class Conv360To2DFilter extends FilterBase {
     }
     public set rotUp(val: number) {
         this.shader.rotUp = val;
+    }
+
+    protected copyResultToPreview() {
+        if (!this.previewCanvas) {
+            return;
+        }
+
+        // At this point we expect that the `this.gl.canvas` framebuffer has this filter's output
+        // rendered to it.
+        this.gl.readPixels(
+            0,
+            0,
+            this.rt.width,
+            this.rt.height,
+            this.gl.RGBA,
+            this.gl.UNSIGNED_BYTE,
+            this.previewPixelArray
+        );
+
+        let ctx = this.previewCanvas.getContext("2d");
+        if (!ctx) {
+            throw new Error("Failed to get preview canvas context");
+        }
+        let clamped = new Uint8ClampedArray(this.previewPixelArray.buffer);
+        let imgData = new ImageData(clamped, this.rt.width, this.rt.height);
+
+        createImageBitmap(imgData).then((previewBitmap) => {
+            if (!this.previewCanvas) {
+                console.warn(
+                    "Tried copying the filter output but a preview canvas was not available."
+                );
+                return;
+            }
+            // console.log("Received preview bitmap");
+            let aspect = previewBitmap.width / previewBitmap.height;
+            let previewWidth = PREVIEW_CANVAS_WIDTH;
+            let previewHeight = previewWidth / aspect;
+            this.previewCanvas.width = previewWidth;
+            this.previewCanvas.height = previewHeight;
+            let ctx = this.previewCanvas.getContext("2d");
+            if (!ctx) {
+                throw new Error("Could not get 2d context for the preview canvas");
+            }
+            ctx.drawImage(previewBitmap, 0, 0, previewWidth, previewHeight);
+            // console.log("finished drawing the preview bitmap");
+        });
     }
 }

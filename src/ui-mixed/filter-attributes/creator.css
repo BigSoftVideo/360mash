@@ -1,0 +1,6 @@
+.conv360-to-2d-attribs-root {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    overflow-y: hidden;
+}

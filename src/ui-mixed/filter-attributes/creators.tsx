@@ -1,3 +1,5 @@
+import "./creator.css";
+
 import * as React from "react";
 import { FilterAttributes, FilterAttributeBinding } from "./filter-attributes";
 import { GrayscaleFilter } from "../../filters/grayscale";
@@ -22,37 +24,73 @@ export function CartoonAttribsCreator(filter: CartoonFilter): JSX.Element {
 }
 
 export function Conv360To2DAttribsCreator(filter: Conv360To2DFilter): JSX.Element {
-    let attributes = new Map<string, FilterAttributeBinding<Conv360To2DFilter>>();
+    return <Conv360To2DAttributes filter={filter}></Conv360To2DAttributes>;
+}
 
-    attributes.set("Vertical Field of View (radians)", {
-        getter: (f) => f.fovY,
-        setter: (f, v) => {
-            f.fovY = v;
-        },
-        minValue: 0,
-        maxValue: Math.PI,
-    });
-    attributes.set("Yaw", {
-        getter: (f) => f.rotUp,
-        setter: (f, v) => {
-            // This mess below ensures that the value wraps around when it reaches -PI or PI
-            let sign = Math.sign(v);
-            v = Math.abs(v);
-            v += Math.PI;
-            v = v % (Math.PI * 2);
-            v -= Math.PI;
-            v *= sign;
-            f.rotUp = v;
-        },
-    });
-    attributes.set("Pitch", {
-        getter: (f) => f.rotRight,
-        setter: (f, v) => {
-            f.rotRight = v;
-        },
-        minValue: -Math.PI * 0.5,
-        maxValue: Math.PI * 0.5,
-    });
+class Conv360To2DAttributes extends React.Component<{ filter: Conv360To2DFilter }> {
+    readonly attributes: Map<string, FilterAttributeBinding<Conv360To2DFilter>>;
 
-    return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
+    rootDiv: React.RefObject<HTMLDivElement>;
+    canvas: React.RefObject<HTMLCanvasElement>;
+
+    constructor(props: any) {
+        super(props);
+
+        this.rootDiv = React.createRef();
+        this.canvas = React.createRef();
+
+        this.attributes = new Map<string, FilterAttributeBinding<Conv360To2DFilter>>();
+        this.attributes.set("Vertical Field of View (radians)", {
+            getter: (f) => f.fovY,
+            setter: (f, v) => {
+                f.fovY = v;
+            },
+            minValue: 0,
+            maxValue: Math.PI,
+        });
+        this.attributes.set("Yaw", {
+            getter: (f) => f.rotUp,
+            setter: (f, v) => {
+                // This mess below ensures that the value wraps around when it reaches -PI or PI
+                let sign = Math.sign(v);
+                v = Math.abs(v);
+                v += Math.PI;
+                v = v % (Math.PI * 2);
+                v -= Math.PI;
+                v *= sign;
+                f.rotUp = v;
+            },
+        });
+        this.attributes.set("Pitch", {
+            getter: (f) => f.rotRight,
+            setter: (f, v) => {
+                f.rotRight = v;
+            },
+            minValue: -Math.PI * 0.5,
+            maxValue: Math.PI * 0.5,
+        });
+    }
+
+    componentDidMount() {
+        if (this.canvas.current) {
+            this.props.filter.previewCanvas = this.canvas.current;
+        }
+        // if (this.rootDiv.current) {
+        //     this.rootDiv.current.appendChild(this.props.filter.previewCanvas);
+        // } else {
+        //     console.error("FATAL: Expected to have a reference to the root div");
+        // }
+    }
+
+    render() {
+        return (
+            <div ref={this.rootDiv} className="conv360-to-2d-attribs-root">
+                <FilterAttributes
+                    filter={this.props.filter}
+                    attributes={this.attributes}
+                ></FilterAttributes>
+                <canvas ref={this.canvas}></canvas>
+            </div>
+        );
+    }
 }
