@@ -16,7 +16,7 @@ import { FilterManager } from "./video/filter-manager";
 import { Checklist } from "./ui-presentational/checklist/checklist";
 import { Conv360To2DFilter, CONV360T02D_FILTER_NAME } from "./filters/conv360to2d";
 import { GrayscaleFilter, GRAYSCALE_FILTER_NAME } from "./filters/grayscale";
-import { HsvQuantizeFilter, HSV_QUANTIZE_FILTER_NAME } from "./filters/hsv-quantize";
+import { CartoonFilter, CARTOON_FILTER_NAME } from "./filters/cartoon";
 import { FilterBase, FilterId } from "./video/filter-base";
 import { FilterList } from "./ui-mixed/filter-list/filter-list";
 import { Decoder, Encoder } from "./video/codec";
@@ -24,7 +24,7 @@ import { ExportPanel } from "./ui-mixed/export-panel/export-panel";
 import {
     Conv360To2DAttribsCreator,
     GrayscaleAttribsCreator,
-    HsvQuantizeAttribsCreator,
+    CartoonAttribsCreator,
 } from "./ui-mixed/filter-attributes/creators";
 import { ExportInfoProvider, ExportOverlay } from "./ui-mixed/export-overlay/export-overlay";
 
@@ -85,11 +85,11 @@ export class App extends React.Component<{}, AppState> {
                 return new Conv360To2DFilter(gl, w, h);
             },
         });
-        this.filterAttribs.set(HSV_QUANTIZE_FILTER_NAME, HsvQuantizeAttribsCreator);
+        this.filterAttribs.set(CARTOON_FILTER_NAME, CartoonAttribsCreator);
         this.filterManager.registerFilter({
-            id: HSV_QUANTIZE_FILTER_NAME,
+            id: CARTOON_FILTER_NAME,
             creator: (gl, w, h): FilterBase => {
-                return new HsvQuantizeFilter(gl, w, h);
+                return new CartoonFilter(gl, w, h);
             },
         });
         this.filterAttribs.set(GRAYSCALE_FILTER_NAME, GrayscaleAttribsCreator);
@@ -210,7 +210,7 @@ export class App extends React.Component<{}, AppState> {
                 // Add all filters here.
                 this.videoManager.pipeline.setFilters([
                     CONV360T02D_FILTER_NAME,
-                    HSV_QUANTIZE_FILTER_NAME,
+                    CARTOON_FILTER_NAME,
                     GRAYSCALE_FILTER_NAME,
                 ]);
             }

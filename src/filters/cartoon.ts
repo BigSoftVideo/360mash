@@ -1,9 +1,9 @@
 import { FilterShader, RenderTexture } from "../video/core";
 import { FilterBase } from "../video/filter-base";
 
-export const HSV_QUANTIZE_FILTER_NAME = "HSV Quantize";
+export const CARTOON_FILTER_NAME = "Cartoon";
 
-export class HsvQuantizeShader extends FilterShader {
+export class CartoonShader extends FilterShader {
     width: number;
     height: number;
 
@@ -158,14 +158,14 @@ export class HsvQuantizeShader extends FilterShader {
     }
 }
 
-export class HsvQuantizeFilter extends FilterBase {
-    protected shader: HsvQuantizeShader;
+export class CartoonFilter extends FilterBase {
+    protected shader: CartoonShader;
     protected rt: RenderTexture;
 
     constructor(gl: WebGLRenderingContext, outw: number, outh: number) {
         super(gl);
         this.gl = gl;
-        this.shader = new HsvQuantizeShader(gl);
+        this.shader = new CartoonShader(gl);
         this.rt = new RenderTexture(gl);
 
         this.setOutputDimensions(outw, outh);

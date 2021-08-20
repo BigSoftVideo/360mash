@@ -48,12 +48,12 @@ export interface MediaMetadata {
 }
 
 export interface EncoderDesc {
-    width: number,
-    height: number,
-    fps: number,
-    bitrate?: number,
-    encoder?: string,
-    audioFilePath: string,
+    width: number;
+    height: number;
+    fps: number;
+    bitrate?: number;
+    encoder?: string;
+    audioFilePath: string;
 }
 
 /**
@@ -135,7 +135,7 @@ export class Encoder {
      *
      * This function returns immedately and then `getImage` will be called peridically
      * in an asychronnous fashion.
-     * 
+     *
      * The bitrate is specified in kbps
      */
     startEncoding(
@@ -143,7 +143,7 @@ export class Encoder {
         outFileName: string,
         encoderDesc: EncoderDesc,
         getImage: GetImageCallback,
-        onExit: (code: number | null, stderr: string) => void,
+        onExit: (code: number | null, stderr: string) => void
     ): boolean {
         const ffmpegBin = path.join(ffmpegBinParentPath, "ffmpeg");
 
@@ -166,7 +166,7 @@ export class Encoder {
         this.height = encoderDesc.height;
         this.frameId = 0;
 
-        let defaultBitrate = Math.round(Math.sqrt(encoderDesc.width * encoderDesc.height) * 1.5);
+        let defaultBitrate = Math.round(Math.sqrt(encoderDesc.width * encoderDesc.height) * 3);
         let bitrate = encoderDesc.bitrate || defaultBitrate;
         console.log("Setting output bitrate to", bitrate);
 
@@ -225,9 +225,9 @@ export class Encoder {
             this.ffmpegStderr += data;
         });
 
-        this.ffmpegProc.on('exit', code => {
+        this.ffmpegProc.on("exit", (code) => {
             onExit(code, this.ffmpegStderr);
-        })
+        });
 
         // Make sure we return before calling the callback. This is just nice because this guarantees
         // for the caller that their callback is always only called after this function has returned
@@ -324,7 +324,9 @@ export class Encoder {
             };
 
             if (!this.ffmpegProc.stdin.writable) {
-                console.log("The stream was not writeable, this likely indicates that the process was prematurely terminated");
+                console.log(
+                    "The stream was not writeable, this likely indicates that the process was prematurely terminated"
+                );
                 return;
             }
 

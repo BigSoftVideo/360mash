@@ -2,14 +2,14 @@ import * as React from "react";
 import { FilterAttributes, FilterAttributeBinding } from "./filter-attributes";
 import { GrayscaleFilter } from "../../filters/grayscale";
 import { Conv360To2DFilter } from "../../filters/conv360to2d";
-import { HsvQuantizeFilter } from "../../filters/hsv-quantize";
+import { CartoonFilter } from "../../filters/cartoon";
 
 export function GrayscaleAttribsCreator(filter: GrayscaleFilter): JSX.Element {
     return <FilterAttributes filter={filter} attributes={new Map()}></FilterAttributes>;
 }
 
-export function HsvQuantizeAttribsCreator(filter: HsvQuantizeFilter): JSX.Element {
-    let attributes = new Map<string, FilterAttributeBinding<HsvQuantizeFilter>>();
+export function CartoonAttribsCreator(filter: CartoonFilter): JSX.Element {
+    let attributes = new Map<string, FilterAttributeBinding<CartoonFilter>>();
     attributes.set("Outline Intensity", {
         getter: (f) => filter.edgeIntensity,
         setter: (f, v) => {
