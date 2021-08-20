@@ -24,6 +24,7 @@ import { ExportPanel } from "./ui-mixed/export-panel/export-panel";
 import {
     Conv360To2DAttribsCreator,
     GrayscaleAttribsCreator,
+    HsvQuantizeAttribsCreator,
 } from "./ui-mixed/filter-attributes/creators";
 import { ExportInfoProvider, ExportOverlay } from "./ui-mixed/export-overlay/export-overlay";
 
@@ -32,6 +33,7 @@ export interface AppState {
     //videoUrl: string;
     videoAspectRatio: number;
     exportInProgress: boolean;
+    selectedFilterId: FilterId | null;
 }
 
 export class App extends React.Component<{}, AppState> {
@@ -46,7 +48,6 @@ export class App extends React.Component<{}, AppState> {
 
     exportInfoProvider: ExportInfoProvider;
 
-    selectedFilterId: FilterId | null;
     filterAttribs: Map<string, (f: FilterBase) => JSX.Element>;
 
     constructor(params: any) {
@@ -54,6 +55,7 @@ export class App extends React.Component<{}, AppState> {
         this.state = {
             videoAspectRatio: 16 / 9,
             exportInProgress: false,
+            selectedFilterId: CONV360T02D_FILTER_NAME,
         };
 
         this.encoder = new Encoder();
@@ -83,8 +85,7 @@ export class App extends React.Component<{}, AppState> {
                 return new Conv360To2DFilter(gl, w, h);
             },
         });
-        // TODO: replace this with a real attribute creator
-        this.filterAttribs.set(HSV_QUANTIZE_FILTER_NAME, GrayscaleAttribsCreator);
+        this.filterAttribs.set(HSV_QUANTIZE_FILTER_NAME, HsvQuantizeAttribsCreator);
         this.filterManager.registerFilter({
             id: HSV_QUANTIZE_FILTER_NAME,
             creator: (gl, w, h): FilterBase => {
@@ -99,7 +100,6 @@ export class App extends React.Component<{}, AppState> {
             },
         });
         this.videoManager = null;
-        this.selectedFilterId = CONV360T02D_FILTER_NAME;
     }
 
     componentDidMount() {
@@ -126,23 +126,30 @@ export class App extends React.Component<{}, AppState> {
         let exportPanel;
         let filterAttributes = undefined;
         if (this.videoManager) {
-            filterList = <FilterList pipeline={this.videoManager.pipeline}></FilterList>;
+            filterList = (
+                <FilterList
+                    pipeline={this.videoManager.pipeline}
+                    selectionChanged={(selectedId) => {
+                        this.setState({ selectedFilterId: selectedId });
+                    }}
+                ></FilterList>
+            );
             exportPanel = (
                 <ExportPanel
                     encoder={this.encoder}
                     decoder={this.decoder}
                     videoManager={this.videoManager}
-                    exportStateChange={inProgress => {
-                        this.setState({exportInProgress: inProgress});
+                    exportStateChange={(inProgress) => {
+                        this.setState({ exportInProgress: inProgress });
                     }}
                     infoProvider={this.exportInfoProvider}
                 ></ExportPanel>
             );
-            if (this.selectedFilterId) {
-                let creator = this.filterAttribs.get(this.selectedFilterId);
+            if (this.state.selectedFilterId) {
+                let creator = this.filterAttribs.get(this.state.selectedFilterId);
                 if (creator) {
                     let filters = this.videoManager.pipeline.getFilters();
-                    let selFilter = filters.find((v) => v.id === this.selectedFilterId);
+                    let selFilter = filters.find((v) => v.id === this.state.selectedFilterId);
                     if (selFilter) {
                         filterAttributes = creator(selFilter.filter);
                     } else {
@@ -160,9 +167,7 @@ export class App extends React.Component<{}, AppState> {
         let exportOverlay = undefined;
         if (this.state.exportInProgress) {
             exportOverlay = (
-                <ExportOverlay
-                    infoProvider={this.exportInfoProvider}
-                ></ExportOverlay>
+                <ExportOverlay infoProvider={this.exportInfoProvider}></ExportOverlay>
             );
         }
 

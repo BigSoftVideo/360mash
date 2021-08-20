@@ -1,0 +1,12 @@
+.checklist-root {
+    padding-inline-start: 0;
+}
+
+.checklist-root li {
+    display: flex;
+    flex-direction: row;
+}
+
+.checklist-item-name {
+    flex-grow: 1;
+}

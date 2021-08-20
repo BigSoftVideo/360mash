@@ -86,8 +86,6 @@ export class NumberInput extends React.Component<NumberInputProps> {
         window.addEventListener("mousemove", this.mouseMove);
         window.addEventListener("keydown", this.onKeyDown);
         window.addEventListener("keyup", this.onKeyUp);
-
-        // this.setState({value: this.props.startingValue});
     }
 
     componentWillUnmount() {

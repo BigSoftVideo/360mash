@@ -1,4 +1,3 @@
-
 import { FilterShader, RenderTexture } from "../video/core";
 import { FilterBase } from "../video/filter-base";
 
@@ -8,8 +7,11 @@ export class HsvQuantizeShader extends FilterShader {
     width: number;
     height: number;
 
+    edgeIntensity: number;
+
     protected uInvWidth: WebGLUniformLocation | null;
     protected uInvHeight: WebGLUniformLocation | null;
+    protected uEdgeIntensity: WebGLUniformLocation | null;
 
     constructor(gl: WebGLRenderingContext) {
         let fragmentSrc = `
@@ -18,13 +20,14 @@ export class HsvQuantizeShader extends FilterShader {
 
             uniform float uInvWidth;
             uniform float uInvHeight;
+            uniform float uEdgeIntensity;
             uniform sampler2D uSampler;
 
-            // Assuming a gamma of 2, convert from the display gamma to linear color space
+            // Assuming a gamma of 2.2, convert from the display gamma to linear color space
             vec3 displayToLinear(vec3 color) {
                 return pow(color, vec3(0.455));
             }
-            // Assuming a gamma of 2, convert from linear color space to the display color space
+            // Assuming a gamma of 2.2, convert from linear color space to the display color space
             vec3 linearToDisplay(vec3 color) {
                 return pow(color, vec3(2.2));
             }
@@ -123,34 +126,35 @@ export class HsvQuantizeShader extends FilterShader {
                 hsv.z = quantize(hsv.z, 6.0);
                 vec3 outRgb = fromHsv(hsv);
 
-                float edge = edgeStrength(vTexCoord);
+                float edge = edgeStrength(vTexCoord) * uEdgeIntensity;
 
                 outRgb *= 1.0 - smoothstep(0.04, 0.1, edge);
 
                 gl_FragColor = vec4(outRgb, 1.0);
             }`;
-        let fragmentShader = FilterShader.createShader(
-            gl,
-            gl.FRAGMENT_SHADER,
-            fragmentSrc
-        );
+        let fragmentShader = FilterShader.createShader(gl, gl.FRAGMENT_SHADER, fragmentSrc);
         super(gl, fragmentShader);
 
         this.width = 1280;
         this.height = 720;
 
+        this.edgeIntensity = 1;
+
         if (this.shaderProgram) {
             this.uInvWidth = gl.getUniformLocation(this.shaderProgram, "uInvWidth");
             this.uInvHeight = gl.getUniformLocation(this.shaderProgram, "uInvHeight");
+            this.uEdgeIntensity = gl.getUniformLocation(this.shaderProgram, "uEdgeIntensity");
         } else {
             this.uInvWidth = null;
             this.uInvHeight = null;
+            this.uEdgeIntensity = null;
         }
     }
 
     protected updateUniforms(gl: WebGLRenderingContext): void {
         gl.uniform1f(this.uInvWidth, 1 / this.width);
         gl.uniform1f(this.uInvHeight, 1 / this.height);
+        gl.uniform1f(this.uEdgeIntensity, this.edgeIntensity);
     }
 }
 
@@ -163,13 +167,13 @@ export class HsvQuantizeFilter extends FilterBase {
         this.gl = gl;
         this.shader = new HsvQuantizeShader(gl);
         this.rt = new RenderTexture(gl);
-        
+
         this.setOutputDimensions(outw, outh);
     }
 
     setOutputDimensions(width: number, height: number): void {
         // this should actually be set to the input dimensions
-        // but that's a bit more difficult to get so as a 
+        // but that's a bit more difficult to get so as a
         // placeholder we are using the output dimensions instead
         this.shader.width = width;
         this.shader.height = height;
@@ -189,5 +193,11 @@ export class HsvQuantizeFilter extends FilterBase {
         this.shader.draw(gl);
         return this.rt;
     }
-}
 
+    get edgeIntensity(): number {
+        return this.shader.edgeIntensity;
+    }
+    set edgeIntensity(value: number) {
+        this.shader.edgeIntensity = value;
+    }
+}

@@ -6,6 +6,9 @@ import { NumberInput } from "../../ui-presentational/number-input/number-input";
 export interface FilterAttributeBinding<FilterT extends FilterBase> {
     setter: (filter: FilterT, value: number) => void;
     getter: (filter: FilterT) => number;
+
+    minValue?: number;
+    maxValue?: number;
 }
 
 export interface FilterAttributesProps<FilterT extends FilterBase> {
@@ -35,8 +38,9 @@ export class FilterAttributes<FilterT extends FilterBase> extends React.Componen
                         <NumberInput
                             onChanged={(val) => onChange(val)}
                             value={value}
+                            minValue={bindings.minValue}
+                            maxValue={bindings.maxValue}
                         ></NumberInput>
-                        {/* <input type="number" value={value} onChange={onChange}></input> */}
                     </label>
                 </div>
             );
