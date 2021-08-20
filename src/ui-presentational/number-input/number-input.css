@@ -1,0 +1,9 @@
+.number-input-root {
+    display: inline;
+
+    padding: 0.1em;
+    border: 1px solid gray;
+    border-radius: 3px;
+
+    cursor: ns-resize;
+}
