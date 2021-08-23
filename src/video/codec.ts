@@ -205,7 +205,10 @@ export class Encoder {
                 "-map",
                 "0:v:0",
                 "-map",
-                "1:a:0",
+
+                // The question mark indicates that it's okay if the source does NOT
+                // have an audio track
+                "1:a:0?",
                 outFileNameArg,
             ],
             {
