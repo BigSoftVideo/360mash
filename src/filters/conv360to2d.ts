@@ -210,7 +210,7 @@ export class Conv360To2DFilter extends FilterBase {
         if (val) {
             this.shader.outAspect = this.targetAspect;
         } else {
-            this.shader.outAspect = this.shader.inAspect;
+            this.shader.outAspect = this.inputAspect;
         }
     }
 
