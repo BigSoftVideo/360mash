@@ -27,6 +27,7 @@ import {
     CartoonAttribsCreator,
 } from "./ui-mixed/filter-attributes/creators";
 import { ExportInfoProvider, ExportOverlay } from "./ui-mixed/export-overlay/export-overlay";
+import { DimensionChangeListener } from "./video/filter-pipeline";
 
 // TODO: move this to a redux store maybe
 export interface AppState {
@@ -40,6 +41,8 @@ export class App extends React.Component<{}, AppState> {
     previewPanelRef: React.RefObject<PreviewPanel>;
     filterManager: FilterManager;
     videoManager: VideoManager | null;
+    outputDimensionChangeListener: DimensionChangeListener;
+    outputDimensionsInitialized: boolean;
     onResized: () => void;
     onVideoReady: (video: Video) => void;
 
@@ -50,6 +53,8 @@ export class App extends React.Component<{}, AppState> {
 
     filterAttribs: Map<string, (f: FilterBase) => JSX.Element>;
 
+    
+
     constructor(params: any) {
         super(params);
         this.state = {
@@ -57,13 +62,19 @@ export class App extends React.Component<{}, AppState> {
             exportInProgress: false,
             selectedFilterId: CONV360T02D_FILTER_NAME,
         };
-
         this.encoder = new Encoder();
         this.decoder = new Decoder();
-
         this.exportInfoProvider = new ExportInfoProvider();
 
         this.previewPanelRef = React.createRef();
+
+        this.outputDimensionsInitialized = false;
+        this.outputDimensionChangeListener = (w, h) => {
+            this.outputDimensionsInitialized = true;
+            let aspectRatio = w / h;
+            console.log("Setting preview panel aspect to " + aspectRatio);
+            this.setState({ outputAspectRatio: aspectRatio });
+        };
         this.onResized = () => {
             if (this.previewPanelRef.current) {
                 this.previewPanelRef.current.resized();
@@ -71,10 +82,10 @@ export class App extends React.Component<{}, AppState> {
         };
         this.onVideoReady = (video) => {
             let htmlVideo = video.htmlVideo;
-            let aspectRatio = htmlVideo.videoWidth / htmlVideo.videoHeight;
-            console.log("Setting output aspect to " + aspectRatio);
+            if (!this.outputDimensionsInitialized) {
+                this.outputDimensionChangeListener(htmlVideo.videoWidth, htmlVideo.videoHeight);
+            }
             video.htmlVideo.play();
-            this.setState({ outputAspectRatio: aspectRatio });
         };
         this.filterManager = new FilterManager();
         this.filterAttribs = new Map();
@@ -100,6 +111,8 @@ export class App extends React.Component<{}, AppState> {
             },
         });
         this.videoManager = null;
+        
+        
     }
 
     componentDidMount() {
@@ -118,6 +131,7 @@ export class App extends React.Component<{}, AppState> {
 
         if (this.videoManager) {
             this.videoManager.removeVideoReadyListener(this.onVideoReady);
+            this.videoManager.pipeline.removeDimensionChangeListener(this.outputDimensionChangeListener);
         }
     }
 
@@ -213,6 +227,8 @@ export class App extends React.Component<{}, AppState> {
                     CARTOON_FILTER_NAME,
                     GRAYSCALE_FILTER_NAME,
                 ]);
+
+                this.videoManager.pipeline.addDimensionChangeListener(this.outputDimensionChangeListener);
             }
         }
     }

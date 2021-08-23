@@ -56,6 +56,8 @@ function isPackedPixelData(a: any): a is PackedPixelData {
     }
 }
 
+export type DimensionChangeListener = (w: number, h: number) => void;
+
 /**
  * This class stores a list of filters to apply to a video.
  *
@@ -79,7 +81,7 @@ export class FilterPipeline {
 
     protected lastRt: RenderTexture | null;
 
-
+    protected dimensionChangeListeners: Set<DimensionChangeListener>;
 
     //copyToCpu: boolean;
 
@@ -115,6 +117,7 @@ export class FilterPipeline {
             h: 0,
         };
         this.lastRt = null;
+        this.dimensionChangeListeners = new Set();
         let gl = canvas.getContext("webgl2");
         if (!gl) {
             throw new Error("FATAL: Requested webgl context was null.");
@@ -128,6 +131,14 @@ export class FilterPipeline {
                 active: true,
             });
         }
+    }
+
+    addDimensionChangeListener(listener: DimensionChangeListener) {
+        this.dimensionChangeListeners.add(listener);
+    }
+
+    removeDimensionChangeListener(listener: DimensionChangeListener) {
+        this.dimensionChangeListeners.delete(listener);
     }
     
     setTargetDimensions(width: number, height: number) {
@@ -154,6 +165,9 @@ export class FilterPipeline {
             }
         }
         console.log("Finished updating the pipeline dimensions", prevOutW, prevOutH, "aspect:", prevOutW/prevOutH);
+        for (const listener of this.dimensionChangeListeners) {
+            listener(prevOutW, prevOutH);
+        }
         return [prevOutW, prevOutH];
     }
 

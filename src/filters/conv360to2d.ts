@@ -1,6 +1,6 @@
 import * as glm from "gl-matrix";
 
-import { FilterShader, fitToAspect, RenderTexture, TargetDimensions } from "../video/core";
+import { FilterShader, fitToAspect, getTargetAspect, RenderTexture, TargetDimensions } from "../video/core";
 import { FilterBase } from "../video/filter-base";
 
 export const CONV360T02D_FILTER_NAME = "360 to 2D";
@@ -12,11 +12,14 @@ export class MashProjectionShader extends FilterShader {
     public fovY: number;
     public rotRight: number;
     public rotUp: number;
-    public inAspect: number;
+    // public inAspect: number;
+    public outAspect: number;
 
     protected uRotate: WebGLUniformLocation | null;
     protected uFov: WebGLUniformLocation | null;
-    protected uInAspect: WebGLUniformLocation | null;
+    // protected uInAspect: WebGLUniformLocation | null;
+    // protected uOutOverInAspect: WebGLUniformLocation | null;
+    protected uOutAspect: WebGLUniformLocation | null;
     protected rotationMat: glm.mat4;
     constructor(gl: WebGLRenderingContext) {
         let fragmentSrc = `
@@ -25,7 +28,7 @@ export class MashProjectionShader extends FilterShader {
             uniform sampler2D uSampler;
             uniform mat4 uRotate;
             uniform float uFov;
-            uniform float uInAspect;
+            uniform float uOutAspect;
             void main() {
                 const float PI = 3.1415926535;
                 vec4 red = vec4(1.0, 0.1, 0.1, 1.0);
@@ -35,10 +38,10 @@ export class MashProjectionShader extends FilterShader {
                 vec2 offsetPos = vec2(vTexCoord.x - 0.5, vTexCoord.y - 0.5);
 
                 // See https://en.wikipedia.org/wiki/Lambert_azimuthal_equal-area_projection
-                float X = offsetPos.x * uInAspect * fov * 2.0;
+                float X = offsetPos.x * uOutAspect * fov * 2.0;
                 float Y = offsetPos.y * fov * 2.0;
 
-                float maxDist = sqrt(uInAspect*uInAspect + 1.0);
+                float maxDist = sqrt(uOutAspect*uOutAspect + 1.0);
                 float dist = sqrt(X*X + Y*Y);
                 float distNormalized = dist/maxDist;
                 float magic = sin(PI * 0.5 * distNormalized);
@@ -60,7 +63,9 @@ export class MashProjectionShader extends FilterShader {
                 float azimuth = direction.x > 0.0 ? atan_yx : PI + atan_yx;
                 float elevation = asin(direction.z);
                 
-                gl_FragColor = texture2D(uSampler, vec2(azimuth / (2.0*PI), elevation / PI + 0.5));
+                float outU = azimuth / (2.0*PI);
+                float outV = elevation / PI + 0.5;
+                gl_FragColor = texture2D(uSampler, vec2(outU, outV));
             }`;
         let fragmentShader = FilterShader.createShader(gl, gl.FRAGMENT_SHADER, fragmentSrc);
 
@@ -69,18 +74,23 @@ export class MashProjectionShader extends FilterShader {
         this.fovY = Math.PI;
         this.rotRight = 0;
         this.rotUp = 0;
-        this.inAspect = 0;
+        // this.inAspect = 0;
+        this.outAspect = 1;
 
         this.rotationMat = glm.mat4.create();
         glm.mat4.identity(this.rotationMat);
         if (this.shaderProgram) {
             this.uRotate = gl.getUniformLocation(this.shaderProgram, "uRotate");
             this.uFov = gl.getUniformLocation(this.shaderProgram, "uFov");
-            this.uInAspect = gl.getUniformLocation(this.shaderProgram, "uInAspect");
+            this.uOutAspect = gl.getUniformLocation(this.shaderProgram, "uOutAspect");
+            // this.uInAspect = gl.getUniformLocation(this.shaderProgram, "uInAspect");
+            // this.uOutOverInAspect = gl.getUniformLocation(this.shaderProgram, "uOutOverInAspect");
         } else {
             this.uFov = null;
             this.uRotate = null;
-            this.uInAspect = null;
+            this.uOutAspect = null;
+            // this.uInAspect = null;
+            // this.uOutOverInAspect = null;
         }
     }
 
@@ -100,13 +110,19 @@ export class MashProjectionShader extends FilterShader {
 
         gl.uniformMatrix4fv(this.uRotate, false, this.rotationMat);
         gl.uniform1f(this.uFov, this.fovY);
-        gl.uniform1f(this.uInAspect, this.inAspect);
+        gl.uniform1f(this.uOutAspect, this.outAspect);
+        // gl.uniform1f(this.uInAspect, this.inAspect);
+        // gl.uniform1f(this.uOutOverInAspect, this.outAspect / this.inAspect);
     }
 }
 
 export class Conv360To2DFilter extends FilterBase {
     protected shader: MashProjectionShader;
     protected rt: RenderTexture;
+
+    protected inputAspect: number;
+    protected targetAspect: number;
+    public _useTargetAspect: boolean;
 
     previewCanvas: HTMLCanvasElement | null;
     // protected previewTexture: WebGLTexture;
@@ -118,23 +134,30 @@ export class Conv360To2DFilter extends FilterBase {
         this.shader = new MashProjectionShader(gl);
         this.rt = new RenderTexture(gl);
         this.previewPixelArray = new Uint8Array();
+        this.targetAspect = 1;
+        this.inputAspect = 1;
+        this._useTargetAspect = true;
 
         this.previewCanvas = null;
     }
 
     updateDimensions(inW: number, inH: number, targetDimensions: TargetDimensions): [number, number] {
-        this.shader.inAspect = inW / inH;
-        let [outW, outH] = fitToAspect(targetDimensions, this.shader.inAspect);
+        this.inputAspect = inW / inH;
+        this.targetAspect = getTargetAspect(targetDimensions);
+        let outputAspect;
+        if (this._useTargetAspect) {
+            outputAspect = this.targetAspect;
+            this.shader.outAspect = this.targetAspect;
+        } else {
+            this.shader.outAspect = inW / inH;
+            outputAspect = this.shader.outAspect;
+        }
+        let [outW, outH] = fitToAspect(targetDimensions, outputAspect);
         this.rt.ensureDimensions(outW, outH);
         this.previewPixelArray = new Uint8Array(outW * outH * 4);
         return [outW, outH];
     }
 
-    setOutputDimensions(width: number, height: number): void {
-        this.shader.inAspect = width / height;
-        this.rt.ensureDimensions(width, height);
-        
-    }
     dispose(): void {
         this.rt.dispose();
         this.shader.dispose();
@@ -168,6 +191,17 @@ export class Conv360To2DFilter extends FilterBase {
     }
     public set rotUp(val: number) {
         this.shader.rotUp = val;
+    }
+    public get useTargetAspect(): boolean {
+        return this._useTargetAspect;
+    }
+    public set useTargetAspect(val: boolean) {
+        this._useTargetAspect = val;
+        if (val) {
+            this.shader.outAspect = this.targetAspect;
+        } else {
+            this.shader.outAspect = this.shader.inAspect;
+        }
     }
 
     protected copyResultToPreview() {
