@@ -15,11 +15,7 @@ export class GrayscaleShader extends FilterShader {
                 gl_FragColor = vec4(vec3(0.333) * (c.r + c.g + c.b), 1.0);
                 //gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);
             }`;
-        let fragmentShader = FilterShader.createShader(
-            gl,
-            gl.FRAGMENT_SHADER,
-            fragmentSrc
-        );
+        let fragmentShader = FilterShader.createShader(gl, gl.FRAGMENT_SHADER, fragmentSrc);
         super(gl, fragmentShader);
     }
 
@@ -40,7 +36,11 @@ export class GrayscaleFilter extends FilterBase {
         this.rt = new RenderTexture(gl);
     }
 
-    updateDimensions(inW: number, inH: number, targetDimensions: TargetDimensions): [number, number] {
+    updateDimensions(
+        inW: number,
+        inH: number,
+        targetDimensions: TargetDimensions
+    ): [number, number] {
         // The output aspect matches the input aspect
         let outputAspect = inW / inH;
         let [outW, outH] = fitToAspect(targetDimensions, outputAspect);

@@ -1,4 +1,3 @@
-
 import "./export-panel.css";
 
 import * as React from "react";
@@ -50,7 +49,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         this.selectedOutputWidth = 3840;
         this.selectedEncoder = "h264";
         this.state = {
-            statusMessage: null
+            statusMessage: null,
         };
     }
 
@@ -83,44 +82,54 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             let elements = [];
             let i = 0;
             for (const segment of this.state.statusMessage.split("\n")) {
-                elements.push((
-                    <div key={i++}>{segment}</div>
-                ));
+                elements.push(<div key={i++}>{segment}</div>);
             }
-            statusMessage = (
-                <div className="export-panel-status-message">
-                    {elements}
-                </div>
-            );
+            statusMessage = <div className="export-panel-status-message">{elements}</div>;
         }
 
         return (
             <div className="export-panel-root">
                 <div className="export-panel-flex-section">
                     <div className="export-panel-text-line">
-                        <input ref={this.ffmpegFolderRef} placeholder="ffmpeg.exe folder path" onChange={event => {
-                            settings.setValue("ffmpegFolderPath", event.target.value);
-                        }}></input>
+                        <input
+                            ref={this.ffmpegFolderRef}
+                            placeholder="ffmpeg.exe folder path"
+                            onChange={(event) => {
+                                settings.setValue("ffmpegFolderPath", event.target.value);
+                            }}
+                        ></input>
                     </div>
                     <div className="export-panel-text-line">
-                        <input ref={this.pathRef} placeholder="Output folder path" onChange={event => {
-                            settings.setValue("outputPath", event.target.value);
-                        }}></input>
+                        <input
+                            ref={this.pathRef}
+                            placeholder="Output folder path"
+                            onChange={(event) => {
+                                settings.setValue("outputPath", event.target.value);
+                            }}
+                        ></input>
                     </div>
-                    <select name="resolutions" onChange={event => {
-                        let [w, h] = event.target.value.split("*").map(v => Number.parseInt(v));
-                        this.selectedOutputWidth = w;
-                        this.selectedOutputHeight = h;
-                        console.log("Selected resolution is", w, h);
-                    }}>
+                    <select
+                        name="resolutions"
+                        onChange={(event) => {
+                            let [w, h] = event.target.value
+                                .split("*")
+                                .map((v) => Number.parseInt(v));
+                            this.selectedOutputWidth = w;
+                            this.selectedOutputHeight = h;
+                            console.log("Selected resolution is", w, h);
+                        }}
+                    >
                         <option value="3840*2160">4K (3840 × 2160)</option>
                         <option value="1920*1080">Full HD (1920 × 1080)</option>
                         <option value="1280*720">HD (1280 × 720)</option>
                         <option value="854*480">480p (854 × 480)</option>
                     </select>
-                    <select name="encoders" onChange={event => {
-                        this.selectedEncoder = event.target.value;
-                    }}>
+                    <select
+                        name="encoders"
+                        onChange={(event) => {
+                            this.selectedEncoder = event.target.value;
+                        }}
+                    >
                         <option value="h264">H.264 (CPU)</option>
                         <option value="h264_nvenc">H.264 NVENC (GPU)</option>
                         <option value="h264_videotoolbox">H.264 VideoToolbox (GPU)</option>
@@ -210,7 +219,13 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             fps: outFps,
             audioFilePath: this.props.videoManager.video.filePath,
         };
-        this.props.encoder.startEncoding(ffmpegParentPath, fullpath, encoderDesc, getImage, this.encodingExitHandler.bind(this));
+        this.props.encoder.startEncoding(
+            ffmpegParentPath,
+            fullpath,
+            encoderDesc,
+            getImage,
+            this.encodingExitHandler.bind(this)
+        );
     }
 
     protected startFFmpegExport() {
@@ -264,7 +279,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                 h: outHeight,
             };
             this.props.videoManager.pipeline.fillPixelData(targetPixelBuffer);
-            let progress = (outFrameId / outFps) / duration;
+            let progress = outFrameId / outFps / duration;
             nextOutFrameId = outFrameId + 1;
 
             this.props.infoProvider.reportProgress(progress);
@@ -300,9 +315,15 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                 height: outHeight,
                 fps: outFps,
                 encoder: this.selectedEncoder,
-                audioFilePath: video.filePath
+                audioFilePath: video.filePath,
             };
-            this.props.encoder.startEncoding(ffmpegParentPath, fullpath, encoderDesc, getImage, this.encodingExitHandler.bind(this));
+            this.props.encoder.startEncoding(
+                ffmpegParentPath,
+                fullpath,
+                encoderDesc,
+                getImage,
+                this.encodingExitHandler.bind(this)
+            );
         };
         let receivedImage = (buffer: Uint8Array) => {
             inFrameIdx += 1;

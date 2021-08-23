@@ -169,7 +169,11 @@ export class CartoonFilter extends FilterBase {
         this.rt = new RenderTexture(gl);
     }
 
-    updateDimensions(inW: number, inH: number, targetDimensions: TargetDimensions): [number, number] {
+    updateDimensions(
+        inW: number,
+        inH: number,
+        targetDimensions: TargetDimensions
+    ): [number, number] {
         this.shader.width = inW;
         this.shader.height = inH;
         // The output aspect matches the input aspect

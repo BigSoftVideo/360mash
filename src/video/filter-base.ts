@@ -37,7 +37,11 @@ export abstract class FilterBase {
      * Update the internal textures, and also return what the output dimensions will be, given
      * the input parameters.
      */
-    abstract updateDimensions(inW: number, inH: number, targetDimensions: TargetDimensions): [number, number];
+    abstract updateDimensions(
+        inW: number,
+        inH: number,
+        targetDimensions: TargetDimensions
+    ): [number, number];
 
     /**
      * The filter must resize its affected textures to the appropriate size.
@@ -46,7 +50,7 @@ export abstract class FilterBase {
 
     /**
      * Called before the filter is released by the pipeline.
-     * 
+     *
      * This should free up all GPU resources owned by the filter.
      */
     abstract dispose(): void;

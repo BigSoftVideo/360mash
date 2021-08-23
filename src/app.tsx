@@ -53,8 +53,6 @@ export class App extends React.Component<{}, AppState> {
 
     filterAttribs: Map<string, (f: FilterBase) => JSX.Element>;
 
-    
-
     constructor(params: any) {
         super(params);
         this.state = {
@@ -83,7 +81,10 @@ export class App extends React.Component<{}, AppState> {
         this.onVideoReady = (video) => {
             let htmlVideo = video.htmlVideo;
             if (!this.outputDimensionsInitialized) {
-                this.outputDimensionChangeListener(htmlVideo.videoWidth, htmlVideo.videoHeight);
+                this.outputDimensionChangeListener(
+                    htmlVideo.videoWidth,
+                    htmlVideo.videoHeight
+                );
             }
             video.htmlVideo.play();
         };
@@ -111,8 +112,6 @@ export class App extends React.Component<{}, AppState> {
             },
         });
         this.videoManager = null;
-        
-        
     }
 
     componentDidMount() {
@@ -131,7 +130,9 @@ export class App extends React.Component<{}, AppState> {
 
         if (this.videoManager) {
             this.videoManager.removeVideoReadyListener(this.onVideoReady);
-            this.videoManager.pipeline.removeDimensionChangeListener(this.outputDimensionChangeListener);
+            this.videoManager.pipeline.removeDimensionChangeListener(
+                this.outputDimensionChangeListener
+            );
         }
     }
 
@@ -228,7 +229,9 @@ export class App extends React.Component<{}, AppState> {
                     GRAYSCALE_FILTER_NAME,
                 ]);
 
-                this.videoManager.pipeline.addDimensionChangeListener(this.outputDimensionChangeListener);
+                this.videoManager.pipeline.addDimensionChangeListener(
+                    this.outputDimensionChangeListener
+                );
             }
         }
     }

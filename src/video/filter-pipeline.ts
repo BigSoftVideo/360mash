@@ -140,7 +140,7 @@ export class FilterPipeline {
     removeDimensionChangeListener(listener: DimensionChangeListener) {
         this.dimensionChangeListeners.delete(listener);
     }
-    
+
     setTargetDimensions(width: number, height: number) {
         this.targetWidth = width;
         this.targetHeight = height;
@@ -149,7 +149,9 @@ export class FilterPipeline {
     /** Returns the output resolution of the last filter */
     updateDimensions(): [number, number] {
         if (this.videoAsTexture === null) {
-            throw new Error("Cannot update the dimensions at this point, because the input texture was not yet initialized");
+            throw new Error(
+                "Cannot update the dimensions at this point, because the input texture was not yet initialized"
+            );
         }
         let prevOutW = this.videoAsTexture.width;
         let prevOutH = this.videoAsTexture.height;
@@ -159,12 +161,22 @@ export class FilterPipeline {
         };
         for (const filter of this.filters) {
             if (filter.active) {
-                let [outW, outH] = filter.filter.updateDimensions(prevOutW, prevOutH, targetDim);
+                let [outW, outH] = filter.filter.updateDimensions(
+                    prevOutW,
+                    prevOutH,
+                    targetDim
+                );
                 prevOutW = outW;
                 prevOutH = outH;
             }
         }
-        console.log("Finished updating the pipeline dimensions", prevOutW, prevOutH, "aspect:", prevOutW/prevOutH);
+        console.log(
+            "Finished updating the pipeline dimensions",
+            prevOutW,
+            prevOutH,
+            "aspect:",
+            prevOutW / prevOutH
+        );
         for (const listener of this.dimensionChangeListeners) {
             listener(prevOutW, prevOutH);
         }
@@ -174,7 +186,7 @@ export class FilterPipeline {
     getTargetDimensions(): [number, number] {
         return [this.targetWidth, this.targetHeight];
     }
-    
+
     getRealOutputDimensions(imgSource: HTMLVideoElement | PackedPixelData): [number, number] {
         let [inWidth, inHeight] = FilterPipeline.getImgSrcDimensions(imgSource);
         this.updateVideoSize(inWidth, inHeight);
@@ -191,10 +203,7 @@ export class FilterPipeline {
      * @param id An identifier for a filtered registered with the filter manager.
      */
     insertFilter(index: number, id: FilterId) {
-        let newFilter = this.filterManager.createFilter(
-            id,
-            this.gl,
-        );
+        let newFilter = this.filterManager.createFilter(id, this.gl);
         this.filters.splice(index, 0, { id: id, filter: newFilter, active: true });
         this.outputDimensionsValid = false;
     }
@@ -243,10 +252,7 @@ export class FilterPipeline {
             if (filterDesc) {
                 existing.delete(id);
             } else {
-                let f = this.filterManager.createFilter(
-                    id,
-                    this.gl,
-                );
+                let f = this.filterManager.createFilter(id, this.gl);
                 filterDesc = {
                     id: id,
                     filter: f,
@@ -277,7 +283,7 @@ export class FilterPipeline {
         // The assignment wouldn't be necessary, we just do this to tell the compiler
         // that `this.videoAsTexture` is set to some non-null value.
         this.videoAsTexture = this.updateVideoSize(inWidth, inHeight);
-        
+
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.videoAsTexture.texture);
         if (isPackedPixelData(imgSource)) {
@@ -306,7 +312,9 @@ export class FilterPipeline {
         return prevOutput;
     }
 
-    public static getImgSrcDimensions(imgSource: HTMLVideoElement | PackedPixelData): [number, number] {
+    public static getImgSrcDimensions(
+        imgSource: HTMLVideoElement | PackedPixelData
+    ): [number, number] {
         let inWidth: number;
         let inHeight: number;
         if (isPackedPixelData(imgSource)) {
@@ -341,7 +349,10 @@ export class FilterPipeline {
                 texture: tex,
             };
             this.updateDimensions();
-        } else if (inWidth != this.videoAsTexture.width || inHeight != this.videoAsTexture.height) {
+        } else if (
+            inWidth != this.videoAsTexture.width ||
+            inHeight != this.videoAsTexture.height
+        ) {
             this.videoAsTexture = {
                 width: inWidth,
                 height: inHeight,

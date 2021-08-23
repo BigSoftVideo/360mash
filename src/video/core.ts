@@ -2,11 +2,11 @@ import { read } from "fs";
 
 /** Once the user specifies the output dimension the final resolution might slightly differ
  * from the specified resolution.
- * 
+ *
  * For example if the user specifies 720p (1280*720) but the output video is an equirectangular
  * video, then the output must have an aspect ratio of 2. But the standard 720p aspect ratio is
- * 16:9. 
- * 
+ * 16:9.
+ *
  * The exact contents of this interface might change in the future.
  */
 export interface TargetDimensions {
@@ -20,14 +20,16 @@ export function getTargetAspect(dimensions: TargetDimensions): number {
 
 /** Returns a pair of width and height, that closely match the resolution of `dimensions`
  * but prioritizes to match the aspect ratio specified by `targetAspect`.
- * 
+ *
  * The aspect ratio of the output dimensions will be practically identical to `targetAspect` but the
  * resolution might be different from `dimensions`.
- * 
+ *
  * The exact method of how the resulting resolution is found, may change in the future.
  */
-export function fitToAspect(dimensions: TargetDimensions, targetAspect: number): [number, number] {
-    
+export function fitToAspect(
+    dimensions: TargetDimensions,
+    targetAspect: number
+): [number, number] {
     // In this current implementation, let's just try to maximize the output resolution
     let originalAspect = dimensions.width / dimensions.height;
     if (originalAspect > targetAspect) {
@@ -127,10 +129,7 @@ export abstract class FilterShader {
     //protected outTexture: WebGLTexture | null;
     protected vertexBuffer: WebGLBuffer | null;
     protected indexBuffer: WebGLBuffer | null;
-    constructor(
-        gl: WebGLRenderingContext,
-        fragmentShader: WebGLShader
-    ) {
+    constructor(gl: WebGLRenderingContext, fragmentShader: WebGLShader) {
         this.gl = gl;
         let vertexSrc = `
             attribute vec4 position;

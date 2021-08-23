@@ -1,6 +1,12 @@
 import * as glm from "gl-matrix";
 
-import { FilterShader, fitToAspect, getTargetAspect, RenderTexture, TargetDimensions } from "../video/core";
+import {
+    FilterShader,
+    fitToAspect,
+    getTargetAspect,
+    RenderTexture,
+    TargetDimensions,
+} from "../video/core";
 import { FilterBase } from "../video/filter-base";
 
 export const CONV360T02D_FILTER_NAME = "360 to 2D";
@@ -141,7 +147,11 @@ export class Conv360To2DFilter extends FilterBase {
         this.previewCanvas = null;
     }
 
-    updateDimensions(inW: number, inH: number, targetDimensions: TargetDimensions): [number, number] {
+    updateDimensions(
+        inW: number,
+        inH: number,
+        targetDimensions: TargetDimensions
+    ): [number, number] {
         this.inputAspect = inW / inH;
         this.targetAspect = getTargetAspect(targetDimensions);
         let outputAspect;
