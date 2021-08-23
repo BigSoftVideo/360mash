@@ -120,6 +120,7 @@ export class Encoder {
     }
 
     resetEncodingSession() {
+        console.log("Resetting the encoding session");
         this.pixelBuffer = new Uint8Array();
         this.ffmpegProc = null;
         this.width = 0;
@@ -218,7 +219,7 @@ export class Encoder {
 
         this.ffmpegProc.stdin.on("finish", () => {
             console.log("The stdin of ffmpeg was successfully closed");
-            this.resetEncodingSession();
+            // this.resetEncodingSession();
         });
 
         this.ffmpegProc.stdout.on("data", (data) => {
@@ -229,7 +230,13 @@ export class Encoder {
         });
 
         this.ffmpegProc.on("exit", (code) => {
-            onExit(code, this.ffmpegStderr);
+            let msg = this.ffmpegStderr;
+            console.log("Exiting the ffmpeg proc. The stderr was:", this.ffmpegStderr);
+            this.runningEncoding = false;
+            this.resetEncodingSession();
+            // It's important that we use a copy of the stderr, because that gets reset by the 
+            // resetEncodingSession
+            onExit(code, msg);
         });
 
         // Make sure we return before calling the callback. This is just nice because this guarantees
@@ -352,7 +359,7 @@ export class Encoder {
         this.runningEncoding = false;
         if (!this.ffmpegProc) {
             console.error(
-                "Expected to have a reference to ffmpegProc here but there wasn't any"
+                "Tried to end the encoding but the ffmpegProc was null"
             );
             this.resetEncodingSession();
             return;
@@ -558,6 +565,9 @@ export class Decoder {
         this.ffmpegProc = spawn(
             `${ffmpegBin}`,
             [
+                // Enabling HW acceleration here, doesn't seem to have any effect on the speed
+                // "-hwaccel",
+                // "d3d11va",
                 "-i",
                 `${inFilePath}`,
                 "-f",

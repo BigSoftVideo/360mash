@@ -250,6 +250,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         this.props.videoManager.stopRendering();
 
         const htmlVideo = this.props.videoManager.video.htmlVideo;
+        htmlVideo.pause();
         const pipeline = this.props.videoManager.pipeline;
         pipeline.setTargetDimensions(this.selectedOutputWidth, this.selectedOutputHeight);
         const [outWidth, outHeight] = pipeline.getRealOutputDimensions(htmlVideo);
