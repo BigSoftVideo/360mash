@@ -131,6 +131,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                         }}
                     >
                         <option value="h264">H.264 (CPU)</option>
+                        <option value="h264_amf">H.264 AMD AMF (GPU)</option>
                         <option value="h264_nvenc">H.264 NVENC (GPU)</option>
                         <option value="h264_videotoolbox">H.264 VideoToolbox (GPU)</option>
                     </select>
