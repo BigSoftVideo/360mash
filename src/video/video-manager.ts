@@ -48,8 +48,13 @@ export class VideoManager {
         };
         this.renderVideo = (pixelSource?: PackedPixelData) => {
             this.requestedAnimId = 0;
-            if (this._video) {
-                let outputFrame = this._pipeline.execute(pixelSource || this._video.htmlVideo);
+            let outputFrame: WebGLTexture | undefined;
+            if (pixelSource) {
+                outputFrame = this._pipeline.execute(pixelSource);
+            } else if (this._video) {
+                outputFrame = this._pipeline.execute(this._video.htmlVideo);
+            }
+            if (outputFrame) {
                 this.drawToCanvas(targetCanvas, outputFrame);
             }
             if (this.keepRendering) {

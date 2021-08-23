@@ -1,4 +1,4 @@
-import { FilterShader, RenderTexture } from "../video/core";
+import { FilterShader, fitToAspect, RenderTexture, TargetDimensions } from "../video/core";
 import { FilterBase } from "../video/filter-base";
 
 export const GRAYSCALE_FILTER_NAME = "Grayscale";
@@ -33,17 +33,21 @@ export class GrayscaleFilter extends FilterBase {
     protected shader: GrayscaleShader;
     protected rt: RenderTexture;
 
-    constructor(gl: WebGLRenderingContext, outw: number, outh: number) {
+    constructor(gl: WebGLRenderingContext) {
         super(gl);
         this.gl = gl;
         this.shader = new GrayscaleShader(gl);
         this.rt = new RenderTexture(gl);
-        this.rt.ensureDimensions(outw, outh);
     }
 
-    setOutputDimensions(width: number, height: number): void {
-        this.rt.ensureDimensions(width, height);
+    updateDimensions(inW: number, inH: number, targetDimensions: TargetDimensions): [number, number] {
+        // The output aspect matches the input aspect
+        let outputAspect = inW / inH;
+        let [outW, outH] = fitToAspect(targetDimensions, outputAspect);
+        this.rt.ensureDimensions(outW, outH);
+        return [outW, outH];
     }
+
     dispose(): void {
         this.rt.dispose();
         this.shader.dispose();

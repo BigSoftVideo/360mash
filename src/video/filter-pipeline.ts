@@ -1,7 +1,7 @@
 import { FilterBase, FilterId } from "./filter-base";
 import { FilterManager } from "./filter-manager";
 import { Video } from "./video-manager";
-import { GlTexture, RenderTexture } from "./core";
+import { GlTexture, RenderTexture, TargetDimensions } from "./core";
 
 export interface FilterDesc {
     id: FilterId;
@@ -65,8 +65,11 @@ function isPackedPixelData(a: any): a is PackedPixelData {
 export class FilterPipeline {
     protected filters: FilterDesc[];
     protected filterManager: FilterManager;
-    protected outWidth: number;
-    protected outHeight: number;
+    protected targetWidth: number;
+    protected targetHeight: number;
+
+    /** False if the output dimensions need to be updated (for example because a new filter was inserted) */
+    protected outputDimensionsValid: boolean;
     protected gl: WebGL2RenderingContext;
 
     protected videoAsTexture: GlTexture | null;
@@ -75,6 +78,8 @@ export class FilterPipeline {
     protected pixelData: AlignedPixelData;
 
     protected lastRt: RenderTexture | null;
+
+
 
     //copyToCpu: boolean;
 
@@ -96,8 +101,9 @@ export class FilterPipeline {
         canvas: HTMLCanvasElement,
         filterIds: FilterId[]
     ) {
-        this.outWidth = 1280;
-        this.outHeight = 720;
+        this.targetWidth = 1280;
+        this.targetHeight = 720;
+        this.outputDimensionsValid = false;
         this.filters = [];
         this.filterManager = filterManager;
         //this.copyToCpu = true;
@@ -118,22 +124,47 @@ export class FilterPipeline {
         for (const id of filterIds) {
             this.filters.push({
                 id: id,
-                filter: filterManager.createFilter(id, this.gl, this.outWidth, this.outHeight),
+                filter: filterManager.createFilter(id, this.gl),
                 active: true,
             });
         }
     }
-
-    setOutputDimensions(width: number, height: number) {
-        this.outWidth = width;
-        this.outHeight = height;
-        for (const filter of this.filters) {
-            filter.filter.setOutputDimensions(width, height);
-        }
+    
+    setTargetDimensions(width: number, height: number) {
+        this.targetWidth = width;
+        this.targetHeight = height;
     }
 
-    getOutputDimensions(): [number, number] {
-        return [this.outWidth, this.outHeight];
+    /** Returns the output resolution of the last filter */
+    updateDimensions(): [number, number] {
+        if (this.videoAsTexture === null) {
+            throw new Error("Cannot update the dimensions at this point, because the input texture was not yet initialized");
+        }
+        let prevOutW = this.videoAsTexture.width;
+        let prevOutH = this.videoAsTexture.height;
+        let targetDim: TargetDimensions = {
+            width: this.targetWidth,
+            height: this.targetHeight,
+        };
+        for (const filter of this.filters) {
+            if (filter.active) {
+                let [outW, outH] = filter.filter.updateDimensions(prevOutW, prevOutH, targetDim);
+                prevOutW = outW;
+                prevOutH = outH;
+            }
+        }
+        console.log("Finished updating the pipeline dimensions", prevOutW, prevOutH, "aspect:", prevOutW/prevOutH);
+        return [prevOutW, prevOutH];
+    }
+
+    getTargetDimensions(): [number, number] {
+        return [this.targetWidth, this.targetHeight];
+    }
+    
+    getRealOutputDimensions(imgSource: HTMLVideoElement | PackedPixelData): [number, number] {
+        let [inWidth, inHeight] = FilterPipeline.getImgSrcDimensions(imgSource);
+        this.updateVideoSize(inWidth, inHeight);
+        return this.updateDimensions();
     }
 
     getFilters(): readonly FilterDesc[] {
@@ -149,10 +180,9 @@ export class FilterPipeline {
         let newFilter = this.filterManager.createFilter(
             id,
             this.gl,
-            this.outWidth,
-            this.outHeight
         );
         this.filters.splice(index, 0, { id: id, filter: newFilter, active: true });
+        this.outputDimensionsValid = false;
     }
 
     /**
@@ -169,6 +199,7 @@ export class FilterPipeline {
             newFilters.push(this.filters[oldIndex]);
         }
         this.filters = newFilters;
+        this.outputDimensionsValid = false;
     }
 
     /**
@@ -179,6 +210,7 @@ export class FilterPipeline {
         for (let i = 0; i < active.length; i++) {
             this.filters[i].active = active[i];
         }
+        this.outputDimensionsValid = false;
     }
 
     /**
@@ -200,8 +232,6 @@ export class FilterPipeline {
                 let f = this.filterManager.createFilter(
                     id,
                     this.gl,
-                    this.outWidth,
-                    this.outHeight
                 );
                 filterDesc = {
                     id: id,
@@ -216,6 +246,7 @@ export class FilterPipeline {
             f.filter.dispose();
         }
         this.filters = newFilters;
+        this.outputDimensionsValid = false;
     }
 
     /**
@@ -227,47 +258,12 @@ export class FilterPipeline {
     execute(imgSource: HTMLVideoElement | PackedPixelData) {
         let gl = this.gl;
 
-        let width: number;
-        let height: number;
-        if (isPackedPixelData(imgSource)) {
-            width = imgSource.w;
-            height = imgSource.h;
-        } else {
-            width = imgSource.videoWidth;
-            height = imgSource.videoHeight;
-        }
+        let [inWidth, inHeight] = FilterPipeline.getImgSrcDimensions(imgSource);
 
-        // let htmlVideo = video.htmlVideo;
-
-        // let videoW = htmlVideo.videoWidth;
-        // let videoH = htmlVideo.videoHeight;
-        if (this.videoAsTexture === null) {
-            let tex = gl.createTexture();
-            if (!tex) {
-                throw new Error("Could not create texture");
-            }
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, tex);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-            // On webgl1, if the wrap is not set to CLAMP_TO_EDGE then non-power-of-two textures
-            // are not allowed. Otherwise it won't give an error, it'll just give all black pixels.
-            // but we are using webgl2 so this doesn't affect this code.
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-            this.videoAsTexture = {
-                width: width,
-                height: height,
-                texture: tex,
-            };
-        }
-        if (width != this.videoAsTexture.width || height != this.videoAsTexture.height) {
-            this.videoAsTexture = {
-                width,
-                height,
-                texture: this.videoAsTexture.texture,
-            };
-        }
+        // The assignment wouldn't be necessary, we just do this to tell the compiler
+        // that `this.videoAsTexture` is set to some non-null value.
+        this.videoAsTexture = this.updateVideoSize(inWidth, inHeight);
+        
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.videoAsTexture.texture);
         if (isPackedPixelData(imgSource)) {
@@ -275,8 +271,8 @@ export class FilterPipeline {
                 gl.TEXTURE_2D,
                 0,
                 gl.RGBA,
-                width,
-                height,
+                inWidth,
+                inHeight,
                 0,
                 gl.RGBA,
                 gl.UNSIGNED_BYTE,
@@ -294,6 +290,55 @@ export class FilterPipeline {
         }
         this.pixelDataValid = false;
         return prevOutput;
+    }
+
+    public static getImgSrcDimensions(imgSource: HTMLVideoElement | PackedPixelData): [number, number] {
+        let inWidth: number;
+        let inHeight: number;
+        if (isPackedPixelData(imgSource)) {
+            inWidth = imgSource.w;
+            inHeight = imgSource.h;
+        } else {
+            inWidth = imgSource.videoWidth;
+            inHeight = imgSource.videoHeight;
+        }
+        return [inWidth, inHeight];
+    }
+
+    protected updateVideoSize(inWidth: number, inHeight: number): GlTexture {
+        let gl = this.gl;
+        if (this.videoAsTexture === null) {
+            let tex = gl.createTexture();
+            if (!tex) {
+                throw new Error("Could not create texture");
+            }
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, tex);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            // On webgl1, if the wrap is not set to CLAMP_TO_EDGE then non-power-of-two textures
+            // are not allowed. Otherwise it won't give an error, it'll just give all black pixels.
+            // but we are using webgl2 so this doesn't affect this code.
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+            this.videoAsTexture = {
+                width: inWidth,
+                height: inHeight,
+                texture: tex,
+            };
+            this.updateDimensions();
+        } else if (inWidth != this.videoAsTexture.width || inHeight != this.videoAsTexture.height) {
+            this.videoAsTexture = {
+                width: inWidth,
+                height: inHeight,
+                texture: this.videoAsTexture.texture,
+            };
+            this.updateDimensions();
+        } else if (!this.outputDimensionsValid) {
+            this.updateDimensions();
+            this.outputDimensionsValid = true;
+        }
+        return this.videoAsTexture;
     }
 
     /**

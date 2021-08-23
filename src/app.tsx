@@ -31,7 +31,7 @@ import { ExportInfoProvider, ExportOverlay } from "./ui-mixed/export-overlay/exp
 // TODO: move this to a redux store maybe
 export interface AppState {
     //videoUrl: string;
-    videoAspectRatio: number;
+    outputAspectRatio: number;
     exportInProgress: boolean;
     selectedFilterId: FilterId | null;
 }
@@ -53,7 +53,7 @@ export class App extends React.Component<{}, AppState> {
     constructor(params: any) {
         super(params);
         this.state = {
-            videoAspectRatio: 16 / 9,
+            outputAspectRatio: 16 / 9,
             exportInProgress: false,
             selectedFilterId: CONV360T02D_FILTER_NAME,
         };
@@ -72,31 +72,31 @@ export class App extends React.Component<{}, AppState> {
         this.onVideoReady = (video) => {
             let htmlVideo = video.htmlVideo;
             let aspectRatio = htmlVideo.videoWidth / htmlVideo.videoHeight;
-            console.log("Setting aspect to " + aspectRatio);
+            console.log("Setting output aspect to " + aspectRatio);
             video.htmlVideo.play();
-            this.setState({ videoAspectRatio: aspectRatio });
+            this.setState({ outputAspectRatio: aspectRatio });
         };
         this.filterManager = new FilterManager();
         this.filterAttribs = new Map();
         this.filterAttribs.set(CONV360T02D_FILTER_NAME, Conv360To2DAttribsCreator);
         this.filterManager.registerFilter({
             id: CONV360T02D_FILTER_NAME,
-            creator: (gl, w, h): FilterBase => {
-                return new Conv360To2DFilter(gl, w, h);
+            creator: (gl): FilterBase => {
+                return new Conv360To2DFilter(gl);
             },
         });
         this.filterAttribs.set(CARTOON_FILTER_NAME, CartoonAttribsCreator);
         this.filterManager.registerFilter({
             id: CARTOON_FILTER_NAME,
-            creator: (gl, w, h): FilterBase => {
-                return new CartoonFilter(gl, w, h);
+            creator: (gl): FilterBase => {
+                return new CartoonFilter(gl);
             },
         });
         this.filterAttribs.set(GRAYSCALE_FILTER_NAME, GrayscaleAttribsCreator);
         this.filterManager.registerFilter({
             id: GRAYSCALE_FILTER_NAME,
-            creator: (gl, w, h): FilterBase => {
-                return new GrayscaleFilter(gl, w, h);
+            creator: (gl): FilterBase => {
+                return new GrayscaleFilter(gl);
             },
         });
         this.videoManager = null;
@@ -160,7 +160,7 @@ export class App extends React.Component<{}, AppState> {
                 }
             }
         } else {
-            filterList = "--";
+            filterList = "- Import a video from the File menu -";
             exportPanel = <div> -- </div>;
         }
 
@@ -181,7 +181,7 @@ export class App extends React.Component<{}, AppState> {
                     <SplitPanelHor defaultPercentage={75} onResize={this.onResized}>
                         <PreviewPanel
                             ref={this.previewPanelRef}
-                            videoAspectRatio={this.state.videoAspectRatio}
+                            videoAspectRatio={this.state.outputAspectRatio}
                             video={this.videoManager?.video?.htmlVideo}
                         ></PreviewPanel>
                         {exportPanel}

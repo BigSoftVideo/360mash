@@ -15,11 +15,11 @@ export class FilterManager {
         this.filterTypes.set(desc.id, desc);
     }
 
-    createFilter(filterId: string, gl: WebGL2RenderingContext, outWidth: number, outHeight: number): FilterBase {
+    createFilter(filterId: string, gl: WebGL2RenderingContext): FilterBase {
         let desc = this.filterTypes.get(filterId);
         if (!desc) {
             throw new Error(`Filter with the following id was not registered: ${filterId}`);
         }
-        return desc.creator(gl, outWidth, outHeight);
+        return desc.creator(gl);
     }
 }

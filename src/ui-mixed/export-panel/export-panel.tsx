@@ -37,6 +37,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
     ffmpegFolderRef: React.RefObject<HTMLInputElement>;
 
     selectedOutputHeight: number;
+    selectedOutputWidth: number;
     selectedEncoder: string;
 
     constructor(params: any) {
@@ -46,6 +47,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         this.ffmpegFolderRef = React.createRef();
         this.sumInputFrameWaitMs = 0;
         this.selectedOutputHeight = 2160;
+        this.selectedOutputWidth = 3840;
         this.selectedEncoder = "h264";
         this.state = {
             statusMessage: null
@@ -106,12 +108,15 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                         }}></input>
                     </div>
                     <select name="resolutions" onChange={event => {
-                        this.selectedOutputHeight = Number.parseInt(event.target.value);
+                        let [w, h] = event.target.value.split("*").map(v => Number.parseInt(v));
+                        this.selectedOutputWidth = w;
+                        this.selectedOutputHeight = h;
+                        console.log("Selected resolution is", w, h);
                     }}>
-                        <option value="2160">4K (3840 × 2160)</option>
-                        <option value="1080">Full HD (1920 × 1080)</option>
-                        <option value="720">HD (1280 × 720)</option>
-                        <option value="480">480p (854 × 480)</option>
+                        <option value="3840*2160">4K (3840 × 2160)</option>
+                        <option value="1920*1080">Full HD (1920 × 1080)</option>
+                        <option value="1280*720">HD (1280 × 720)</option>
+                        <option value="854*480">480p (854 × 480)</option>
                     </select>
                     <select name="encoders" onChange={event => {
                         this.selectedEncoder = event.target.value;
@@ -149,7 +154,9 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
 
         let totalTime = video.duration;
 
-        const [width, height] = this.props.videoManager.pipeline.getOutputDimensions();
+        const pipeline = this.props.videoManager.pipeline;
+        pipeline.setTargetDimensions(this.selectedOutputWidth, this.selectedOutputHeight);
+        const [width, height] = pipeline.getRealOutputDimensions(video);
         const outFps = 29.97;
 
         let nextFrameId = 0;
@@ -227,10 +234,9 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         this.props.videoManager.stopRendering();
 
         const htmlVideo = this.props.videoManager.video.htmlVideo;
-        const videoAspect = htmlVideo.videoWidth / htmlVideo.videoHeight;
-        const outHeight = this.selectedOutputHeight;
-        const outWidth = Math.ceil(outHeight * videoAspect);
-        this.props.videoManager.pipeline.setOutputDimensions(outWidth, outHeight);
+        const pipeline = this.props.videoManager.pipeline;
+        pipeline.setTargetDimensions(this.selectedOutputWidth, this.selectedOutputHeight);
+        const [outWidth, outHeight] = pipeline.getRealOutputDimensions(htmlVideo);
 
         // This is just a default, but actually we will use the same framerate as the input
         let outFps = 29.97;

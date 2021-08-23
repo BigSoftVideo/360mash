@@ -1,4 +1,4 @@
-import { FilterShader, RenderTexture } from "../video/core";
+import { FilterShader, fitToAspect, RenderTexture, TargetDimensions } from "../video/core";
 import { FilterBase } from "../video/filter-base";
 
 export const CARTOON_FILTER_NAME = "Cartoon";
@@ -162,23 +162,23 @@ export class CartoonFilter extends FilterBase {
     protected shader: CartoonShader;
     protected rt: RenderTexture;
 
-    constructor(gl: WebGLRenderingContext, outw: number, outh: number) {
+    constructor(gl: WebGLRenderingContext) {
         super(gl);
         this.gl = gl;
         this.shader = new CartoonShader(gl);
         this.rt = new RenderTexture(gl);
-
-        this.setOutputDimensions(outw, outh);
     }
 
-    setOutputDimensions(width: number, height: number): void {
-        // this should actually be set to the input dimensions
-        // but that's a bit more difficult to get so as a
-        // placeholder we are using the output dimensions instead
-        this.shader.width = width;
-        this.shader.height = height;
-        this.rt.ensureDimensions(width, height);
+    updateDimensions(inW: number, inH: number, targetDimensions: TargetDimensions): [number, number] {
+        this.shader.width = inW;
+        this.shader.height = inH;
+        // The output aspect matches the input aspect
+        let outputAspect = inW / inH;
+        let [outW, outH] = fitToAspect(targetDimensions, outputAspect);
+        this.rt.ensureDimensions(outW, outH);
+        return [outW, outH];
     }
+
     dispose(): void {
         this.rt.dispose();
         this.shader.dispose();

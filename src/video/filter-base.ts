@@ -1,4 +1,4 @@
-import { RenderTexture } from "../video/core";
+import { RenderTexture, TargetDimensions } from "../video/core";
 
 export type FilterId = string;
 
@@ -14,7 +14,7 @@ export interface FilterDescriptor {
     /**
      * This function should return a new instance of the filter.
      */
-    creator: (gl: WebGL2RenderingContext, outWidth: number, outHeight: number) => FilterBase;
+    creator: (gl: WebGL2RenderingContext) => FilterBase;
 }
 
 //////////////////////
@@ -34,9 +34,15 @@ export abstract class FilterBase {
     }
 
     /**
-     * The filter must resize its affected textures to the appripriate size.
+     * Update the internal textures, and also return what the output dimensions will be, given
+     * the input parameters.
      */
-    abstract setOutputDimensions(width: number, height: number): void;
+    abstract updateDimensions(inW: number, inH: number, targetDimensions: TargetDimensions): [number, number];
+
+    /**
+     * The filter must resize its affected textures to the appropriate size.
+     */
+    // abstract setOutputDimensions(width: number, height: number): void;
 
     /**
      * Called before the filter is released by the pipeline.

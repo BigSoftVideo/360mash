@@ -1,6 +1,6 @@
 import * as glm from "gl-matrix";
 
-import { FilterShader, RenderTexture } from "../video/core";
+import { FilterShader, fitToAspect, RenderTexture, TargetDimensions } from "../video/core";
 import { FilterBase } from "../video/filter-base";
 
 export const CONV360T02D_FILTER_NAME = "360 to 2D";
@@ -12,11 +12,11 @@ export class MashProjectionShader extends FilterShader {
     public fovY: number;
     public rotRight: number;
     public rotUp: number;
-    public aspect: number;
+    public inAspect: number;
 
     protected uRotate: WebGLUniformLocation | null;
     protected uFov: WebGLUniformLocation | null;
-    protected uAspect: WebGLUniformLocation | null;
+    protected uInAspect: WebGLUniformLocation | null;
     protected rotationMat: glm.mat4;
     constructor(gl: WebGLRenderingContext) {
         let fragmentSrc = `
@@ -25,7 +25,7 @@ export class MashProjectionShader extends FilterShader {
             uniform sampler2D uSampler;
             uniform mat4 uRotate;
             uniform float uFov;
-            uniform float uAspect;
+            uniform float uInAspect;
             void main() {
                 const float PI = 3.1415926535;
                 vec4 red = vec4(1.0, 0.1, 0.1, 1.0);
@@ -35,10 +35,10 @@ export class MashProjectionShader extends FilterShader {
                 vec2 offsetPos = vec2(vTexCoord.x - 0.5, vTexCoord.y - 0.5);
 
                 // See https://en.wikipedia.org/wiki/Lambert_azimuthal_equal-area_projection
-                float X = offsetPos.x * uAspect * fov * 2.0;
+                float X = offsetPos.x * uInAspect * fov * 2.0;
                 float Y = offsetPos.y * fov * 2.0;
 
-                float maxDist = sqrt(uAspect*uAspect + 1.0);
+                float maxDist = sqrt(uInAspect*uInAspect + 1.0);
                 float dist = sqrt(X*X + Y*Y);
                 float distNormalized = dist/maxDist;
                 float magic = sin(PI * 0.5 * distNormalized);
@@ -69,18 +69,18 @@ export class MashProjectionShader extends FilterShader {
         this.fovY = Math.PI;
         this.rotRight = 0;
         this.rotUp = 0;
-        this.aspect = 0;
+        this.inAspect = 0;
 
         this.rotationMat = glm.mat4.create();
         glm.mat4.identity(this.rotationMat);
         if (this.shaderProgram) {
             this.uRotate = gl.getUniformLocation(this.shaderProgram, "uRotate");
             this.uFov = gl.getUniformLocation(this.shaderProgram, "uFov");
-            this.uAspect = gl.getUniformLocation(this.shaderProgram, "uAspect");
+            this.uInAspect = gl.getUniformLocation(this.shaderProgram, "uInAspect");
         } else {
             this.uFov = null;
             this.uRotate = null;
-            this.uAspect = null;
+            this.uInAspect = null;
         }
     }
 
@@ -100,7 +100,7 @@ export class MashProjectionShader extends FilterShader {
 
         gl.uniformMatrix4fv(this.uRotate, false, this.rotationMat);
         gl.uniform1f(this.uFov, this.fovY);
-        gl.uniform1f(this.uAspect, this.aspect);
+        gl.uniform1f(this.uInAspect, this.inAspect);
     }
 }
 
@@ -112,7 +112,7 @@ export class Conv360To2DFilter extends FilterBase {
     // protected previewTexture: WebGLTexture;
     previewPixelArray: Uint8Array;
 
-    constructor(gl: WebGLRenderingContext, outw: number, outh: number) {
+    constructor(gl: WebGLRenderingContext) {
         super(gl);
         this.gl = gl;
         this.shader = new MashProjectionShader(gl);
@@ -120,22 +120,20 @@ export class Conv360To2DFilter extends FilterBase {
         this.previewPixelArray = new Uint8Array();
 
         this.previewCanvas = null;
-        // {
-        //     let previewGl = this.previewCanvas.getContext("webgl2");
-        //     let tex = previewGl!.createTexture();
-        //     if (!tex) {
-        //         throw new Error("FATAL: we expected to be able to create the texture");
-        //     }
-        //     this.previewTexture = tex;
-        // }
+    }
 
-        this.setOutputDimensions(outw, outh);
+    updateDimensions(inW: number, inH: number, targetDimensions: TargetDimensions): [number, number] {
+        this.shader.inAspect = inW / inH;
+        let [outW, outH] = fitToAspect(targetDimensions, this.shader.inAspect);
+        this.rt.ensureDimensions(outW, outH);
+        this.previewPixelArray = new Uint8Array(outW * outH * 4);
+        return [outW, outH];
     }
 
     setOutputDimensions(width: number, height: number): void {
-        this.shader.aspect = width / height;
+        this.shader.inAspect = width / height;
         this.rt.ensureDimensions(width, height);
-        this.previewPixelArray = new Uint8Array(width * height * 4);
+        
     }
     dispose(): void {
         this.rt.dispose();
