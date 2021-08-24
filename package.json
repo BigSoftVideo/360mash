@@ -1,7 +1,7 @@
 {
     "name": "360mash",
     "productName": "360mash",
-    "version": "1.0.0-beta.0",
+    "version": "1.0.0-alpha-0",
     "description": "Easy to use video manipulation",
     "main": ".webpack/main",
     "scripts": {
