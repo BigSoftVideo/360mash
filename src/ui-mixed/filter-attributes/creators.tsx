@@ -1,9 +1,9 @@
 import "./creator.css";
 
 import * as React from "react";
-import { FilterAttributes, FilterAttributeBinding } from "./filter-attributes";
+import { FilterAttributes, FilterAttributeBinding, FilterAttributeKind } from "./filter-attributes";
 import { GrayscaleFilter } from "../../filters/grayscale";
-import { Conv360To2DFilter } from "../../filters/conv360to2d";
+import { Conv360ShaderKind, Conv360To2DFilter } from "../../filters/conv360to2d";
 import { CartoonFilter } from "../../filters/cartoon";
 
 export function GrayscaleAttribsCreator(filter: GrayscaleFilter): JSX.Element {
@@ -17,6 +17,7 @@ export function CartoonAttribsCreator(filter: CartoonFilter): JSX.Element {
         setter: (f, v) => {
             f.edgeIntensity = v;
         },
+        kind: FilterAttributeKind.Number,
         minValue: 0,
         maxValue: 1,
     });
@@ -77,11 +78,23 @@ class Conv360To2DAttributes extends React.Component<{ filter: Conv360To2DFilter 
         };
 
         this.attributes = new Map<string, FilterAttributeBinding<Conv360To2DFilter>>();
+        this.attributes.set("Input", {
+            getter: (f) => f.selectedShader,
+            setter: (f, v) => {
+                f.selectedShader = v;
+            },
+            kind: FilterAttributeKind.Option,
+            optionValues: [
+                [Conv360ShaderKind.Equirect360, "360 - Equirectangular"],
+                [Conv360ShaderKind.Fisheye180, "180 - Fisheye"],
+            ]
+        });
         this.attributes.set("Vertical Field of View (radians)", {
             getter: (f) => f.fovY,
             setter: (f, v) => {
                 f.fovY = v;
             },
+            kind: FilterAttributeKind.Number,
             minValue: 0,
             maxValue: Math.PI,
         });
@@ -90,12 +103,14 @@ class Conv360To2DAttributes extends React.Component<{ filter: Conv360To2DFilter 
             setter: (f, v) => {
                 this.setRotUp(v);
             },
+            kind: FilterAttributeKind.Number,
         });
         this.attributes.set("Pitch", {
             getter: (f) => f.rotRight,
             setter: (f, v) => {
                 f.rotRight = v;
             },
+            kind: FilterAttributeKind.Number,
             minValue: -Math.PI * 0.5,
             maxValue: Math.PI * 0.5,
         });
