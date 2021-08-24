@@ -28,7 +28,9 @@ const createWindow = (): void => {
     mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
 
     // Open the DevTools.
-    mainWindow.webContents.openDevTools();
+    if (isDevMode) {
+        mainWindow.webContents.openDevTools();
+    }
 };
 const appReady = () => {
     // setTimeout(() => {
