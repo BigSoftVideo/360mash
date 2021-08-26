@@ -122,6 +122,7 @@ export class RenderTexture {
             throw new Error("Framebuffer format not supported: " + internalFormat);
         }
         this.format = format;
+        this.internalFormat = internalFormat;
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.color);
         gl.texImage2D(
@@ -139,7 +140,6 @@ export class RenderTexture {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-        this.internalFormat = internalFormat;
         this.framebuffer = framebuffer;
         gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, color, 0);
