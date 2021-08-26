@@ -554,7 +554,13 @@ export class Decoder {
                 this.metadata.width = w;
                 this.metadata.height = h;
 
-                this.pixelBuffer = new Uint8Array(w * h * 4);
+                // TODO: This depends on the pix_fmt
+                // For rgba this is w * h * 4
+                // But for yuv, this is w * h + 2 * (w/2 * h/2)
+                let halfW = Math.floor(w/2);
+                let halfH = Math.floor(h/2);
+                let yuvFrameSize = w * h + 2 * (halfW * halfH);
+                this.pixelBuffer = new Uint8Array(yuvFrameSize);
                 receivedMetadata(this.metadata);
                 this.startProcessingFrames(inFilePath, ffmpegBin);
             });
@@ -575,7 +581,7 @@ export class Decoder {
                 "-vcodec",
                 "rawvideo",
                 "-pix_fmt",
-                "rgba",
+                "yuv420p",
                 "-an",
                 "pipe:1",
             ],

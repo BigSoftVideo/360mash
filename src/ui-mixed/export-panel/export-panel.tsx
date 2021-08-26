@@ -5,10 +5,12 @@ import * as path from "path";
 import * as util from "util";
 import { Decoder, Encoder, EncoderDesc, MediaMetadata } from "../../video/codec";
 import { VideoManager } from "../../video/video-manager";
-import { AlignedPixelData, PackedPixelData } from "../../video/filter-pipeline";
+import { AlignedPixelData, ImageFormat, PackedPixelData } from "../../video/filter-pipeline";
 import { ExportInfoProvider } from "../export-overlay/export-overlay";
 
 const settings = require("settings-store");
+
+const MATCH_INPUT_RESOLUTION = "MATCH_INPUT";
 
 let settingsInitialized = false;
 
@@ -111,18 +113,24 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                     <select
                         name="resolutions"
                         onChange={(event) => {
-                            let [w, h] = event.target.value
-                                .split("*")
-                                .map((v) => Number.parseInt(v));
-                            this.selectedOutputWidth = w;
-                            this.selectedOutputHeight = h;
-                            console.log("Selected resolution is", w, h);
+                            if (event.target.value == MATCH_INPUT_RESOLUTION) {
+                                this.selectedOutputWidth = this.props.videoManager.video?.htmlVideo.videoWidth || 1;
+                                this.selectedOutputHeight = this.props.videoManager.video?.htmlVideo.videoHeight || 1;
+                            } else {
+                                let [w, h] = event.target.value
+                                    .split("*")
+                                    .map((v) => Number.parseInt(v));
+                                this.selectedOutputWidth = w;
+                                this.selectedOutputHeight = h;
+                            }
+                            console.log("Selected resolution is", this.selectedOutputWidth, this.selectedOutputHeight);
                         }}
                     >
                         <option value="3840*2160">4K (3840 × 2160)</option>
                         <option value="1920*1080">Full HD (1920 × 1080)</option>
                         <option value="1280*720">HD (1280 × 720)</option>
                         <option value="854*480">480p (854 × 480)</option>
+                        <option value={MATCH_INPUT_RESOLUTION}>Match Input</option>
                     </select>
                     <select
                         name="encoders"
@@ -338,6 +346,9 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                 data: buffer,
                 w: inWidth,
                 h: inHeight,
+
+                // TODO: change this if requesting the data from ffmpeg in another format
+                format: ImageFormat.YUV420P
             };
             this.props.videoManager.renderOnce(pixelData);
             readyOutFrameId = nextOutFrameId;

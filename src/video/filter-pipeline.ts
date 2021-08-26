@@ -2,6 +2,12 @@ import { FilterBase, FilterId } from "./filter-base";
 import { FilterManager } from "./filter-manager";
 import { Video } from "./video-manager";
 import { GlTexture, RenderTexture, TargetDimensions } from "./core";
+import { PlanarYuvToRgbShader } from "../misc-shaders/colorspace";
+
+export enum ImageFormat {
+    RGBA,
+    YUV420P
+}
 
 export interface FilterDesc {
     id: FilterId;
@@ -39,6 +45,8 @@ export interface PackedPixelData {
     data: Uint8Array;
     w: number;
     h: number;
+
+    format: ImageFormat;
 }
 function isPackedPixelData(a: any): a is PackedPixelData {
     return (
@@ -50,6 +58,7 @@ function isPackedPixelData(a: any): a is PackedPixelData {
         data: new Uint8Array(),
         w: 0,
         h: 0,
+        format: ImageFormat.RGBA,
     };
     if (!isPackedPixelData(a)) {
         console.error("isPackedPixelData seems to have a faulty implementation");
@@ -74,7 +83,27 @@ export class FilterPipeline {
     protected outputDimensionsValid: boolean;
     protected gl: WebGL2RenderingContext;
 
-    protected videoAsTexture: GlTexture | null;
+    /**
+     * When using RGBA input, this is the only relevant input texture.
+     * 
+     * When using YUV420P input, this is the Y plane. It's resolution is identical to the
+     * full video resolution.
+     */
+    protected inputTex0: GlTexture | null;
+
+    /**
+     * When using YUV420P input, this is the U plane. In 420 mode its resolution is half along
+     * both dimensions (the number of values is quater the number of image pixels)
+     */
+    protected inputTex1: GlTexture | null;
+    /**
+     * When using YUV420P input, this is the V plane. In 420 mode its resolution is half along
+     * both dimensions (the number of values is quater the number of image pixels)
+     */
+    protected inputTex2: GlTexture | null;
+
+    protected yuvToRgbShader: PlanarYuvToRgbShader;
+    protected yuvToRgbOutput: RenderTexture;
 
     protected pixelDataValid: boolean;
     protected pixelData: AlignedPixelData;
@@ -123,7 +152,11 @@ export class FilterPipeline {
             throw new Error("FATAL: Requested webgl context was null.");
         }
         this.gl = gl;
-        this.videoAsTexture = null;
+        this.inputTex0 = null;
+        this.inputTex1 = null;
+        this.inputTex2 = null;
+        this.yuvToRgbShader = new PlanarYuvToRgbShader(this.gl);
+        this.yuvToRgbOutput = new RenderTexture(this.gl);
         for (const id of filterIds) {
             this.filters.push({
                 id: id,
@@ -148,13 +181,13 @@ export class FilterPipeline {
 
     /** Returns the output resolution of the last filter */
     updateDimensions(): [number, number] {
-        if (this.videoAsTexture === null) {
+        if (this.inputTex0 === null) {
             throw new Error(
                 "Cannot update the dimensions at this point, because the input texture was not yet initialized"
             );
         }
-        let prevOutW = this.videoAsTexture.width;
-        let prevOutH = this.videoAsTexture.height;
+        let prevOutW = this.inputTex0.width;
+        let prevOutH = this.inputTex0.height;
         let targetDim: TargetDimensions = {
             width: this.targetWidth,
             height: this.targetHeight,
@@ -282,27 +315,119 @@ export class FilterPipeline {
 
         // The assignment wouldn't be necessary, we just do this to tell the compiler
         // that `this.videoAsTexture` is set to some non-null value.
-        this.videoAsTexture = this.updateVideoSize(inWidth, inHeight);
+        this.inputTex0 = this.updateVideoSize(inWidth, inHeight);
 
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, this.videoAsTexture.texture);
+        let prevOutput: WebGLTexture = this.inputTex0.texture;
+
         if (isPackedPixelData(imgSource)) {
-            gl.texImage2D(
-                gl.TEXTURE_2D,
-                0,
-                gl.RGBA,
-                inWidth,
-                inHeight,
-                0,
-                gl.RGBA,
-                gl.UNSIGNED_BYTE,
-                imgSource.data
-            );
+            if (imgSource.format === ImageFormat.RGBA) {
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, this.inputTex0.texture);
+                gl.texImage2D(
+                    gl.TEXTURE_2D,
+                    0,
+                    gl.RGBA,
+                    inWidth,
+                    inHeight,
+                    0,
+                    gl.RGBA,
+                    gl.UNSIGNED_BYTE,
+                    imgSource.data
+                );
+            } else if (imgSource.format === ImageFormat.YUV420P) {
+                this.yuvToRgbOutput.ensureDimensions(inWidth, inHeight);
+                // Luma (Y) has w * h values, and both U and V have `w/2 * h/2` values
+                let halfW = Math.floor(inWidth / 2);
+                let halfH = Math.floor(inHeight / 2);
+
+                ///////////////////////////////////////////////////////////////////
+                // Y channel
+                ///////////////////////////////////////////////////////////////////
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, this.inputTex0.texture);
+                let dataY = imgSource.data.subarray(0, inWidth * inHeight);
+                gl.texImage2D(
+                    gl.TEXTURE_2D,
+                    0,
+                    gl.LUMINANCE,
+                    inWidth,
+                    inHeight,
+                    0,
+                    gl.LUMINANCE,
+                    gl.UNSIGNED_BYTE,
+                    dataY
+                );
+
+                ///////////////////////////////////////////////////////////////////
+                // U channel
+                ///////////////////////////////////////////////////////////////////
+                if (this.inputTex1 === null) {
+                    this.inputTex1 = this.createInputTexture(halfW, halfH, gl.TEXTURE1);
+                }
+                // Update the size in case it was already initialized but the size changed
+                this.inputTex1 = {
+                    width: halfW,
+                    height: halfH,
+                    texture: this.inputTex1.texture
+                };
+                gl.activeTexture(gl.TEXTURE1);
+                gl.bindTexture(gl.TEXTURE_2D, this.inputTex1.texture);
+                let offsetU = dataY.byteLength;
+                let dataU = imgSource.data.subarray(offsetU, offsetU + halfW * halfH);
+                gl.texImage2D(
+                    gl.TEXTURE_2D,
+                    0,
+                    gl.LUMINANCE,
+                    halfW,
+                    halfH,
+                    0,
+                    gl.LUMINANCE,
+                    gl.UNSIGNED_BYTE,
+                    dataU
+                );
+
+                ///////////////////////////////////////////////////////////////////
+                // V channel
+                ///////////////////////////////////////////////////////////////////
+                if (this.inputTex2 === null) {
+                    this.inputTex2 = this.createInputTexture(halfW, halfH, gl.TEXTURE2);
+                }
+                // Update the size in case it was already initialized but the size changed
+                this.inputTex2 = {
+                    width: halfW,
+                    height: halfH,
+                    texture: this.inputTex2.texture
+                };
+                gl.activeTexture(gl.TEXTURE2);
+                gl.bindTexture(gl.TEXTURE_2D, this.inputTex2.texture);
+                let offsetV = dataU.byteOffset + dataU.byteLength; // V comes after U
+                let dataV = imgSource.data.subarray(offsetV, offsetV + halfW * halfH);
+                gl.texImage2D(
+                    gl.TEXTURE_2D,
+                    0,
+                    gl.LUMINANCE,
+                    halfW,
+                    halfH,
+                    0,
+                    gl.LUMINANCE,
+                    gl.UNSIGNED_BYTE,
+                    dataV
+                );
+
+                // Convert from YUV to RGBA
+                gl.bindFramebuffer(gl.FRAMEBUFFER, this.yuvToRgbOutput.framebuffer);
+                gl.viewport(0, 0, this.yuvToRgbOutput.width, this.yuvToRgbOutput.height);
+                this.yuvToRgbShader.draw(gl);
+                this.lastRt = this.yuvToRgbOutput;
+                prevOutput = this.yuvToRgbOutput.color;
+                
+            }
         } else {
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, this.inputTex0.texture);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imgSource);
         }
-        let prevOutput: WebGLTexture = this.videoAsTexture.texture;
-        for (const { filter, active } of this.filters) {
+        for (const { filter, active, id } of this.filters) {
             if (active) {
                 this.lastRt = filter.execute(prevOutput);
                 prevOutput = this.lastRt.color;
@@ -328,42 +453,46 @@ export class FilterPipeline {
     }
 
     protected updateVideoSize(inWidth: number, inHeight: number): GlTexture {
-        let gl = this.gl;
-        if (this.videoAsTexture === null) {
-            let tex = gl.createTexture();
-            if (!tex) {
-                throw new Error("Could not create texture");
-            }
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, tex);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-            // On webgl1, if the wrap is not set to CLAMP_TO_EDGE then non-power-of-two textures
-            // are not allowed. Otherwise it won't give an error, it'll just give all black pixels.
-            // but we are using webgl2 so this doesn't affect this code.
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-            this.videoAsTexture = {
-                width: inWidth,
-                height: inHeight,
-                texture: tex,
-            };
+        if (this.inputTex0 === null) {
+            this.inputTex0 = this.createInputTexture(inWidth, inHeight, this.gl.TEXTURE0);
             this.updateDimensions();
         } else if (
-            inWidth != this.videoAsTexture.width ||
-            inHeight != this.videoAsTexture.height
+            inWidth != this.inputTex0.width ||
+            inHeight != this.inputTex0.height
         ) {
-            this.videoAsTexture = {
+            this.inputTex0 = {
                 width: inWidth,
                 height: inHeight,
-                texture: this.videoAsTexture.texture,
+                texture: this.inputTex0.texture,
             };
             this.updateDimensions();
         } else if (!this.outputDimensionsValid) {
             this.updateDimensions();
             this.outputDimensionsValid = true;
         }
-        return this.videoAsTexture;
+        return this.inputTex0;
+    }
+
+    protected createInputTexture(w: number, h: number, attachmentPoint: number): GlTexture {
+        let gl = this.gl;
+        let tex = gl.createTexture();
+        if (!tex) {
+            throw new Error("Could not create texture");
+        }
+        gl.activeTexture(attachmentPoint);
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        // On webgl1, if the wrap is not set to CLAMP_TO_EDGE then non-power-of-two textures
+        // are not allowed. Otherwise it won't give an error, it'll just give all black pixels.
+        // but we are using webgl2 so this doesn't affect this code.
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+        return {
+            width: w,
+            height: h,
+            texture: tex,
+        };
     }
 
     /**
@@ -439,8 +568,10 @@ export class FilterPipeline {
                 "The width of the image was larger than `linesize` which is invalid. Note `linesize` has to be specified in bytes and each pixel is 4 bytes."
             );
         }
+        let prevRowLength = gl.getParameter(gl.PACK_ROW_LENGTH);
         gl.pixelStorei(gl.PACK_ROW_LENGTH, buffer.linesize / 4);
         gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buffer.data);
+        gl.pixelStorei(gl.PACK_ROW_LENGTH, prevRowLength);
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, prevActiveFb);
     }
 }
