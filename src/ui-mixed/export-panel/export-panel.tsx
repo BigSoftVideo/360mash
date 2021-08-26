@@ -193,7 +193,6 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         let getImage = async (
             outFrameId: number,
             buffer: Uint8Array,
-            linesize: number
         ): Promise<number> => {
             const waitStart = new Date();
             while (readyFrameId < outFrameId) {
@@ -202,11 +201,11 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             this.sumInputFrameWaitMs += (new Date().getTime() - waitStart.getTime()) / 1000;
             let targetPixelBuffer: AlignedPixelData = {
                 data: buffer,
-                linesize: linesize,
+                linesize: width*4,
                 w: width,
                 h: height,
             };
-            this.props.videoManager.pipeline.fillPixelData(targetPixelBuffer);
+            this.props.videoManager.pipeline.fillRgbaPixelData(targetPixelBuffer);
             nextFrameId = outFrameId + 1;
 
             const nextTime = nextFrameId / outFps;
@@ -273,7 +272,6 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         let getImage = async (
             outFrameId: number,
             buffer: Uint8Array,
-            linesize: number
         ): Promise<number> => {
             const waitStart = new Date();
             // When this function gets called, the next frame may not yet be decoded. In this case
@@ -282,13 +280,13 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                 await setImmedateAsync();
             }
             this.sumInputFrameWaitMs += new Date().getTime() - waitStart.getTime();
-            let targetPixelBuffer: AlignedPixelData = {
+            let targetPixelBuffer: PackedPixelData = {
                 data: buffer,
-                linesize: linesize,
                 w: outWidth,
                 h: outHeight,
+                format: ImageFormat.YUV420P
             };
-            this.props.videoManager.pipeline.fillPixelData(targetPixelBuffer);
+            this.props.videoManager.pipeline.fillYuv420pPixelData(targetPixelBuffer);
             let progress = outFrameId / outFps / duration;
             nextOutFrameId = outFrameId + 1;
 
@@ -379,7 +377,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                 console.error("Could not get 2d context");
                 return;
             }
-            let pixelData = this.props.videoManager.pipeline.getPixelData();
+            let pixelData = this.props.videoManager.pipeline.getRgbaPixelData();
             if (!pixelData) {
                 console.error("Could not get pixel data");
                 return;

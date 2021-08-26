@@ -271,7 +271,7 @@ export class Conv360To2DFilter extends FilterBase {
         this.shaderEquirect = new MashProjectionShader(gl);
         this.shader180 = new Project180FisheyeShader(gl);
         this.selectedShader = Conv360ShaderKind.Equirect360;
-        this.rt = new RenderTexture(gl);
+        this.rt = new RenderTexture(gl, gl.RGBA);
         this.previewPixelArray = new Uint8Array();
         this.targetAspect = 1;
         this.inputAspect = 1;

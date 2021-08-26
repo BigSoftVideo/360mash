@@ -2,7 +2,7 @@ import { FilterBase, FilterId } from "./filter-base";
 import { FilterManager } from "./filter-manager";
 import { Video } from "./video-manager";
 import { GlTexture, RenderTexture, TargetDimensions } from "./core";
-import { PlanarYuvToRgbShader } from "../misc-shaders/colorspace";
+import { PlanarYuvToRgbShader, RgbToUShader, RgbToVShader, RgbToYShader } from "../misc-shaders/colorspace";
 
 export enum ImageFormat {
     RGBA,
@@ -105,6 +105,13 @@ export class FilterPipeline {
     protected yuvToRgbShader: PlanarYuvToRgbShader;
     protected yuvToRgbOutput: RenderTexture;
 
+    protected rgbToYShader: RgbToYShader;
+    protected rgbToUShader: RgbToUShader;
+    protected rgbToVShader: RgbToVShader;
+    protected rgbToYOutput: RenderTexture;
+    protected rgbToUOutput: RenderTexture;
+    protected rgbToVOutput: RenderTexture;
+
     protected pixelDataValid: boolean;
     protected pixelData: AlignedPixelData;
 
@@ -156,7 +163,13 @@ export class FilterPipeline {
         this.inputTex1 = null;
         this.inputTex2 = null;
         this.yuvToRgbShader = new PlanarYuvToRgbShader(this.gl);
-        this.yuvToRgbOutput = new RenderTexture(this.gl);
+        this.yuvToRgbOutput = new RenderTexture(this.gl, gl.RGBA);
+        this.rgbToYShader = new RgbToYShader(this.gl);
+        this.rgbToUShader = new RgbToUShader(this.gl);
+        this.rgbToVShader = new RgbToVShader(this.gl);
+        this.rgbToYOutput = new RenderTexture(this.gl, gl.R8);
+        this.rgbToUOutput = new RenderTexture(this.gl, gl.R8);
+        this.rgbToVOutput = new RenderTexture(this.gl, gl.R8);
         for (const id of filterIds) {
             this.filters.push({
                 id: id,
@@ -335,84 +348,7 @@ export class FilterPipeline {
                     imgSource.data
                 );
             } else if (imgSource.format === ImageFormat.YUV420P) {
-                this.yuvToRgbOutput.ensureDimensions(inWidth, inHeight);
-                // Luma (Y) has w * h values, and both U and V have `w/2 * h/2` values
-                let halfW = Math.floor(inWidth / 2);
-                let halfH = Math.floor(inHeight / 2);
-
-                ///////////////////////////////////////////////////////////////////
-                // Y channel
-                ///////////////////////////////////////////////////////////////////
-                gl.activeTexture(gl.TEXTURE0);
-                gl.bindTexture(gl.TEXTURE_2D, this.inputTex0.texture);
-                let dataY = imgSource.data.subarray(0, inWidth * inHeight);
-                gl.texImage2D(
-                    gl.TEXTURE_2D,
-                    0,
-                    gl.LUMINANCE,
-                    inWidth,
-                    inHeight,
-                    0,
-                    gl.LUMINANCE,
-                    gl.UNSIGNED_BYTE,
-                    dataY
-                );
-
-                ///////////////////////////////////////////////////////////////////
-                // U channel
-                ///////////////////////////////////////////////////////////////////
-                if (this.inputTex1 === null) {
-                    this.inputTex1 = this.createInputTexture(halfW, halfH, gl.TEXTURE1);
-                }
-                // Update the size in case it was already initialized but the size changed
-                this.inputTex1 = {
-                    width: halfW,
-                    height: halfH,
-                    texture: this.inputTex1.texture
-                };
-                gl.activeTexture(gl.TEXTURE1);
-                gl.bindTexture(gl.TEXTURE_2D, this.inputTex1.texture);
-                let offsetU = dataY.byteLength;
-                let dataU = imgSource.data.subarray(offsetU, offsetU + halfW * halfH);
-                gl.texImage2D(
-                    gl.TEXTURE_2D,
-                    0,
-                    gl.LUMINANCE,
-                    halfW,
-                    halfH,
-                    0,
-                    gl.LUMINANCE,
-                    gl.UNSIGNED_BYTE,
-                    dataU
-                );
-
-                ///////////////////////////////////////////////////////////////////
-                // V channel
-                ///////////////////////////////////////////////////////////////////
-                if (this.inputTex2 === null) {
-                    this.inputTex2 = this.createInputTexture(halfW, halfH, gl.TEXTURE2);
-                }
-                // Update the size in case it was already initialized but the size changed
-                this.inputTex2 = {
-                    width: halfW,
-                    height: halfH,
-                    texture: this.inputTex2.texture
-                };
-                gl.activeTexture(gl.TEXTURE2);
-                gl.bindTexture(gl.TEXTURE_2D, this.inputTex2.texture);
-                let offsetV = dataU.byteOffset + dataU.byteLength; // V comes after U
-                let dataV = imgSource.data.subarray(offsetV, offsetV + halfW * halfH);
-                gl.texImage2D(
-                    gl.TEXTURE_2D,
-                    0,
-                    gl.LUMINANCE,
-                    halfW,
-                    halfH,
-                    0,
-                    gl.LUMINANCE,
-                    gl.UNSIGNED_BYTE,
-                    dataV
-                );
+                this.updateYuvSource(imgSource);
 
                 // Convert from YUV to RGBA
                 gl.bindFramebuffer(gl.FRAMEBUFFER, this.yuvToRgbOutput.framebuffer);
@@ -420,14 +356,13 @@ export class FilterPipeline {
                 this.yuvToRgbShader.draw(gl);
                 this.lastRt = this.yuvToRgbOutput;
                 prevOutput = this.yuvToRgbOutput.color;
-                
             }
         } else {
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, this.inputTex0.texture);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imgSource);
         }
-        for (const { filter, active, id } of this.filters) {
+        for (const { filter, active } of this.filters) {
             if (active) {
                 this.lastRt = filter.execute(prevOutput);
                 prevOutput = this.lastRt.color;
@@ -450,6 +385,102 @@ export class FilterPipeline {
             inHeight = imgSource.videoHeight;
         }
         return [inWidth, inHeight];
+    }
+
+    /**
+     * Uploads the data from imgSource into inputTex0, inputTex1, and inputTex2
+     * 
+     * And also binds the correspongind textures to TEXTURE0, TEXTURE1, and TEXTURE2 respectively
+     */
+    protected updateYuvSource(imgSource: PackedPixelData) {
+        if (!this.inputTex0) {
+            throw new Error("The input texture must be non null at this point");
+        }
+        if (imgSource.format !== ImageFormat.YUV420P) {
+            throw new Error("The source image format must be YUV420P here");
+        }
+        let inWidth = imgSource.w;
+        let inHeight = imgSource.h;
+
+        let gl = this.gl;
+        this.yuvToRgbOutput.ensureDimensions(inWidth, inHeight);
+        // Luma (Y) has w * h values, and both U and V have `w/2 * h/2` values
+        let halfW = Math.floor(inWidth / 2);
+        let halfH = Math.floor(inHeight / 2);
+
+        ///////////////////////////////////////////////////////////////////
+        // Y channel
+        ///////////////////////////////////////////////////////////////////
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, this.inputTex0.texture);
+        let dataY = imgSource.data.subarray(0, inWidth * inHeight);
+        gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,
+            gl.LUMINANCE,
+            inWidth,
+            inHeight,
+            0,
+            gl.LUMINANCE,
+            gl.UNSIGNED_BYTE,
+            dataY
+        );
+
+        ///////////////////////////////////////////////////////////////////
+        // U channel
+        ///////////////////////////////////////////////////////////////////
+        if (this.inputTex1 === null) {
+            this.inputTex1 = this.createInputTexture(halfW, halfH, gl.TEXTURE1);
+        }
+        // Update the size in case it was already initialized but the size changed
+        this.inputTex1 = {
+            width: halfW,
+            height: halfH,
+            texture: this.inputTex1.texture
+        };
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, this.inputTex1.texture);
+        let offsetU = dataY.byteLength;
+        let dataU = imgSource.data.subarray(offsetU, offsetU + halfW * halfH);
+        gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,
+            gl.LUMINANCE,
+            halfW,
+            halfH,
+            0,
+            gl.LUMINANCE,
+            gl.UNSIGNED_BYTE,
+            dataU
+        );
+
+        ///////////////////////////////////////////////////////////////////
+        // V channel
+        ///////////////////////////////////////////////////////////////////
+        if (this.inputTex2 === null) {
+            this.inputTex2 = this.createInputTexture(halfW, halfH, gl.TEXTURE2);
+        }
+        // Update the size in case it was already initialized but the size changed
+        this.inputTex2 = {
+            width: halfW,
+            height: halfH,
+            texture: this.inputTex2.texture
+        };
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_2D, this.inputTex2.texture);
+        let offsetV = dataU.byteOffset + dataU.byteLength; // V comes after U
+        let dataV = imgSource.data.subarray(offsetV, offsetV + halfW * halfH);
+        gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,
+            gl.LUMINANCE,
+            halfW,
+            halfH,
+            0,
+            gl.LUMINANCE,
+            gl.UNSIGNED_BYTE,
+            dataV
+        );
     }
 
     protected updateVideoSize(inWidth: number, inHeight: number): GlTexture {
@@ -506,7 +537,7 @@ export class FilterPipeline {
      * If specified, the RED component of the pixel at (x, y) can be accessed by indexing
      * the result with `y*linesize + x*4`. Otherwise it's `(y*width + x)*4`
      */
-    public getPixelData(linesize?: number): AlignedPixelData | null {
+    public getRgbaPixelData(linesize?: number): AlignedPixelData | null {
         if (!this.pixelDataValid) {
             linesize = linesize || 0;
             if (!this.lastRt) {
@@ -530,7 +561,7 @@ export class FilterPipeline {
                     h: h,
                 };
             }
-            this.fillPixelData(this.pixelData);
+            this.fillRgbaPixelData(this.pixelData);
             this.pixelDataValid = true;
         }
         return this.pixelData;
@@ -540,7 +571,7 @@ export class FilterPipeline {
      * Just like `getPixelData` but it fills an already allocated buffer
      * rather than creating a buffer.
      */
-    public fillPixelData(buffer: AlignedPixelData) {
+    public fillRgbaPixelData(buffer: AlignedPixelData) {
         if (buffer.linesize % 4 != 0) {
             throw new Error(
                 "`linesize` was not a multiple of 4. Note `linesize` has to be specified in bytes and each pixel is 4 bytes."
@@ -552,7 +583,7 @@ export class FilterPipeline {
             console.error(
                 "Trying to copy to CPU, so there has to be at least one filter active. TODO: allow having no active filter."
             );
-            return null;
+            return;
         }
         let prevActiveFb = gl.getParameter(gl.READ_FRAMEBUFFER_BINDING);
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.lastRt.framebuffer);
@@ -573,5 +604,106 @@ export class FilterPipeline {
         gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buffer.data);
         gl.pixelStorei(gl.PACK_ROW_LENGTH, prevRowLength);
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, prevActiveFb);
+    }
+
+    /**
+     * Fills the provided buffer with YUV420P pixel data.
+     * 
+     * This means that the first `w*h` bytes will all be Y channel values.
+     * 
+     * The next `w/2 * h/2` bytes will all be U channel values.
+     * The final `w/2 * h/2` bytes will all be V channel values.
+     */
+    public fillYuv420pPixelData(buffer: PackedPixelData) {
+        if (!this.lastRt) {
+            throw new Error("Trying to copy to CPU, but no rendertarget was found that was written to.");
+        }
+        if (this.lastRt.width % 2 != 0) {
+            throw new Error("The width of the last render target was not an even number. Can't export to yuv420. Width was " + this.lastRt.width);
+        }
+        if (this.lastRt.height % 2 != 0) {
+            throw new Error("The height of the last render target was not an even number. Can't export to yuv420. Height was " + this.lastRt.height);
+        }
+        let w = this.lastRt.width;
+        let h = this.lastRt.height;
+        let halfW = w / 2;
+        let halfH = h / 2;
+
+        let targetByteCount = w * h + 2 * (halfW * halfH);
+        if (targetByteCount !== buffer.data.byteLength) {
+            // TODO: Should this be an exception? If the readPixels function allocates the buffer
+            // than we don't even need to warn about it. But if the buffer must be already allocated
+            // than we should probably throw an exception here.
+            console.warn("The target buffer was not of the expected size for YUV data. Expected " + targetByteCount + ", got " + buffer.data.byteLength);
+        }
+        if (w !== buffer.w) {
+            throw new Error("The target buffer width does not match the framebuffer width");
+        }
+        if (h !== buffer.h) {
+            throw new Error("The target buffer height does not match the framebuffer height");
+        }
+
+        let gl = this.gl;
+
+        this.renderRtToYuv(this.lastRt);
+
+        let prevActiveFb = gl.getParameter(gl.READ_FRAMEBUFFER_BINDING);
+        let prevRowLength = gl.getParameter(gl.PACK_ROW_LENGTH);
+        // Pack rows tightly after each other
+        gl.pixelStorei(gl.PACK_ROW_LENGTH, 0); 
+
+        let dataY = buffer.data.subarray(0, w * h);
+        // console.log("Y size", dataY.byteLength);
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.rgbToYOutput.framebuffer);
+        // Even thought the single channel texture format is R8, the single channel framebuffer
+        // read format is RED. (Those two values may not be the same)
+        gl.readPixels(0, 0, w, h, gl.RED, gl.UNSIGNED_BYTE, dataY);
+
+        let offsetU = dataY.byteLength;
+        let dataU = buffer.data.subarray(offsetU, offsetU + halfW * halfH);
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.rgbToUOutput.framebuffer);
+        gl.readPixels(0, 0, halfW, halfH, gl.RED, gl.UNSIGNED_BYTE, dataU);
+
+        let offsetV = dataU.byteOffset + dataU.byteLength;
+        let dataV = buffer.data.subarray(offsetV, offsetV + halfW * halfH);
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.rgbToVOutput.framebuffer);
+        gl.readPixels(0, 0, halfW, halfH, gl.RED, gl.UNSIGNED_BYTE, dataV);
+
+        gl.pixelStorei(gl.PACK_ROW_LENGTH, prevRowLength);
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, prevActiveFb);
+        buffer.format = ImageFormat.YUV420P;
+    }
+
+    protected renderRtToYuv(rt: RenderTexture) {
+        let gl = this.gl;
+        
+        this.updateYuv420pOutputSize(rt.width, rt.height);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, rt.color);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.rgbToYOutput.framebuffer);
+        gl.viewport(0, 0, this.rgbToYOutput.width, this.rgbToYOutput.height);
+        this.rgbToYShader.draw(gl);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.rgbToUOutput.framebuffer);
+        gl.viewport(0, 0, this.rgbToUOutput.width, this.rgbToUOutput.height);
+        this.rgbToUShader.draw(gl);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.rgbToVOutput.framebuffer);
+        gl.viewport(0, 0, this.rgbToVOutput.width, this.rgbToVOutput.height);
+        this.rgbToVShader.draw(gl);
+    }
+
+    protected updateYuv420pOutputSize(w: number, h: number) {
+        if (w % 2 != 0) {
+            throw new Error("Tried to set the yuv buffer sizes according to yuv420p but the width was not even: " + w);
+        }
+        if (h % 2 != 0) {
+            throw new Error("Tried to set the yuv buffer sizes according to yuv420p but the height was not even: " + h);
+        }
+        this.rgbToYOutput.ensureDimensions(w, h);
+        this.rgbToUOutput.ensureDimensions(w / 2, h / 2);
+        this.rgbToVOutput.ensureDimensions(w / 2, h / 2);
     }
 }

@@ -14,9 +14,9 @@ const READ_CHUNK_SIZE = 8 * 1024;
  * Called during encoding to retreive the pixel data for a video frame.
  *
  * When called this function is expected to fill up the buffer with the pixel
- * data. Pixels must be in RGBA format where each channel is an unsigned byte.
+ * data. Pixels must be in YUV420P format where each value of a channel is an unsigned byte.
  *
- * Pixels must be in row major order and `linesize` (stride) must be respected.
+ * Pixels must be in row major order.
  *
  * The return value is used to determine the end of the video stream. Return 1
  * to indicate that this is the last frame. Return 0 to indicate success and return
@@ -28,14 +28,10 @@ const READ_CHUNK_SIZE = 8 * 1024;
  *
  * buffer: The buffer into which the pixel data should be written.
  *
- * linesize: The number of BYTES to step forward from the first pixel of a row to the
- * first pixel of the next row. Note that this is at least `4 * width` (each pixel
- * takes up 4 bytes). This is also known as stride or pitch
  */
 export type GetImageCallback = (
     frameId: number,
     buffer: Uint8Array,
-    linesize: number
 ) => Promise<number>;
 
 export type ReceivedMetadataCallback = (metadata: MediaMetadata) => void;
@@ -111,7 +107,7 @@ export class Encoder {
         this.encStartTime = new Date();
         this.ffmpegStderr = "";
 
-        this.userGetImage = async (fid, buff, linesize): Promise<number> => {
+        this.userGetImage = async (fid, buff): Promise<number> => {
             console.warn(
                 "USING THE DEFAULT GET IMAGE FUNCTION. THIS PROBABLY INDICATES YOU FORGOT TO SET THE `userGetImage` FUNCTION"
             );
@@ -162,7 +158,13 @@ export class Encoder {
         this.encStartTime = new Date();
 
         this.userGetImage = getImage;
-        this.pixelBuffer = new Uint8Array(encoderDesc.width * encoderDesc.height * 4);
+        {
+            let w = encoderDesc.width;
+            let h = encoderDesc.height;
+            let halfW = encoderDesc.width / 2;
+            let halfH = encoderDesc.height / 2;
+            this.pixelBuffer = new Uint8Array(w * h + 2 * halfW * halfH);
+        }
         this.width = encoderDesc.width;
         this.height = encoderDesc.height;
         this.frameId = 0;
@@ -186,7 +188,7 @@ export class Encoder {
                 "-vcodec",
                 "rawvideo",
                 "-pix_fmt",
-                "rgba",
+                "yuv420p",
                 "-framerate",
                 encoderDesc.fps.toString(),
                 "-video_size",
@@ -274,7 +276,7 @@ export class Encoder {
         // the other could be sent down the pipe to ffmpeg
         let frameId = this.frameId;
         this.frameId += 1;
-        this.userGetImage(frameId, this.pixelBuffer, this.width * 4).then((getImgRetVal) => {
+        this.userGetImage(frameId, this.pixelBuffer).then((getImgRetVal) => {
             let isLastFrame = getImgRetVal == 1;
 
             //////////////////////////////////////////////

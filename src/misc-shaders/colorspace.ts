@@ -76,5 +76,92 @@ export class PlanarYuvToRgbShader extends FilterShader {
     }
 }
 
+/**
+ * Produces the Y channel image of a YUV image.
+ */
+export class RgbToYShader extends FilterShader {
+    constructor(gl: WebGLRenderingContext) {
 
+        // For more info, see the PlanarYuvToRgbShader
 
+        let fragmentSrc = `
+            precision mediump float;
+            varying vec2 vTexCoord;
+            uniform sampler2D uRgbTex;
+
+            void main() {
+                const float FOOTROOM = 16.0 / 255.0;
+
+                const float HEADROOM_SHRINK = 219.0 / 255.0;
+                const float K_R = 0.299 * HEADROOM_SHRINK;
+                const float K_G = 0.587 * HEADROOM_SHRINK;
+                const float K_B = 0.114 * HEADROOM_SHRINK;
+                
+                vec3 rgb = texture2D(uRgbTex, vTexCoord).rgb;
+                float Y = rgb.r * K_R + rgb.g * K_G + rgb.b * K_B + FOOTROOM;
+
+                gl_FragColor = vec4(Y, 1.0, 1.0, 1.0);
+            }`;
+        let fragmentShader = FilterShader.createShader(gl, gl.FRAGMENT_SHADER, fragmentSrc);
+        super(gl, fragmentShader);
+    }
+    protected updateUniforms(gl: WebGLRenderingContext): void {}
+}
+
+/**
+ * Produces the U channel image of a YUV image. AKA the Cb channel
+ */
+export class RgbToUShader extends FilterShader {
+    constructor(gl: WebGLRenderingContext) {
+
+        // For more info, see the PlanarYuvToRgbShader
+
+        let fragmentSrc = `
+            precision mediump float;
+            varying vec2 vTexCoord;
+            uniform sampler2D uRgbTex;
+
+            void main() {
+                const float K_R = -0.148;
+                const float K_G = -0.290992;
+                const float K_B = 0.4392;
+
+                vec3 rgb = texture2D(uRgbTex, vTexCoord).rgb;
+                float U = 0.5 + K_R * rgb.r + K_G * rgb.g + K_B * rgb.b;
+
+                gl_FragColor = vec4(U, 1.0, 1.0, 1.0);
+            }`;
+        let fragmentShader = FilterShader.createShader(gl, gl.FRAGMENT_SHADER, fragmentSrc);
+        super(gl, fragmentShader);
+    }
+    protected updateUniforms(gl: WebGLRenderingContext): void { }
+}
+
+/**
+ * Produces the V channel image of a YUV image. AKA the Cr channel
+ */
+export class RgbToVShader extends FilterShader {
+    constructor(gl: WebGLRenderingContext) {
+
+        // For more info, see the PlanarYuvToRgbShader
+
+        let fragmentSrc = `
+            precision mediump float;
+            varying vec2 vTexCoord;
+            uniform sampler2D uRgbTex;
+
+            void main() {
+                const float K_R = 0.4392;
+                const float K_G = -0.367788;
+                const float K_B = -0.0714;
+
+                vec3 rgb = texture2D(uRgbTex, vTexCoord).rgb;
+                float V = 0.5 + K_R * rgb.r + K_G * rgb.g + K_B * rgb.b;
+
+                gl_FragColor = vec4(V, 1.0, 1.0, 1.0);
+            }`;
+        let fragmentShader = FilterShader.createShader(gl, gl.FRAGMENT_SHADER, fragmentSrc);
+        super(gl, fragmentShader);
+    }
+    protected updateUniforms(gl: WebGLRenderingContext): void { }
+}
