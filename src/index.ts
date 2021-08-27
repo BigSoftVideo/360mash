@@ -49,7 +49,7 @@ const createWindow = (): void => {
     }
 };
 const appReady = () => {
-    setTimeout(fullExportTest, 5000);
+    setTimeout(dateBenchmark, 5000);
 
     if (isDevMode) {
         protocol.registerFileProtocol("file", (request, callback) => {
@@ -126,6 +126,17 @@ function ffmpegTest() {
         let elapsedSec = (new Date().getTime() - testProcStart.getTime()) / 1000;
         console.log("Test process exited with", code, "it took " + elapsedSec + " seconds. Packet count was " + packetCnt);
     });
+}
+
+function dateBenchmark() {
+    let start = new Date();
+    let foo = 0;
+    for (let i = 0; i < 1000; i++) {
+        foo += new Date().getTime() / 1000;
+    }
+    let end = new Date();
+    let elapsed = (end.getTime() - start.getTime()) / 1000;
+    console.log("Date elapsed sec", elapsed, "foo", foo);
 }
 
 function ffmpegNetworkTest() {
@@ -359,7 +370,7 @@ function fullExportTest() {
         }
     };
 
-    let receivedImage = (buffer: Uint8Array) => {
+    let receivedImage = async (buffer: Uint8Array) => {
         inFrameIdx += 1;
 
         // TODO if the input framerate is different from the output framerate

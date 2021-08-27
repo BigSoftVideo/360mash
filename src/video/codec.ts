@@ -36,7 +36,11 @@ export type GetImageCallback = (
 ) => Promise<number>;
 
 export type ReceivedMetadataCallback = (metadata: MediaMetadata) => void;
-export type ReceivedImageCallback = (buffer: Uint8Array) => void;
+
+/**
+ * This callback is allowed to block until it's ready to proceed with processing frames
+ */
+export type ReceivedImageCallback = (buffer: Uint8Array) => Promise<void>;
 
 export interface MediaMetadata {
     framerate: number;
@@ -394,7 +398,7 @@ export class Decoder {
     sumInterPacketMs: number;
     prevPacketEndTime: number;
 
-    prevFrameProcessedTime: Date;
+    prevFrameDoneTime: Date;
 
     /** The time in seconds between the end of processing a frame and the moment the next frame
      * is finished transfering. This measures the decoder speed + the speed of the transfer through the pipeline
@@ -420,6 +424,8 @@ export class Decoder {
 
     ffmpegStderr: string;
     frameReadStartTime: Date;
+    sumFrameProcMs: number;
+    inputDataQueue: Buffer[];
 
     constructor() {
         this.pixelBuffer = new Uint8Array();
@@ -434,19 +440,21 @@ export class Decoder {
         // this.runningDecoding = false;
         this.decStartTime = new Date();
         this.frameReadStartTime = new Date();
-        this.prevFrameProcessedTime = new Date();
+        this.prevFrameDoneTime = new Date();
         this.sumInterframeSec = 0;
         this.avgChunkSize = 0;
         this.sumPacketProcMs = 0;
         this.sumInterPacketMs = 0;
         this.prevPacketEndTime = 0;
+        this.sumFrameProcMs = 0;
+        this.inputDataQueue = [];
 
         // this.receivedMetadataCb = () => {
         //     console.error(
         //         "This is the default callback for the received metadata. This indicates that the appropriate callback was not set"
         //     );
         // };
-        this.receivedImageCb = () => {
+        this.receivedImageCb = async () => {
             console.error(
                 "This is the default callback for the received image. This indicates that the appropriate callback was not set"
             );
@@ -472,7 +480,7 @@ export class Decoder {
 
         this.decStartTime = new Date();
         this.sumInterframeSec = 0;
-        this.prevFrameProcessedTime = new Date();
+        this.prevFrameDoneTime = new Date();
         this.sumPacketProcMs = 0;
         this.prevPacketEndTime = 0;
 
@@ -577,42 +585,13 @@ export class Decoder {
         // connection than through an stdio pipe.
         let server = new Server(socket => {
             socket.on("data", src => {
-                if (src.length === 0) {
-                    return;
+                let srcCopy = Buffer.alloc(src.length, src);
+                this.inputDataQueue.push(srcCopy);
+                if (this.inputDataQueue.length === 1) {
+                    // The queue was empty before, so we must start the processData loop.
+                    // processData loops as long as there's at least one element in the queue
+                    processData();
                 }
-                // let packetProcStart = new Date();
-                // if (this.prevPacketEndTime > 0) {
-                //     this.sumInterPacketMs +=
-                //         packetProcStart.getTime() - this.prevPacketEndTime;
-                // }
-                this.avgChunkSize =
-                    (src.length + this.avgChunkSize * this.frameId) / (this.frameId + 1);
-                let copiedSrcBytes = 0;
-                while (copiedSrcBytes < src.length) {
-                    // First copy as many bytes into the pixel buffer as we can
-                    let pixBufRemaining = this.pixelBuffer.length - this.recvPixelBytes;
-                    let remainingSrcBytes = src.length - copiedSrcBytes;
-                    let copyAmount = Math.min(remainingSrcBytes, pixBufRemaining);
-
-                    let srcSlice = src.slice(copiedSrcBytes, copiedSrcBytes + copyAmount);
-                    this.pixelBuffer.set(srcSlice, this.recvPixelBytes);
-
-                    this.recvPixelBytes += copyAmount;
-                    copiedSrcBytes += copyAmount;
-
-                    if (this.recvPixelBytes == this.pixelBuffer.length) {
-                        // this.sumInterframeSec +=
-                        //     (new Date().getTime() - this.prevFrameProcessedTime.getTime()) /
-                        //     1000;
-                        this.receivedImageCb(this.pixelBuffer);
-                        // this.prevFrameProcessedTime = new Date();
-                        this.recvPixelBytes = 0;
-                        this.frameId += 1;
-                    }
-                }
-                // let endTime = new Date().getTime();
-                // this.sumPacketProcMs += endTime - packetProcStart.getTime();
-                // this.prevPacketEndTime = endTime;
             })
         });
         server.on("listening", () => {
@@ -724,6 +703,52 @@ export class Decoder {
                 this.ffmpegStderr += data;
             });
         }
+        let processData = async (): Promise<void> => {
+            while (true) {
+                let src = this.inputDataQueue.shift();
+                if (!src) {
+                    return;
+                }
+                if (src.length === 0) {
+                    continue;
+                }
+                let packetProcStart = new Date().getTime();
+                if (this.prevPacketEndTime > 0) {
+                    this.sumInterPacketMs += packetProcStart - this.prevPacketEndTime;
+                }
+                this.avgChunkSize =
+                    (src.length + this.avgChunkSize * this.frameId) / (this.frameId + 1);
+                let copiedSrcBytes = 0;
+                while (copiedSrcBytes < src.length) {
+                    // First copy as many bytes into the pixel buffer as we can
+                    let pixBufRemaining = this.pixelBuffer.length - this.recvPixelBytes;
+                    let remainingSrcBytes = src.length - copiedSrcBytes;
+                    let copyAmount = Math.min(remainingSrcBytes, pixBufRemaining);
+    
+                    let srcSlice = src.slice(copiedSrcBytes, copiedSrcBytes + copyAmount);
+                    this.pixelBuffer.set(srcSlice, this.recvPixelBytes);
+    
+                    this.recvPixelBytes += copyAmount;
+                    copiedSrcBytes += copyAmount;
+    
+                    if (this.recvPixelBytes == this.pixelBuffer.length) {
+                        let frameStart = new Date();
+                        this.sumInterframeSec +=
+                            (frameStart.getTime() - this.prevFrameDoneTime.getTime()) /
+                            1000;
+                        await this.receivedImageCb(this.pixelBuffer);
+                        let frameEnd = new Date();
+                        this.prevFrameDoneTime = frameEnd;
+                        this.sumFrameProcMs += frameEnd.getTime() - frameStart.getTime();
+                        this.recvPixelBytes = 0;
+                        this.frameId += 1;
+                    }
+                }
+                let endTime = new Date().getTime();
+                this.sumPacketProcMs += endTime - packetProcStart;
+                this.prevPacketEndTime = endTime;
+            }
+        };
     }
 
     protected finishedDecoding(success: boolean) {
@@ -734,10 +759,11 @@ export class Decoder {
             [
                 `Total elapsed time is ${elapsed}`,
                 `Decode time is ${decodeTime}, avg decode framerate ${this.frameId / decodeTime}.`,
-                // `Avg inter frame ms ${(this.sumInterframeSec * 1000) / this.frameId}.`,
-                // `Avg pipe chunk kb ${this.avgChunkSize / 1000}`,
-                // `Avg inter packet ms ${this.sumInterPacketMs / this.frameId}`,
-                // `Avg packet proccess ms ${this.sumPacketProcMs / this.frameId}`,
+                `Avg inter frame ms ${(this.sumInterframeSec * 1000) / this.frameId}. (High if decoding is slow)`,
+                `Avg intra frame ms ${this.sumFrameProcMs / this.frameId}. (High if encoding is slow)`,
+                `Avg pipe chunk kb ${this.avgChunkSize / 1000}`,
+                `Avg inter packet ms ${this.sumInterPacketMs / this.frameId}`,
+                `Avg intra packet ms ${this.sumPacketProcMs / this.frameId}`,
             ].join("\n")
         );
         this.doneCb(success);

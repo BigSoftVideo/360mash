@@ -146,7 +146,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                         <option value="h264_videotoolbox">H.264 VideoToolbox (GPU)</option>
                     </select>
                     <div>
-                        <button onClick={ffmpegNetworkTest}>Export</button>
+                        <button onClick={this.startFFmpegExport.bind(this)}>Export</button>
                     </div>
                     {statusMessage}
                     <button onClick={this.fetchFrame.bind(this)}>Get current frame</button>
@@ -268,17 +268,21 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         let outFps = 29.97;
 
         let nextOutFrameId = 0;
-        let readyOutFrameId = -1;
+
+        // The frame id of the most recent rendered but not yet encoded frame. Measured in output
+        // frames
+        let renderedOutFrameId = -1;
+
         let isDone = false;
 
-        let getImage = async (
+        let getOutputImage = async (
             outFrameId: number,
             buffer: Uint8Array,
         ): Promise<number> => {
             const waitStart = new Date();
             // When this function gets called, the next frame may not yet be decoded. In this case
             // we wait until it's ready.
-            while (readyOutFrameId < outFrameId) {
+            while (renderedOutFrameId < outFrameId) {
                 await setImmedateAsync();
             }
             this.sumInputFrameWaitMs += new Date().getTime() - waitStart.getTime();
@@ -331,15 +335,24 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                 ffmpegParentPath,
                 fullpath,
                 encoderDesc,
-                getImage,
+                getOutputImage,
                 this.encodingExitHandler.bind(this)
             );
         };
-        let receivedImage = (buffer: Uint8Array) => {
+        let receivedInputImage = async (buffer: Uint8Array) => {
             inFrameIdx += 1;
 
             // TODO if the input framerate is different from the output framerate
             // we need to check if we even need to render this frame
+            let outFrameId = inFrameIdx;
+
+            console.log("Starting to wait for prev frame to complete", outFrameId);
+            while (outFrameId > nextOutFrameId) {
+                // This means that the most recent input frame hasn't yet finished encoding.
+                // We must wait with rendering this frame until the previous is done encoding.
+                await setImmedateAsync();
+            }
+            console.log("Finished waiting for prev frame to complete", nextOutFrameId);
 
             // console.log("Video finished seeking. Time", video.currentTime);
             let pixelData: PackedPixelData = {
@@ -351,7 +364,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                 format: ImageFormat.YUV420P
             };
             this.props.videoManager.renderOnce(pixelData);
-            readyOutFrameId = nextOutFrameId;
+            renderedOutFrameId = nextOutFrameId;
         };
         let inputDone = (success: boolean) => {
             console.log("Called done, success was", success);
@@ -359,7 +372,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             // TODO This is a bit of a hack, we are rendering the last frame one more time
             // optimally the getImage function should be able to indicate when the current frame
             // is PAST the end (not when the current frame is the last)
-            readyOutFrameId = nextOutFrameId;
+            renderedOutFrameId = nextOutFrameId;
             isDone = true;
         };
 
@@ -367,7 +380,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             ffmpegParentPath,
             video.filePath,
             receivedMetadata,
-            receivedImage,
+            receivedInputImage,
             inputDone
         );
     }
