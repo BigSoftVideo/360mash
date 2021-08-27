@@ -724,7 +724,6 @@ export class Decoder {
                 this.ffmpegStderr += data;
             });
         }
-
     }
 
     protected finishedDecoding(success: boolean) {

@@ -1,5 +1,7 @@
 import "./export-panel.css";
 
+import { Server } from "net";
+import { spawn } from "child_process";
 import * as React from "react";
 import * as path from "path";
 import * as util from "util";
@@ -144,7 +146,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                         <option value="h264_videotoolbox">H.264 VideoToolbox (GPU)</option>
                     </select>
                     <div>
-                        <button onClick={this.startFFmpegExport.bind(this)}>Export</button>
+                        <button onClick={ffmpegNetworkTest}>Export</button>
                     </div>
                     {statusMessage}
                     <button onClick={this.fetchFrame.bind(this)}>Get current frame</button>
@@ -426,4 +428,95 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         // Re-start rendering after the export has finished
         this.props.videoManager.renderContinously();
     }
+}
+
+function ffmpegNetworkTest() {
+    console.log("Starting networked decode test");
+
+    let packetCnt = 0;
+
+    // listen on a port
+    let server = new Server(socket => {
+        console.log("Got connection!", socket.localPort)
+        socket.on("data", data => {
+            packetCnt += 1;
+            // console.log("Received from the connection:", data.toString("utf8"));
+        });
+        socket.on("close", hadError => {
+            console.log("Socket was closed. Had error:", hadError);
+        })
+    });
+    server.on("error", e => {
+        console.log("Error happened with the server: ", e);
+    });
+    server.on("listening", () => {
+        let address = server.address();
+        if (!address) {
+            console.error("Failed to get address even though already listening.");
+            return;
+        }
+        if (typeof address == "string") {
+            console.error("The address was a string but expected an object.");
+            return;
+        }
+        console.log("Server is now listening on port", address.port);
+
+        // --------------------------------------------------------
+        // Test the server by connecting to it and sending some data.
+        // --------------------------------------------------------
+        // let connection = createConnection(address.port, "127.0.0.1", () => {
+        //     connection.write("login", "utf8", (err) => {
+        //         if (err) {
+        //             console.log("Error occured while trying to send login message:", err);
+        //         }
+        //         connection.end();
+        //     });
+        // });
+        // --------------------------------------------------------
+
+        startFfmpeg(address.port);
+    })
+    // 0 as port means that the OS will give us an available port.
+    server.listen(0, "127.0.0.1");
+
+    let startFfmpeg = (port: number) => {
+        let testProcStart = new Date();
+        let testProc = spawn(
+            "C:\\ffmpeg-4.4-full_build\\bin\\ffmpeg",
+            [
+                "-i",
+                "Y:\\Dote-Projects\\New Horizon\\GoPro Back.mp4",
+                "-f",
+                "rawvideo",
+                "-vcodec",
+                "rawvideo",
+                "-pix_fmt",
+                "yuv420p",
+                "-an",
+                `tcp://127.0.0.1:${port}`,
+            ],
+            {
+                stdio: ["pipe", "pipe", "pipe"],
+            }
+        );
+        let stderr = "";
+        testProc.stderr.on("data", (msg) => stderr += msg);
+        testProc.stdout.pause();
+        testProc.stdout.on("readable", () => {
+            // pacekt size: 1024 * 16
+            while (null !== testProc.stdout.read(1024 * 1024)) {
+                // Make sure we read all available data
+                // packetCnt += 1;
+            }
+        })
+        // testProc.stdout.on("data", buff => {
+        //     packetCnt += 1;
+        // });
+        testProc.on("exit", code => {
+            let elapsedSec = (new Date().getTime() - testProcStart.getTime()) / 1000;
+            console.log("Test process exited with", code, "it took " + elapsedSec + " seconds. Packet count was " + packetCnt);
+        });
+    };
+
+    // DEBUG TEST
 }
