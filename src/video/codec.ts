@@ -1,6 +1,7 @@
 import * as util from "util";
 import * as fs from "fs";
 import * as path from "path";
+import { Server } from "net";
 import { spawn, ChildProcess, ChildProcessWithoutNullStreams } from "child_process";
 
 // const ffmpegBin =
@@ -418,6 +419,7 @@ export class Decoder {
     metadata: MediaMetadata;
 
     ffmpegStderr: string;
+    frameReadStartTime: Date;
 
     constructor() {
         this.pixelBuffer = new Uint8Array();
@@ -431,6 +433,7 @@ export class Decoder {
         this.recvPixelBytes = 0;
         // this.runningDecoding = false;
         this.decStartTime = new Date();
+        this.frameReadStartTime = new Date();
         this.prevFrameProcessedTime = new Date();
         this.sumInterframeSec = 0;
         this.avgChunkSize = 0;
@@ -570,57 +573,18 @@ export class Decoder {
     }
 
     protected startProcessingFrames(inFilePath: string, ffmpegBin: string) {
-        this.ffmpegProc = spawn(
-            `${ffmpegBin}`,
-            [
-                // Enabling HW acceleration here, doesn't seem to have any effect on the speed
-                // "-hwaccel",
-                // "d3d11va",
-                "-i",
-                `${inFilePath}`,
-                "-f",
-                "rawvideo",
-                "-vcodec",
-                "rawvideo",
-                "-pix_fmt",
-                "yuv420p",
-                "-an",
-                "pipe:1",
-            ],
-            {
-                stdio: ["pipe", "pipe", "pipe"],
-            }
-        );
-        this.ffmpegProc.on("exit", (code) => {
-            if (code === 0) {
-                console.log("FFmpeg exited successfully");
-                this.finishedDecoding(true);
-                return;
-            }
-            if (code === null) {
-                console.warn("ffmpeg seems to have been terminated");
-            } else {
-                console.warn("ffmpeg returned with the exit code:", code);
-            }
-            console.warn("ffmpeg stderr was:\n" + this.ffmpegStderr);
-            this.finishedDecoding(false);
-        });
-
-        // Another way of potentially making the read faster is to ask ffmpeg to send the data over
-        // a tcp/udp connection. (instead of a pipe)
-        this.ffmpegProc.stdout.pause();
-        this.ffmpegProc.stdout.on("readable", () => {
-            while (true) {
-                // A single readable event may signal that multiple 'read' chunks are available.
-                let src: Buffer | null = this.ffmpegProc?.stdout.read();
-                if (!src || src.length === 0) {
+        // For whatever reason it's significantly faster to receive the frame data through a tcp
+        // connection than through an stdio pipe.
+        let server = new Server(socket => {
+            socket.on("data", src => {
+                if (src.length === 0) {
                     return;
                 }
-                let packetProcStart = new Date();
-                if (this.prevPacketEndTime > 0) {
-                    this.sumInterPacketMs +=
-                        packetProcStart.getTime() - this.prevPacketEndTime;
-                }
+                // let packetProcStart = new Date();
+                // if (this.prevPacketEndTime > 0) {
+                //     this.sumInterPacketMs +=
+                //         packetProcStart.getTime() - this.prevPacketEndTime;
+                // }
                 this.avgChunkSize =
                     (src.length + this.avgChunkSize * this.frameId) / (this.frameId + 1);
                 let copiedSrcBytes = 0;
@@ -637,40 +601,144 @@ export class Decoder {
                     copiedSrcBytes += copyAmount;
 
                     if (this.recvPixelBytes == this.pixelBuffer.length) {
-                        this.sumInterframeSec +=
-                            (new Date().getTime() - this.prevFrameProcessedTime.getTime()) /
-                            1000;
+                        // this.sumInterframeSec +=
+                        //     (new Date().getTime() - this.prevFrameProcessedTime.getTime()) /
+                        //     1000;
                         this.receivedImageCb(this.pixelBuffer);
-                        this.prevFrameProcessedTime = new Date();
+                        // this.prevFrameProcessedTime = new Date();
                         this.recvPixelBytes = 0;
                         this.frameId += 1;
                     }
                 }
-                let endTime = new Date().getTime();
-                this.sumPacketProcMs += endTime - packetProcStart.getTime();
-                this.prevPacketEndTime = endTime;
+                // let endTime = new Date().getTime();
+                // this.sumPacketProcMs += endTime - packetProcStart.getTime();
+                // this.prevPacketEndTime = endTime;
+            })
+        });
+        server.on("listening", () => {
+            let address = server.address();
+            if (!address) {
+                console.error("Failed to get address even though already listening.");
+                return;
             }
+            if (typeof address == "string") {
+                console.error("The address was a string but expected an object.");
+                return;
+            }
+            console.log("Server is now listening on port", address.port);
+            startFfmpeg(address.port);
         });
+        // 0 means that the OS should assign an available port
+        server.listen(0, "127.0.0.1");
 
-        // this.ffmpegProc.stdout.on("data", (src: Buffer) => {
-        //     // This was moved to the readable callback in an attempt to better control the chunk
-        //     // size that is read
-        // });
-        this.ffmpegProc.stderr.on("data", (data) => {
-            this.ffmpegStderr += data;
-        });
+        let startFfmpeg = (port: number) => {
+            this.frameReadStartTime = new Date();
+            this.ffmpegProc = spawn(
+                `${ffmpegBin}`,
+                [
+                    // Enabling HW acceleration here, doesn't seem to have any effect on the speed
+                    // "-hwaccel",
+                    // "d3d11va",
+                    "-i",
+                    `${inFilePath}`,
+                    "-f",
+                    "rawvideo",
+                    "-vcodec",
+                    "rawvideo",
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-an",
+                    `tcp://127.0.0.1:${port}`,
+                ],
+                {
+                    stdio: ["pipe", "pipe", "pipe"],
+                }
+            );
+            this.ffmpegProc.on("exit", (code) => {
+                server.close();
+                if (code === 0) {
+                    console.log("FFmpeg exited successfully");
+                    this.finishedDecoding(true);
+                    return;
+                }
+                if (code === null) {
+                    console.warn("ffmpeg seems to have been terminated");
+                } else {
+                    console.warn("ffmpeg returned with the exit code:", code);
+                }
+                console.warn("ffmpeg stderr was:\n" + this.ffmpegStderr);
+                this.finishedDecoding(false);
+            });
+    
+            // Another way of potentially making the read faster is to ask ffmpeg to send the data over
+            // a tcp/udp connection. (instead of a pipe)
+            this.ffmpegProc.stdout.pause();
+            this.ffmpegProc.stdout.on("readable", () => {
+                while (true) {
+                    // A single readable event may signal that multiple 'read' chunks are available.
+                    let src: Buffer | null = this.ffmpegProc?.stdout.read();
+                    if (!src || src.length === 0) {
+                        return;
+                    }
+                    // let packetProcStart = new Date();
+                    // if (this.prevPacketEndTime > 0) {
+                    //     this.sumInterPacketMs +=
+                    //         packetProcStart.getTime() - this.prevPacketEndTime;
+                    // }
+                    // this.avgChunkSize =
+                    //     (src.length + this.avgChunkSize * this.frameId) / (this.frameId + 1);
+                    // let copiedSrcBytes = 0;
+                    // while (copiedSrcBytes < src.length) {
+                    //     // First copy as many bytes into the pixel buffer as we can
+                    //     let pixBufRemaining = this.pixelBuffer.length - this.recvPixelBytes;
+                    //     let remainingSrcBytes = src.length - copiedSrcBytes;
+                    //     let copyAmount = Math.min(remainingSrcBytes, pixBufRemaining);
+    
+                    //     let srcSlice = src.slice(copiedSrcBytes, copiedSrcBytes + copyAmount);
+                    //     this.pixelBuffer.set(srcSlice, this.recvPixelBytes);
+    
+                    //     this.recvPixelBytes += copyAmount;
+                    //     copiedSrcBytes += copyAmount;
+    
+                    //     if (this.recvPixelBytes == this.pixelBuffer.length) {
+                    //         this.sumInterframeSec +=
+                    //             (new Date().getTime() - this.prevFrameProcessedTime.getTime()) /
+                    //             1000;
+                    //         this.receivedImageCb(this.pixelBuffer);
+                    //         this.prevFrameProcessedTime = new Date();
+                    //         this.recvPixelBytes = 0;
+                    //         this.frameId += 1;
+                    //     }
+                    // }
+                    // let endTime = new Date().getTime();
+                    // this.sumPacketProcMs += endTime - packetProcStart.getTime();
+                    // this.prevPacketEndTime = endTime;
+                }
+            });
+    
+            // this.ffmpegProc.stdout.on("data", (src: Buffer) => {
+            //     // This was moved to the readable callback in an attempt to better control the chunk
+            //     // size that is read
+            // });
+            this.ffmpegProc.stderr.on("data", (data) => {
+                this.ffmpegStderr += data;
+            });
+        }
+
     }
 
     protected finishedDecoding(success: boolean) {
         let now = new Date();
         let elapsed = (now.getTime() - this.decStartTime.getTime()) / 1000;
+        let decodeTime = (now.getTime() - this.frameReadStartTime.getTime()) / 1000;
         console.log(
             [
-                `Elapsed time is ${elapsed}, avg decode framerate ${this.frameId / elapsed}.`,
-                `Avg inter frame ms ${(this.sumInterframeSec * 1000) / this.frameId}.`,
-                `Avg pipe chunk kb ${this.avgChunkSize / 1000}`,
-                `Avg inter packet ms ${this.sumInterPacketMs / this.frameId}`,
-                `Avg packet proccess ms ${this.sumPacketProcMs / this.frameId}`,
+                `Total elapsed time is ${elapsed}`,
+                `Decode time is ${decodeTime}, avg decode framerate ${this.frameId / decodeTime}.`,
+                // `Avg inter frame ms ${(this.sumInterframeSec * 1000) / this.frameId}.`,
+                // `Avg pipe chunk kb ${this.avgChunkSize / 1000}`,
+                // `Avg inter packet ms ${this.sumInterPacketMs / this.frameId}`,
+                // `Avg packet proccess ms ${this.sumPacketProcMs / this.frameId}`,
             ].join("\n")
         );
         this.doneCb(success);
