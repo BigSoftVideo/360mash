@@ -284,6 +284,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             const waitStart = new Date();
             // When this function gets called, the next frame may not yet be decoded. In this case
             // we wait until it's ready.
+            console.log("OUT Get output image called.")
             while (renderedOutFrameId < outFrameId) {
                 await setImmedateAsync();
             }
