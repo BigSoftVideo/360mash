@@ -256,6 +256,8 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         let video = this.props.videoManager.video;
         let duration = video.htmlVideo.duration;
 
+        console.log("Video duration is", duration);
+
         this.props.videoManager.stopRendering();
 
         const htmlVideo = this.props.videoManager.video.htmlVideo;
@@ -285,6 +287,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             while (renderedOutFrameId < outFrameId) {
                 await setImmedateAsync();
             }
+            console.log("OUT Starting to read-out frame", renderedOutFrameId, outFrameId);
             this.sumInputFrameWaitMs += new Date().getTime() - waitStart.getTime();
             let targetPixelBuffer: PackedPixelData = {
                 data: buffer,
@@ -293,7 +296,9 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                 format: ImageFormat.YUV420P
             };
             this.props.videoManager.pipeline.fillYuv420pPixelData(targetPixelBuffer);
-            let progress = outFrameId / outFps / duration;
+            let outTime = outFrameId / outFps;
+            console.log("Curr out time", outTime, "fps", outFps, "duration", duration);
+            let progress = outTime / duration;
             nextOutFrameId = outFrameId + 1;
 
             this.props.infoProvider.reportProgress(progress);
@@ -346,13 +351,13 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             // we need to check if we even need to render this frame
             let outFrameId = inFrameIdx;
 
-            console.log("Starting to wait for prev frame to complete", outFrameId);
-            while (outFrameId > nextOutFrameId) {
+            console.log("IN Starting to wait for prev frame to complete", outFrameId);
+            while (nextOutFrameId < outFrameId) {
                 // This means that the most recent input frame hasn't yet finished encoding.
                 // We must wait with rendering this frame until the previous is done encoding.
                 await setImmedateAsync();
             }
-            console.log("Finished waiting for prev frame to complete", nextOutFrameId);
+            console.log("IN Rendering input image", nextOutFrameId, outFrameId);
 
             // console.log("Video finished seeking. Time", video.currentTime);
             let pixelData: PackedPixelData = {

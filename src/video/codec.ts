@@ -281,7 +281,9 @@ export class Encoder {
         // the other could be sent down the pipe to ffmpeg
         let frameId = this.frameId;
         this.frameId += 1;
+        console.log("ENCODER getting image for frame", frameId);
         this.userGetImage(frameId, this.pixelBuffer).then((getImgRetVal) => {
+            console.log("ENCODER Got image for frame", frameId);
             let isLastFrame = getImgRetVal == 1;
 
             //////////////////////////////////////////////
@@ -313,7 +315,11 @@ export class Encoder {
                 return;
             }
             let canWriteMore = false;
-            let writeDone = (err: Error | null | undefined) => {
+            let writeIsDone = false;
+            let callNextWriteOnWriteDone = false;
+            let onWriteDone = (err: Error | null | undefined) => {
+                console.log("ENCODER Finished writing frame", frameId);
+                writeIsDone = true;
                 this.sumWriteMs += new Date().getTime() - writeStart.getTime();
                 // console.log("Write done - " + frameId);
                 if (err) {
@@ -330,14 +336,16 @@ export class Encoder {
                     this.endEncoding();
                     return;
                 }
-                if (canWriteMore) {
-                    // If the pipe can accept more data immediately, then we just immediately fetch the
-                    // next frame.
+                if (callNextWriteOnWriteDone) {
                     // TODO this should be handled differently when using double buffering
                     this.writeFrame();
-                } else {
-                    // console.log("canWriteMore was false after the write completed, not sending frames immediately");
                 }
+                // if (canWriteMore) {
+                //     // If the pipe can accept more data immediately, then we just immediately fetch the
+                //     // next frame.
+                // } else {
+                //     // console.log("canWriteMore was false after the write completed, not sending frames immediately");
+                // }
             };
 
             if (!this.ffmpegProc.stdin.writable) {
@@ -348,16 +356,24 @@ export class Encoder {
             }
 
             let writeStart = new Date();
-            canWriteMore = this.ffmpegProc.stdin.write(this.pixelBuffer, writeDone);
-            if (!canWriteMore && !isLastFrame) {
-                // The pipe is full, we need to wait a while before we can push more data
-                // into it.
-                let drainWaitStart = new Date();
-                this.ffmpegProc.stdin.once("drain", () => {
-                    this.sumDrainWaitMs += new Date().getTime() - drainWaitStart.getTime();
-                    // console.log("The drain event was triggered on the ffmpeg pipe");
-                    this.writeFrame();
-                });
+            console.log("ENCODER Starting to write frame", frameId);
+            canWriteMore = this.ffmpegProc.stdin.write(this.pixelBuffer, onWriteDone);
+            if (!isLastFrame) {
+                if (canWriteMore) {
+                    callNextWriteOnWriteDone = true;
+                } else {
+                    // The pipe is full, we need to wait a while before we can push more data
+                    // into it.
+                    let drainWaitStart = new Date();
+                    this.ffmpegProc.stdin.once("drain", () => {
+                        this.sumDrainWaitMs += new Date().getTime() - drainWaitStart.getTime();
+                        if (writeIsDone) {
+                            this.writeFrame();
+                        } else {
+                            callNextWriteOnWriteDone = true;
+                        }
+                    });
+                }
             }
         });
     }
