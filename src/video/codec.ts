@@ -281,9 +281,9 @@ export class Encoder {
         // the other could be sent down the pipe to ffmpeg
         let frameId = this.frameId;
         this.frameId += 1;
-        console.log("ENCODER getting image for frame", frameId);
+        // console.log("ENCODER getting image for frame", frameId);
         this.userGetImage(frameId, this.pixelBuffer).then((getImgRetVal) => {
-            console.log("ENCODER Got image for frame", frameId);
+            // console.log("ENCODER Got image for frame", frameId);
             let isLastFrame = getImgRetVal == 1;
 
             //////////////////////////////////////////////
@@ -318,7 +318,7 @@ export class Encoder {
             let writeIsDone = false;
             let callNextWriteOnWriteDone = false;
             let onWriteDone = (err: Error | null | undefined) => {
-                console.log("ENCODER Finished writing frame", frameId);
+                // console.log("ENCODER Finished writing frame", frameId);
                 writeIsDone = true;
                 this.sumWriteMs += new Date().getTime() - writeStart.getTime();
                 // console.log("Write done - " + frameId);
@@ -356,7 +356,7 @@ export class Encoder {
             }
 
             let writeStart = new Date();
-            console.log("ENCODER Starting to write frame", frameId);
+            // console.log("ENCODER Starting to write frame", frameId);
             canWriteMore = this.ffmpegProc.stdin.write(this.pixelBuffer, onWriteDone);
             if (!isLastFrame) {
                 if (canWriteMore) {
@@ -440,8 +440,11 @@ export class Decoder {
     ffmpegStderr: string;
     frameReadStartTime: Date;
     sumFrameProcMs: number;
-    inputDataQueue: Buffer[];
-    processingData: boolean;
+    prevTcpDataTime: number;
+    sumInterTcpDataTime: number;
+    frameSize: number;
+    prevTryReadEnd: number;
+    sumInterTryRead: number;
 
     constructor() {
         this.pixelBuffer = new Uint8Array();
@@ -462,9 +465,12 @@ export class Decoder {
         this.sumPacketProcMs = 0;
         this.sumInterPacketMs = 0;
         this.prevPacketEndTime = 0;
+        this.prevTcpDataTime = 0;
+        this.sumInterTcpDataTime = 0;
         this.sumFrameProcMs = 0;
-        this.inputDataQueue = [];
-        this.processingData = false;
+        this.frameSize = 0;
+        this.prevTryReadEnd = 0;
+        this.sumInterTryRead = 0;
 
         // this.receivedMetadataCb = () => {
         //     console.error(
@@ -500,6 +506,7 @@ export class Decoder {
         this.prevFrameDoneTime = 0;
         this.sumPacketProcMs = 0;
         this.prevPacketEndTime = 0;
+        this.sumInterTcpDataTime = 0;
 
         this.receivedImageCb = receivedImage;
         this.doneCb = done;
@@ -590,20 +597,169 @@ export class Decoder {
                 let halfW = Math.floor(w/2);
                 let halfH = Math.floor(h/2);
                 let yuvFrameSize = w * h + 2 * (halfW * halfH);
-                this.pixelBuffer = new Uint8Array(yuvFrameSize);
+                this.frameSize = yuvFrameSize;
+                this.pixelBuffer = new Uint8Array(this.frameSize);
                 receivedMetadata(this.metadata);
-                this.startProcessingFrames(inFilePath, ffmpegBin);
+                this.processPipeFrames(inFilePath, ffmpegBin);
             });
         });
     }
 
-    protected startProcessingFrames(inFilePath: string, ffmpegBin: string) {
+    /** 
+     * Starts up an ffmpeg process and commands it to send the decoded frames through an
+     * stdio pipe to this process.
+     */
+    protected processPipeFrames(inFilePath: string, ffmpegBin: string) {
+        let processingData = false;
+        this.sumInterTryRead = 0;
+        this.prevTryReadEnd = 0;
+
+        const MAX_FRAME_QUEUE_LEN = 2;
+        let frameQueue: Buffer[] = [];
+
+        let processData = async (): Promise<void> => {
+            if (processingData) {
+                return;
+            }
+            processingData = true;
+            try {
+                while (true) {
+                    let src: Buffer | undefined = frameQueue.shift();
+                    if (!src) {
+                        return;
+                    }
+                    if (src.length === 0) {
+                        continue;
+                    }
+                    let packetProcStart = new Date().getTime();
+                    if (this.prevPacketEndTime > 0) {
+                        this.sumInterPacketMs += packetProcStart - this.prevPacketEndTime;
+                    }
+                    this.avgChunkSize =
+                        (src.length + this.avgChunkSize * this.frameId) / (this.frameId + 1);
+
+                    let frameStart = new Date();
+                    if (this.prevFrameDoneTime > 0) {
+                        this.sumInterframeSec +=
+                            (frameStart.getTime() - this.prevFrameDoneTime) / 1000;
+                    }
+
+                    await this.receivedImageCb(new Uint8Array(src.buffer));
+
+                    let frameEnd = new Date();
+                    this.prevFrameDoneTime = frameEnd.getTime();
+                    this.sumFrameProcMs += frameEnd.getTime() - frameStart.getTime();
+                    this.recvPixelBytes = 0;
+                    this.frameId += 1;
+
+                    let endTime = new Date().getTime();
+                    this.sumPacketProcMs += endTime - packetProcStart;
+                    this.prevPacketEndTime = endTime;
+                }
+            } finally {
+                processingData = false;
+            }
+        };
+
+        this.frameReadStartTime = new Date();
+        this.ffmpegProc = spawn(
+            `${ffmpegBin}`,
+            [
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                // Enabling HW acceleration here, doesn't seem to have any effect on the speed
+                // "-hwaccel",
+                // "d3d11va",
+                "-i",
+                `${inFilePath}`,
+                "-f",
+                "rawvideo",
+                "-vcodec",
+                "rawvideo",
+                "-pix_fmt",
+                "yuv420p",
+                "-an",
+                'pipe:1'
+            ],
+            {
+                stdio: ["pipe", "pipe", "pipe"],
+            }
+        );
+        this.ffmpegProc.on("exit", (code) => {
+            // server.close();
+            if (code === 0) {
+                console.log("FFmpeg exited successfully");
+                this.finishedDecoding(true);
+                return;
+            }
+            if (code === null) {
+                console.warn("ffmpeg seems to have been terminated");
+            } else {
+                console.warn("ffmpeg returned with the exit code:", code);
+            }
+            console.warn("ffmpeg stderr was:\n" + this.ffmpegStderr);
+            this.finishedDecoding(false);
+        });
+
+        console.log("Expecting ffmpeg frames of size", this.frameSize);
+
+        let ffmpegOut = this.ffmpegProc.stdout;
+        ffmpegOut.pause();
+        let tryReading = () => {
+            if (!ffmpegOut.readable) {
+                return;
+            }
+            if (this.prevTryReadEnd > 0) {
+                this.sumInterTryRead += new Date().getTime() - this.prevTryReadEnd;
+            }
+            try {
+                while (frameQueue.length < MAX_FRAME_QUEUE_LEN) {
+                    let frame: Buffer | null = ffmpegOut.read(this.frameSize);
+                    if (frame === null) {
+                        // When the size is specified for the read function, this indicates that
+                        // there isn't enough data available.
+                        return;
+                    }
+                    if (frame.length === 0) {
+                        continue;
+                    }
+                    if (frame.length !== this.frameSize) {
+                        console.error("Received a package from ffmpeg that was not the expected size")
+                        return;
+                    }
+                    frameQueue.push(frame);
+                    processData();
+                }
+            } finally {
+                this.prevTryReadEnd = new Date().getTime();
+                setImmediate(tryReading);
+            }
+        }
+        setImmediate(tryReading);
+        this.ffmpegProc.stderr.on("data", (data) => {
+            this.ffmpegStderr += data;
+        });
+    }
+
+    /**
+     * Starts up an ffmpeg process and commands it to send the decoded frames through a TCP
+     * connection to this process.
+     */
+    protected processNetworkFrames(inFilePath: string, ffmpegBin: string) {
+        let processingData = false;
+        let inputDataQueue: Buffer[] = [];
         // For whatever reason it's significantly faster to receive the frame data through a tcp
         // connection than through an stdio pipe.
         let server = new Server(socket => {
             socket.on("data", src => {
+                let now = new Date().getTime();
+                if (this.prevTcpDataTime > 0) {
+                    this.sumInterTcpDataTime += now - this.prevTcpDataTime;
+                }
+                this.prevTcpDataTime = now;
                 // let srcCopy = Buffer.alloc(src.length, src);
-                this.inputDataQueue.push(src);
+                inputDataQueue.push(src);
                 processData();
             })
         });
@@ -674,15 +830,15 @@ export class Decoder {
             });
         }
         let processData = async (): Promise<void> => {
-            if (this.processingData) {
+            if (processingData) {
                 // console.log("Already processing data, returning");
                 return;
             }
             // console.log("Setting processing data to true");
-            this.processingData = true;
+            processingData = true;
             try {
                 while (true) {
-                    let src = this.inputDataQueue.shift();
+                    let src = inputDataQueue.shift();
                     if (!src) {
                         return;
                     }
@@ -702,7 +858,8 @@ export class Decoder {
                         let remainingSrcBytes = src.length - copiedSrcBytes;
                         let copyAmount = Math.min(remainingSrcBytes, pixBufRemaining);
         
-                        let srcSlice = src.slice(copiedSrcBytes, copiedSrcBytes + copyAmount);
+                        let tmp = new Uint8Array(src.buffer);
+                        let srcSlice = tmp.subarray(copiedSrcBytes, copiedSrcBytes + copyAmount);
                         this.pixelBuffer.set(srcSlice, this.recvPixelBytes);
         
                         this.recvPixelBytes += copyAmount;
@@ -729,7 +886,7 @@ export class Decoder {
                 }
             } finally {
                 // console.log("Setting processing data to false");
-                this.processingData = false;
+                processingData = false;
             }
         };
         // startFfmpeg(0);
@@ -739,15 +896,22 @@ export class Decoder {
         let now = new Date();
         let elapsed = (now.getTime() - this.decStartTime.getTime()) / 1000;
         let decodeTime = (now.getTime() - this.frameReadStartTime.getTime()) / 1000;
+
+        // Subtracting the 
+        // let interFrameMs = this.sumInterframeSec * 1000 - this.sumInterTryRead;
+
         console.log(
             [
                 `Total elapsed time is ${elapsed}`,
                 `Decode time is ${decodeTime}, avg decode framerate ${this.frameId / decodeTime}.`,
-                `Avg inter frame ms ${(this.sumInterframeSec * 1000) / this.frameId} (High if decoding is slow)`,
+                `Avg inter frame ms ${(this.sumInterframeSec * 1000) / this.frameId} (High if decoding OR filtering OR encoding is slow)`,
                 `Avg intra frame ms ${this.sumFrameProcMs / this.frameId} (High if encoding is slow)`,
                 `Avg pipe chunk kb ${this.avgChunkSize / 1000}`,
                 `Avg inter packet ms ${this.sumInterPacketMs / this.frameId}`,
                 `Avg intra packet ms ${this.sumPacketProcMs / this.frameId}`,
+                `Avg inter TRY READ ms ${this.sumInterTryRead / this.frameId} (High if filtering OR encoding is slow)`,
+                `Avg inter tcp packet ms ${this.sumInterTcpDataTime / this.frameId}`,
+
             ].join("\n")
         );
         this.doneCb(success);

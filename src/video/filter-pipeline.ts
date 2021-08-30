@@ -1,8 +1,12 @@
+
+import * as util from "util";
 import { FilterBase, FilterId } from "./filter-base";
 import { FilterManager } from "./filter-manager";
 import { Video } from "./video-manager";
 import { GlTexture, RenderTexture, TargetDimensions } from "./core";
 import { PlanarYuvToRgbShader, RgbToUShader, RgbToVShader, RgbToYShader } from "../misc-shaders/colorspace";
+
+const setImmedateAsync = util.promisify(setImmediate);
 
 export enum ImageFormat {
     RGBA,
@@ -614,7 +618,7 @@ export class FilterPipeline {
      * The next `w/2 * h/2` bytes will all be U channel values.
      * The final `w/2 * h/2` bytes will all be V channel values.
      */
-    public fillYuv420pPixelData(buffer: PackedPixelData) {
+    public async fillYuv420pPixelData(buffer: PackedPixelData): Promise<void> {
         if (!this.lastRt) {
             throw new Error("Trying to copy to CPU, but no rendertarget was found that was written to.");
         }
@@ -645,24 +649,61 @@ export class FilterPipeline {
 
         let gl = this.gl;
 
-        this.renderRtToYuv(this.lastRt);
+        let start = new Date().getTime();
+        // this.renderRtToYuv(this.lastRt);
+
+        this.updateYuv420pOutputSize(this.lastRt.width, this.lastRt.height);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, this.lastRt.color);
+
+        // Render Y
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.rgbToYOutput.framebuffer);
+        gl.viewport(0, 0, this.rgbToYOutput.width, this.rgbToYOutput.height);
+        this.rgbToYShader.draw(gl);
+
+        // let elapsed = new Date().getTime() - start;
+        // console.log("renderRtToY", elapsed);
 
         let prevActiveFb = gl.getParameter(gl.READ_FRAMEBUFFER_BINDING);
         let prevRowLength = gl.getParameter(gl.PACK_ROW_LENGTH);
         // Pack rows tightly after each other
         gl.pixelStorei(gl.PACK_ROW_LENGTH, 0); 
 
+        // Just before we start reading the pixels, lets give some time for other stuff to execute
+        await setImmedateAsync();
+
         let dataY = buffer.data.subarray(0, w * h);
         // console.log("Y size", dataY.byteLength);
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.rgbToYOutput.framebuffer);
         // Even thought the single channel texture format is R8, the single channel framebuffer
         // read format is RED. (Those two values may not be the same)
+        start = new Date().getTime();
         gl.readPixels(0, 0, w, h, gl.RED, gl.UNSIGNED_BYTE, dataY);
+        // elapsed = new Date().getTime() - start;
+        // console.log("readPixels dataY", elapsed);
+
+        await setImmedateAsync();
+
+        // Render U
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.rgbToUOutput.framebuffer);
+        gl.viewport(0, 0, this.rgbToUOutput.width, this.rgbToUOutput.height);
+        this.rgbToUShader.draw(gl);
 
         let offsetU = dataY.byteLength;
         let dataU = buffer.data.subarray(offsetU, offsetU + halfW * halfH);
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.rgbToUOutput.framebuffer);
+        start = new Date().getTime();
         gl.readPixels(0, 0, halfW, halfH, gl.RED, gl.UNSIGNED_BYTE, dataU);
+        // elapsed = new Date().getTime() - start;
+        // console.log("readPixels dataU", elapsed);
+
+        await setImmedateAsync();
+
+        // Render V
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.rgbToVOutput.framebuffer);
+        gl.viewport(0, 0, this.rgbToVOutput.width, this.rgbToVOutput.height);
+        this.rgbToVShader.draw(gl);
 
         let offsetV = dataU.byteOffset + dataU.byteLength;
         let dataV = buffer.data.subarray(offsetV, offsetV + halfW * halfH);

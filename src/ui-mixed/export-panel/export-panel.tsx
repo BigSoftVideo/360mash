@@ -42,6 +42,10 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
     selectedOutputHeight: number;
     selectedOutputWidth: number;
     selectedEncoder: string;
+    sumRenderTimeCpu: number;
+
+    outFrameCount: number;
+    sumFrameReadTime: number;
 
     constructor(params: any) {
         super(params);
@@ -49,6 +53,9 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         this.pathRef = React.createRef();
         this.ffmpegFolderRef = React.createRef();
         this.sumInputFrameWaitMs = 0;
+        this.sumRenderTimeCpu = 0;
+        this.sumFrameReadTime = 0;
+        this.outFrameCount = 0;
         this.selectedOutputHeight = 2160;
         this.selectedOutputWidth = 3840;
         this.selectedEncoder = "h264";
@@ -251,6 +258,8 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         this.setState({ statusMessage: "Exporting" });
         this.props.exportStateChange(true);
         this.props.infoProvider.reportProgress(0);
+        this.sumRenderTimeCpu = 0;
+        this.sumFrameReadTime = 0;
 
         this.sumInputFrameWaitMs = 0;
         let video = this.props.videoManager.video;
@@ -275,7 +284,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         // frames
         let renderedOutFrameId = -1;
 
-        let isDone = false;
+        let lastInFrameId = Infinity;
 
         let getOutputImage = async (
             outFrameId: number,
@@ -284,11 +293,11 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             const waitStart = new Date();
             // When this function gets called, the next frame may not yet be decoded. In this case
             // we wait until it's ready.
-            console.log("OUT Get output image called.")
+            // console.log("OUT Get output image called.")
             while (renderedOutFrameId < outFrameId) {
                 await setImmedateAsync();
             }
-            console.log("OUT Starting to read-out frame", renderedOutFrameId, outFrameId);
+            // console.log("OUT Starting to read-out frame", renderedOutFrameId, outFrameId);
             this.sumInputFrameWaitMs += new Date().getTime() - waitStart.getTime();
             let targetPixelBuffer: PackedPixelData = {
                 data: buffer,
@@ -296,15 +305,21 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                 h: outHeight,
                 format: ImageFormat.YUV420P
             };
-            this.props.videoManager.pipeline.fillYuv420pPixelData(targetPixelBuffer);
+            let frameReadStart = new Date().getTime();
+            await this.props.videoManager.pipeline.fillYuv420pPixelData(targetPixelBuffer);
+            let frameReadEnd = new Date().getTime();
+            this.sumFrameReadTime += frameReadEnd - frameReadStart;
             let outTime = outFrameId / outFps;
-            console.log("Curr out time", outTime, "fps", outFps, "duration", duration);
+            // console.log("Curr out time", outTime, "fps", outFps, "duration", duration);
             let progress = outTime / duration;
             nextOutFrameId = outFrameId + 1;
 
             this.props.infoProvider.reportProgress(progress);
 
-            if (isDone) {
+            // TODO: handle this differently if the input framerate is different from the
+            // output framerate
+            // console.log("outFrameId === lastInFrameId", outFrameId, "===", lastInFrameId, outFrameId === lastInFrameId)
+            if (outFrameId >= lastInFrameId) {
                 console.log(
                     "Export panel done. Avg ms spent waiting on the input frame " +
                         this.sumInputFrameWaitMs / outFrameId
@@ -347,18 +362,20 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         };
         let receivedInputImage = async (buffer: Uint8Array) => {
             inFrameIdx += 1;
-
+            
             // TODO if the input framerate is different from the output framerate
             // we need to check if we even need to render this frame
             let outFrameId = inFrameIdx;
 
-            console.log("IN Starting to wait for prev frame to complete", outFrameId);
+            this.outFrameCount = outFrameId + 1;
+
+            // console.log("IN Starting to wait for prev frame to complete", outFrameId);
             while (nextOutFrameId < outFrameId) {
                 // This means that the most recent input frame hasn't yet finished encoding.
                 // We must wait with rendering this frame until the previous is done encoding.
                 await setImmedateAsync();
             }
-            console.log("IN Rendering input image", nextOutFrameId, outFrameId);
+            // console.log("IN Rendering input image", nextOutFrameId, outFrameId);
 
             // console.log("Video finished seeking. Time", video.currentTime);
             let pixelData: PackedPixelData = {
@@ -369,7 +386,10 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                 // TODO: change this if requesting the data from ffmpeg in another format
                 format: ImageFormat.YUV420P
             };
+            let renderStart = new Date().getTime();
             this.props.videoManager.renderOnce(pixelData);
+            let renderEnd = new Date().getTime();
+            this.sumRenderTimeCpu += renderEnd - renderStart;
             renderedOutFrameId = nextOutFrameId;
         };
         let inputDone = (success: boolean) => {
@@ -379,7 +399,8 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             // optimally the getImage function should be able to indicate when the current frame
             // is PAST the end (not when the current frame is the last)
             renderedOutFrameId = nextOutFrameId;
-            isDone = true;
+            lastInFrameId = inFrameIdx;
+            console.log("Set renderedOutFrameId to", renderedOutFrameId, "set lastInFrameId to", lastInFrameId);
         };
 
         this.props.decoder.startDecoding(
@@ -444,6 +465,11 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             this.setState({ statusMessage: "Finished exporting" });
         }
         this.props.exportStateChange(false);
+        console.log([
+            "-- EXPORT PIPELINE Finished.",
+            `Avg render time ${this.sumRenderTimeCpu / this.outFrameCount}`,
+            `Avg frame read time ${this.sumFrameReadTime / this.outFrameCount}`,
+        ].join("\n"))
         // Re-start rendering after the export has finished
         this.props.videoManager.renderContinously();
     }
