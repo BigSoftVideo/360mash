@@ -166,7 +166,7 @@ export class CartoonFilter extends FilterBase {
         super(gl);
         this.gl = gl;
         this.shader = new CartoonShader(gl);
-        this.rt = new RenderTexture(gl);
+        this.rt = new RenderTexture(gl, gl.RGBA);
     }
 
     updateDimensions(

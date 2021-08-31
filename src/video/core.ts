@@ -23,6 +23,9 @@ export function getTargetAspect(dimensions: TargetDimensions): number {
  *
  * The aspect ratio of the output dimensions will be practically identical to `targetAspect` but the
  * resolution might be different from `dimensions`.
+ * 
+ * The resulting dimensions will both be an even number. This is to ensure that we can produce
+ * a yuv420p output where U and V channels have a size that exactly half along both dimensions.
  *
  * The exact method of how the resulting resolution is found, may change in the future.
  */
@@ -35,13 +38,20 @@ export function fitToAspect(
     if (originalAspect > targetAspect) {
         // The original is wider than the target, so in order to maximize the resolution,
         // we should match to the width of the original
-        let outW = dimensions.width;
-        let outH = Math.ceil(dimensions.width / targetAspect);
+
+        let outW = Math.trunc(dimensions.width);
+        // We make sure that the output dimensions are even numbers. See doc comment above for why.
+        if (outW % 2 != 0) { outW += 1; }
+        let outH = Math.floor(outW / targetAspect);
+        if (outH % 2 != 0) { outH += 1; }
         return [outW, outH];
     } else {
         // The original is taller than the target
-        let outW = Math.ceil(dimensions.height * targetAspect);
-        let outH = dimensions.height;
+        let outH = Math.trunc(dimensions.height);
+        // We make sure that the output dimensions are even numbers. See doc comment above for why.
+        if (outH % 2 != 0) { outH += 1; }
+        let outW = Math.floor(outH * targetAspect);
+        if (outW % 2 != 0) { outW += 1; }
         return [outW, outH];
     }
 }
@@ -52,13 +62,43 @@ export interface GlTexture {
     readonly texture: WebGLTexture;
 }
 
+function fbStatusToText(gl: WebGLRenderingContext, status: number): string {
+    if (status == gl.FRAMEBUFFER_COMPLETE) {
+        return "FRAMEBUFFER_COMPLETE";
+    }
+    if (status == gl.FRAMEBUFFER_INCOMPLETE_ATTACHMENT) {
+        return "FRAMEBUFFER_INCOMPLETE_ATTACHMENT";
+    }
+    if (status == gl.FRAMEBUFFER_INCOMPLETE_DIMENSIONS) {
+        return "FRAMEBUFFER_INCOMPLETE_DIMENSIONS";
+    }
+    if (status == gl.FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT) {
+        return "FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT";
+    }
+    if (status == gl.FRAMEBUFFER_UNSUPPORTED) {
+        return "FRAMEBUFFER_UNSUPPORTED";
+    }
+    return "UNKNOWN framebuffer status 0x" + status.toString(16);
+}
+
 export class RenderTexture {
     gl: WebGLRenderingContext;
     color: WebGLTexture;
     width: number;
     height: number;
     framebuffer: WebGLFramebuffer;
-    constructor(gl: WebGLRenderingContext) {
+
+    /** The value passed to `texImage2D` `internalFormat` */
+    readonly internalFormat: number;
+
+    /** The value passed to `texImage2D` `format` */
+    readonly format: number;
+
+    /**
+     * @param internalFormat Passed into `texImage2D` `internalFormat` when allocating the image.
+     * Can be for example RGBA or R8.
+     */
+    constructor(gl: WebGL2RenderingContext, internalFormat: number) {
         this.gl = gl;
         this.width = 2;
         this.height = 2;
@@ -71,16 +111,28 @@ export class RenderTexture {
             throw new Error("Could not create framebuffer: " + gl.getError());
         }
         this.color = color;
+
+        let format = gl.RGBA;
+        if (internalFormat === gl.RGBA) {
+            format = internalFormat;
+        } else if (internalFormat === gl.R8) {
+            // According to: https://www.khronos.org/registry/webgl/specs/latest/2.0/#TEXTURE_TYPES_FORMATS_FROM_DOM_ELEMENTS_TABLE
+            format = gl.RED;
+        } else {
+            throw new Error("Framebuffer format not supported: " + internalFormat);
+        }
+        this.format = format;
+        this.internalFormat = internalFormat;
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.color);
         gl.texImage2D(
             gl.TEXTURE_2D,
             0,
-            gl.RGBA,
+            internalFormat,
             this.width,
             this.height,
             0,
-            gl.RGBA,
+            format,
             gl.UNSIGNED_BYTE,
             null
         );
@@ -88,10 +140,13 @@ export class RenderTexture {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-
         this.framebuffer = framebuffer;
         gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, color, 0);
+        let status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+        if (gl.FRAMEBUFFER_COMPLETE !== status) {
+            console.warn("Failed creating the framebuffer. Status was: " + fbStatusToText(gl, status));
+        }
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
 
@@ -111,11 +166,11 @@ export class RenderTexture {
             gl.texImage2D(
                 gl.TEXTURE_2D,
                 0,
-                gl.RGBA,
+                this.internalFormat,
                 this.width,
                 this.height,
                 0,
-                gl.RGBA,
+                this.format,
                 gl.UNSIGNED_BYTE,
                 null
             );
