@@ -683,7 +683,7 @@ export class FilterPipeline {
         // elapsed = new Date().getTime() - start;
         // console.log("readPixels dataY", elapsed);
 
-        await setImmedateAsync();
+        // await setImmedateAsync();
 
         // Render U
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.rgbToUOutput.framebuffer);
@@ -698,7 +698,7 @@ export class FilterPipeline {
         // elapsed = new Date().getTime() - start;
         // console.log("readPixels dataU", elapsed);
 
-        await setImmedateAsync();
+        // await setImmedateAsync();
 
         // Render V
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.rgbToVOutput.framebuffer);

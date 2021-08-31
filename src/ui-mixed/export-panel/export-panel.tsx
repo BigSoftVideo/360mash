@@ -17,7 +17,13 @@ const MATCH_INPUT_RESOLUTION = "MATCH_INPUT";
 let settingsInitialized = false;
 
 /** Wait for the next event loop iteration */
-const setImmedateAsync = util.promisify(setImmediate);
+const setImmediateAsync = util.promisify(setImmediate);
+
+function timeoutAsync(ms: number): Promise<void> {
+    return new Promise(resolve => {
+        setTimeout(resolve, ms);
+    });
+}
 
 export interface ExportPanelProps {
     encoder: Encoder;
@@ -33,6 +39,7 @@ interface ExportPanelState {
 
 export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelState> {
     sumInputFrameWaitMs: number;
+    sumInputWaitIterations: number;
 
     canvasRef: React.RefObject<HTMLCanvasElement>;
 
@@ -46,6 +53,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
 
     outFrameCount: number;
     sumFrameReadTime: number;
+    sumOutputWaitTime: number;
 
     constructor(params: any) {
         super(params);
@@ -53,9 +61,11 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         this.pathRef = React.createRef();
         this.ffmpegFolderRef = React.createRef();
         this.sumInputFrameWaitMs = 0;
+        this.sumInputWaitIterations = 0;
         this.sumRenderTimeCpu = 0;
         this.sumFrameReadTime = 0;
         this.outFrameCount = 0;
+        this.sumOutputWaitTime = 0;
         this.selectedOutputHeight = 2160;
         this.selectedOutputWidth = 3840;
         this.selectedEncoder = "h264";
@@ -205,9 +215,9 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         ): Promise<number> => {
             const waitStart = new Date();
             while (readyFrameId < outFrameId) {
-                await setImmedateAsync();
+                await setImmediateAsync();
             }
-            this.sumInputFrameWaitMs += (new Date().getTime() - waitStart.getTime()) / 1000;
+            this.sumInputFrameWaitMs += new Date().getTime() - waitStart.getTime();
             let targetPixelBuffer: AlignedPixelData = {
                 data: buffer,
                 linesize: width*4,
@@ -262,6 +272,8 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         this.sumFrameReadTime = 0;
 
         this.sumInputFrameWaitMs = 0;
+        this.sumInputWaitIterations = 0;
+        this.sumOutputWaitTime = 0;
         let video = this.props.videoManager.video;
         let duration = video.htmlVideo.duration;
 
@@ -295,7 +307,8 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             // we wait until it's ready.
             // console.log("OUT Get output image called.")
             while (renderedOutFrameId < outFrameId) {
-                await setImmedateAsync();
+                await timeoutAsync(5);
+                this.sumInputWaitIterations += 1;
             }
             // console.log("OUT Starting to read-out frame", renderedOutFrameId, outFrameId);
             this.sumInputFrameWaitMs += new Date().getTime() - waitStart.getTime();
@@ -320,10 +333,10 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             // output framerate
             // console.log("outFrameId === lastInFrameId", outFrameId, "===", lastInFrameId, outFrameId === lastInFrameId)
             if (outFrameId >= lastInFrameId) {
-                console.log(
-                    "Export panel done. Avg ms spent waiting on the input frame " +
-                        this.sumInputFrameWaitMs / outFrameId
-                );
+                // console.log(
+                //     "Export panel done. Avg ms spent waiting on the input frame " +
+                //         this.sumInputFrameWaitMs / outFrameId
+                // );
                 return 1;
             }
 
@@ -369,13 +382,16 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
 
             this.outFrameCount = outFrameId + 1;
 
+            let waitStart = new Date().getTime();
             // console.log("IN Starting to wait for prev frame to complete", outFrameId);
             while (nextOutFrameId < outFrameId) {
                 // This means that the most recent input frame hasn't yet finished encoding.
                 // We must wait with rendering this frame until the previous is done encoding.
-                await setImmedateAsync();
+                await setImmediateAsync();
             }
             // console.log("IN Rendering input image", nextOutFrameId, outFrameId);
+            let waitEnd = new Date().getTime();
+            this.sumOutputWaitTime += waitEnd - waitStart;
 
             // console.log("Video finished seeking. Time", video.currentTime);
             let pixelData: PackedPixelData = {
@@ -467,12 +483,69 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         this.props.exportStateChange(false);
         console.log([
             "-- EXPORT PIPELINE Finished.",
-            `Avg render time ${this.sumRenderTimeCpu / this.outFrameCount}`,
+            `Avg wait iterations ${this.sumInputWaitIterations / this.outFrameCount}`,
+            `Avg ms waiting on input ${this.sumInputFrameWaitMs / this.outFrameCount}`,
             `Avg frame read time ${this.sumFrameReadTime / this.outFrameCount}`,
+
+            `Avg ms waiting on output ${this.sumOutputWaitTime / this.outFrameCount}`,
+            `Avg render time ${this.sumRenderTimeCpu / this.outFrameCount}`,
         ].join("\n"))
         // Re-start rendering after the export has finished
         this.props.videoManager.renderContinously();
     }
+}
+
+function ffmpegPipeTest() {
+    console.log("Starting piped decode test");
+
+    let packetCnt = 0;
+
+    let testProcStart = new Date();
+    let testProc = spawn(
+        "C:\\ffmpeg-4.4-full_build\\bin\\ffmpeg",
+        [
+            "-i",
+            "Y:\\Dote-Projects\\New Horizon\\GoPro Back.mp4",
+            "-f",
+            "rawvideo",
+            "-vcodec",
+            "rawvideo",
+            "-pix_fmt",
+            "yuv420p",
+            "-an",
+            `pipe:1`,
+        ],
+        {
+            stdio: ["pipe", "pipe", "pipe"],
+        }
+    );
+    let stderr = "";
+    testProc.stderr.on("data", (msg) => stderr += msg);
+    testProc.stdout.pause();
+    testProc.stdout.on("readable", () => {
+        // pacekt size: 1024 * 16
+        const packetSize = 12441600;
+        while (null !== testProc.stdout.read(packetSize)) {
+            // Make sure we read all available data
+            packetCnt += 1;
+        }
+    })
+    // testProc.stdout.on("data", buff => {
+    //     packetCnt += 1;
+    // });
+    testProc.on("exit", code => {
+        let elapsedSec = (new Date().getTime() - testProcStart.getTime()) / 1000;
+        console.log("Test process exited with", code, "it took " + elapsedSec + " seconds. Packet count was " + packetCnt);
+    });
+    // let processPackets = () => {
+    //     const packetSize = 12441600;
+    //     while (null !== testProc.stdout.read()) {
+    //         // Make sure we read all available data
+    //         packetCnt += 1;
+    //     }
+    //     setImmediate(processPackets);
+    // };
+    // setImmediate(processPackets);
 }
 
 function ffmpegNetworkTest() {
