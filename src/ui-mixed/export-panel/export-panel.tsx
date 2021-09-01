@@ -108,6 +108,21 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             statusMessage = <div className="export-panel-status-message">{elements}</div>;
         }
 
+        let encoderKinds = [
+            (<option key="h264" value="h264">H.264 (CPU)</option>)
+        ];
+        if (navigator.platform.startsWith("Win")) {
+            encoderKinds.push(
+                (<option key="h264_amf" value="h264_amf">H.264 AMD AMF (GPU)</option>),
+                (<option key="h264_nvenc" value="h264_nvenc">H.264 NVENC (GPU)</option>),
+            );
+        }
+        if (navigator.platform.startsWith("Mac")) {
+            encoderKinds.push(
+                (<option key="h264_videotoolbox" value="h264_videotoolbox">H.264 VideoToolbox (GPU)</option>),
+            );
+        }
+
         return (
             <div className="export-panel-root">
                 <div className="export-panel-flex-section">
@@ -163,10 +178,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                             this.selectedEncoder = event.target.value;
                         }}
                     >
-                        <option value="h264">H.264 (CPU)</option>
-                        <option value="h264_amf">H.264 AMD AMF (GPU)</option>
-                        <option value="h264_nvenc">H.264 NVENC (GPU)</option>
-                        <option value="h264_videotoolbox">H.264 VideoToolbox (GPU)</option>
+                        {encoderKinds}
                     </select>
                     <div>
                         <button onClick={this.startFFmpegExport.bind(this)}>Export</button>
