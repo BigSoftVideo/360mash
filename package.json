@@ -18,7 +18,10 @@
         "anonimize",
         "panoramic"
     ],
-    "author": "The 360mash Contributors",
+    "author": {
+        "name": "Big Soft Video",
+        "url": "https://www.bigvideo.aau.dk/"
+    },
     "license": "UNLICENSED",
     "private": true,
     "config": {
