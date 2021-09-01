@@ -46,8 +46,9 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
     pathRef: React.RefObject<HTMLInputElement>;
     ffmpegFolderRef: React.RefObject<HTMLInputElement>;
 
-    selectedOutputHeight: number;
-    selectedOutputWidth: number;
+    // selectedOutputHeight: number;
+    // selectedOutputWidth: number;
+    selectedOutputDim: [number, number] | "MATCH_INPUT";
     selectedEncoder: string;
     sumRenderTimeCpu: number;
 
@@ -66,8 +67,9 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         this.sumFrameReadTime = 0;
         this.outFrameCount = 0;
         this.sumOutputWaitTime = 0;
-        this.selectedOutputHeight = 2160;
-        this.selectedOutputWidth = 3840;
+        // this.selectedOutputHeight = 2160;
+        // this.selectedOutputWidth = 3840;
+        this.selectedOutputDim = MATCH_INPUT_RESOLUTION;
         this.selectedEncoder = "h264";
         this.state = {
             statusMessage: null,
@@ -148,29 +150,26 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                         name="resolutions"
                         onChange={(event) => {
                             if (event.target.value == MATCH_INPUT_RESOLUTION) {
-                                this.selectedOutputWidth =
-                                    this.props.videoManager.video?.htmlVideo.videoWidth || 1;
-                                this.selectedOutputHeight =
-                                    this.props.videoManager.video?.htmlVideo.videoHeight || 1;
+                                this.selectedOutputDim = MATCH_INPUT_RESOLUTION;
                             } else {
                                 let [w, h] = event.target.value
                                     .split("*")
                                     .map((v) => Number.parseInt(v));
-                                this.selectedOutputWidth = w;
-                                this.selectedOutputHeight = h;
+                                this.selectedOutputDim = [w, h];
+                                // this.selectedOutputWidth = w;
+                                // this.selectedOutputHeight = h;
                             }
                             console.log(
                                 "Selected resolution is",
-                                this.selectedOutputWidth,
-                                this.selectedOutputHeight
+                                this.selectedOutputDim
                             );
                         }}
                     >
+                        <option value={MATCH_INPUT_RESOLUTION}>Match Input</option>
                         <option value="3840*2160">4K (3840 × 2160)</option>
                         <option value="1920*1080">Full HD (1920 × 1080)</option>
                         <option value="1280*720">HD (1280 × 720)</option>
                         <option value="854*480">480p (854 × 480)</option>
-                        <option value={MATCH_INPUT_RESOLUTION}>Match Input</option>
                     </select>
                     <select
                         name="encoders"
@@ -210,7 +209,16 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         let totalTime = video.duration;
 
         const pipeline = this.props.videoManager.pipeline;
-        pipeline.setTargetDimensions(this.selectedOutputWidth, this.selectedOutputHeight);
+        let selectedW;
+        let selectedH;
+        if (this.selectedOutputDim === MATCH_INPUT_RESOLUTION) {
+            selectedW = video.videoWidth;
+            selectedH = video.videoHeight;
+        } else  {
+            selectedW = this.selectedOutputDim[0];
+            selectedH = this.selectedOutputDim[1];
+        }
+        pipeline.setTargetDimensions(selectedW, selectedH);
         const [width, height] = pipeline.getRealOutputDimensions(video);
         const outFps = 29.97;
 
@@ -299,7 +307,16 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         const htmlVideo = this.props.videoManager.video.htmlVideo;
         htmlVideo.pause();
         const pipeline = this.props.videoManager.pipeline;
-        pipeline.setTargetDimensions(this.selectedOutputWidth, this.selectedOutputHeight);
+        let selectedW;
+        let selectedH;
+        if (this.selectedOutputDim === MATCH_INPUT_RESOLUTION) {
+            selectedW = video.htmlVideo.videoWidth;
+            selectedH = video.htmlVideo.videoHeight;
+        } else {
+            selectedW = this.selectedOutputDim[0];
+            selectedH = this.selectedOutputDim[1];
+        }
+        pipeline.setTargetDimensions(selectedW, selectedH);
         const [outWidth, outHeight] = pipeline.getRealOutputDimensions(htmlVideo);
 
         // This is just a default, but actually we will use the same framerate as the input

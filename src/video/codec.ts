@@ -269,43 +269,48 @@ export class Encoder {
 
         let resStr = encoderDesc.width + "x" + encoderDesc.height;
         let outFileNameArg = outFileName.replace(/\\/g, "/");
+
+        let ffmpegArgs = [
+            "-hide_banner",
+            "-loglevel",
+            "warning",
+            "-f",
+            "rawvideo",
+            "-vcodec",
+            "rawvideo",
+            "-pix_fmt",
+            "yuv420p",
+            "-framerate",
+            encoderDesc.fps.toString(),
+            "-video_size",
+            resStr,
+            "-i",
+            "-",
+            "-i",
+            encoderDesc.audioFilePath,
+            "-c:a",
+            "aac",
+            "-vcodec",
+            encoder,
+            "-b:v",
+            bitrate + "k",
+            "-f",
+            "mp4",
+            "-map",
+            "0:v:0",
+            "-map",
+
+            // The question mark indicates that it's okay if the source does NOT
+            // have an audio track
+            "1:a:0?",
+            outFileNameArg,
+        ];
+
+        console.log("Starting encoding with ffmpeg arguments:", { ffmpegArgs });
+
         this.ffmpegProc = spawn(
             ffmpegBin,
-            [
-                "-hide_banner",
-                "-loglevel",
-                "warning",
-                "-f",
-                "rawvideo",
-                "-vcodec",
-                "rawvideo",
-                "-pix_fmt",
-                "yuv420p",
-                "-framerate",
-                encoderDesc.fps.toString(),
-                "-video_size",
-                resStr,
-                "-i",
-                "-",
-                "-i",
-                encoderDesc.audioFilePath,
-                "-c:a",
-                "aac",
-                "-vcodec",
-                encoder,
-                "-b:v",
-                bitrate + "k",
-                "-f",
-                "mp4",
-                "-map",
-                "0:v:0",
-                "-map",
-
-                // The question mark indicates that it's okay if the source does NOT
-                // have an audio track
-                "1:a:0?",
-                outFileNameArg,
-            ],
+            ffmpegArgs,
             {
                 stdio: ["pipe", "pipe", "pipe"],
             }
@@ -362,12 +367,12 @@ export class Encoder {
     getUserFrames() {
         let writeFrame = async (buffer: Uint8Array) => {
             let frameId = this.frameId;
-            console.log(
-                "Writing frame",
-                frameId,
-                "written buffer count:",
-                this.frameFifo.writtenBufferCount()
-            );
+            // console.log(
+            //     "Writing frame",
+            //     frameId,
+            //     "written buffer count:",
+            //     this.frameFifo.writtenBufferCount()
+            // );
             this.frameId += 1;
 
             let start = new Date().getTime();
