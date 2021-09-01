@@ -172,9 +172,9 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                         <button onClick={this.startFFmpegExport.bind(this)}>Export</button>
                     </div>
                     {statusMessage}
-                    <button onClick={this.fetchFrame.bind(this)}>Get current frame</button>
+                    {/* <button onClick={this.fetchFrame.bind(this)}>Get current frame</button> */}
                 </div>
-                <canvas ref={this.canvasRef} width={800} height={400}></canvas>
+                {/* <canvas ref={this.canvasRef} width={800} height={400}></canvas> */}
             </div>
         );
     }
