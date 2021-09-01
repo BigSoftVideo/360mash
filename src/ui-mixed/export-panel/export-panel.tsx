@@ -8,7 +8,7 @@ import * as util from "util";
 import { Decoder, Encoder, EncoderDesc, MediaMetadata } from "../../video/codec";
 import { VideoManager } from "../../video/video-manager";
 import { AlignedPixelData, ImageFormat, PackedPixelData } from "../../video/filter-pipeline";
-import { ExportInfoProvider } from "../export-overlay/export-overlay";
+import { ExportInfoProvider, MiscExportInfo } from "../export-overlay/export-overlay";
 
 const settings = require("settings-store");
 
@@ -56,6 +56,10 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
     sumFrameReadTime: number;
     sumOutputWaitTime: number;
 
+    frameProcessStartTime: number;
+    infoReportInterval: NodeJS.Timeout | null;
+    progress: number;
+
     constructor(params: any) {
         super(params);
         this.canvasRef = React.createRef();
@@ -67,6 +71,9 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         this.sumFrameReadTime = 0;
         this.outFrameCount = 0;
         this.sumOutputWaitTime = 0;
+        this.progress = 0;
+        this.frameProcessStartTime = NaN;
+        this.infoReportInterval = null
         // this.selectedOutputHeight = 2160;
         // this.selectedOutputWidth = 3840;
         this.selectedOutputDim = MATCH_INPUT_RESOLUTION;
@@ -298,10 +305,12 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         this.props.infoProvider.reportProgress(0);
         this.sumRenderTimeCpu = 0;
         this.sumFrameReadTime = 0;
+        this.frameProcessStartTime = NaN;
 
         this.sumInputFrameWaitMs = 0;
         this.sumInputWaitIterations = 0;
         this.sumOutputWaitTime = 0;
+        this.progress = 0;
         let video = this.props.videoManager.video;
         let duration = video.htmlVideo.duration;
 
@@ -361,10 +370,8 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             this.sumFrameReadTime += frameReadEnd - frameReadStart;
             let outTime = outFrameId / outFps;
             // console.log("Curr out time", outTime, "fps", outFps, "duration", duration);
-            let progress = outTime / duration;
+            this.progress = outTime / duration;
             nextOutFrameId = outFrameId + 1;
-
-            this.props.infoProvider.reportProgress(progress);
 
             // TODO: handle this differently if the input framerate is different from the
             // output framerate
@@ -392,6 +399,19 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             outFps = metadata.framerate;
             inWidth = metadata.width;
             inHeight = metadata.height;
+
+            this.frameProcessStartTime = new Date().getTime();
+            this.infoReportInterval = setInterval(() => {
+                let elapsedMs = new Date().getTime() - this.frameProcessStartTime;
+                let remainingMs = (elapsedMs / this.progress) * (1 - this.progress);
+                let fps = this.outFrameCount / (elapsedMs / 1000);
+                let info: MiscExportInfo = {
+                    remainingMs: remainingMs,
+                    fps
+                };
+                this.props.infoProvider.reportInfo(info);
+                this.props.infoProvider.reportProgress(this.progress);
+            }, 250);
 
             let filename = this.dateToFilename(new Date()) + ".mp4";
             let fullpath = path.join(this.pathRef.current!.value, filename);
@@ -534,6 +554,10 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                 `Avg render time ${this.sumRenderTimeCpu / this.outFrameCount}`,
             ].join("\n")
         );
+        if (this.infoReportInterval) {
+            clearInterval(this.infoReportInterval);
+            this.infoReportInterval = null;
+        }
         // Re-start rendering after the export has finished
         this.props.videoManager.renderContinously();
     }

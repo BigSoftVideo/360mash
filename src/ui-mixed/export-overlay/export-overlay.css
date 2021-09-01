@@ -45,3 +45,9 @@
     height: 10px;
     border-radius: 2px;
 }
+
+.export-overlay-table {
+    width: 100%;
+    color: gray;
+    font-size: small;
+}
