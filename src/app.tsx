@@ -152,11 +152,20 @@ export class App extends React.Component<{}, AppState> {
             );
             exportPanel = (
                 <ExportPanel
+                    startSec={this.videoManager.startSec}
+                    endSec={this.videoManager.endSec}
                     encoder={this.encoder}
                     decoder={this.decoder}
                     videoManager={this.videoManager}
                     exportStateChange={(inProgress) => {
                         this.setState({ exportInProgress: inProgress });
+                    }}
+                    clipRangeChange={(start, end) => {
+                        if (this.videoManager) {
+                            this.videoManager.startSec = start;
+                            this.videoManager.endSec = end;
+                            this.forceUpdate();
+                        }
                     }}
                     infoProvider={this.exportInfoProvider}
                 ></ExportPanel>
@@ -196,6 +205,8 @@ export class App extends React.Component<{}, AppState> {
                     </SplitPanelHor>
                     <SplitPanelHor defaultPercentage={75} onResize={this.onResized}>
                         <PreviewPanel
+                            startSec={this.videoManager?.startSec || 0}
+                            endSec={this.videoManager?.endSec || 0}
                             ref={this.previewPanelRef}
                             videoAspectRatio={this.state.outputAspectRatio}
                             video={this.videoManager?.video?.htmlVideo}

@@ -5,10 +5,11 @@ import { spawn } from "child_process";
 import * as React from "react";
 import * as path from "path";
 import * as util from "util";
-import { Decoder, Encoder, EncoderDesc, MediaMetadata } from "../../video/codec";
+import { Decoder, DecoderDesc, Encoder, EncoderDesc, MediaMetadata } from "../../video/codec";
 import { VideoManager } from "../../video/video-manager";
 import { AlignedPixelData, ImageFormat, PackedPixelData } from "../../video/filter-pipeline";
 import { ExportInfoProvider, MiscExportInfo } from "../export-overlay/export-overlay";
+import { secsToTimeString } from "../../util";
 
 const settings = require("settings-store");
 
@@ -31,6 +32,10 @@ export interface ExportPanelProps {
     videoManager: VideoManager;
     exportStateChange: (inProgress: boolean) => void;
     infoProvider: ExportInfoProvider;
+
+    startSec: number;
+    endSec: number;
+    clipRangeChange: (startSec: number, endSec: number) => void;
 }
 
 interface ExportPanelState {
@@ -161,6 +166,26 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                             }}
                         ></input>
                     </div>
+                    <button onClick={() => {
+                        let video = this.props.videoManager.video;
+                        if (video) {
+                            let start = video.htmlVideo.currentTime;
+                            let end = Math.max(this.props.endSec, start);
+                            this.props.clipRangeChange(start, end);
+                        }
+                    }}>
+                        Set start: {secsToTimeString(this.props.startSec)}
+                    </button>
+                    <button onClick={() => {
+                        let video = this.props.videoManager.video;
+                        if (video) {
+                            let end = video.htmlVideo.currentTime;
+                            let start = Math.min(this.props.startSec, end);
+                            this.props.clipRangeChange(start, end)
+                        }
+                    }}>
+                        Set end: {secsToTimeString(this.props.endSec)}
+                    </button>
                     <select
                         name="resolutions"
                         onChange={(event) => {
@@ -280,6 +305,8 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             height,
             fps: outFps,
             audioFilePath: this.props.videoManager.video.filePath,
+            audioStartSec: this.props.videoManager.startSec,
+            audioEndSec: this.props.videoManager.endSec,
         };
         this.props.encoder.startEncoding(
             ffmpegParentPath,
@@ -313,6 +340,9 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         this.progress = 0;
         let video = this.props.videoManager.video;
         let duration = video.htmlVideo.duration;
+        if (isFinite(this.props.endSec)) {
+            duration = this.props.endSec - this.props.startSec;
+        }
 
         console.log("Video duration is", duration);
 
@@ -421,6 +451,8 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                 fps: outFps,
                 encoder: this.selectedEncoder,
                 audioFilePath: video.filePath,
+                audioStartSec: this.props.startSec,
+                audioEndSec: this.props.endSec
             };
             this.props.encoder.startEncoding(
                 ffmpegParentPath,
@@ -481,9 +513,18 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             );
         };
 
+        let endSec = undefined;
+        if (isFinite(this.props.videoManager.endSec)) {
+            endSec = this.props.videoManager.endSec;
+        }
+        let desc: DecoderDesc = {
+            startSec: this.props.videoManager.startSec,
+            endSec
+        };
         this.props.decoder.startDecoding(
             ffmpegParentPath,
             video.filePath,
+            desc,
             receivedMetadata,
             receivedInputImage,
             inputDone

@@ -26,6 +26,9 @@ export class VideoManager {
 
     protected keepRendering: boolean;
 
+    public startSec: number;
+    public endSec: number;
+
     /**
      * Consider creating a canvas using `document.createElement('canvas')` when
      * the contents aren't needed to show up on the screen.
@@ -41,10 +44,20 @@ export class VideoManager {
         this.drawToCanvas = drawToCanvas;
         this.keepRendering = true;
         this.requestedAnimId = 0;
+        this.startSec = 0;
+        this.endSec = Infinity;
         this.videoReady = (video) => {
             for (const cb of this.videoReadyListeners.values()) {
                 cb(video);
             }
+            video.htmlVideo.addEventListener("timeupdate", () => {
+                if (video.htmlVideo.paused) {
+                    return;
+                }
+                if (video.htmlVideo.currentTime > this.endSec) {
+                    video.htmlVideo.currentTime = this.startSec;
+                }
+            });
         };
         this.renderVideo = (pixelSource?: PackedPixelData) => {
             this.requestedAnimId = 0;

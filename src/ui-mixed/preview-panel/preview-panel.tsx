@@ -6,9 +6,12 @@ import { VideoPanel } from "../../ui-presentational/video-panel/video-panel";
 import { AspectRatioFitter } from "../../ui-presentational/aspect-ratio-fitter/aspect-ratio-fitter";
 import { VideoManager } from "../../video/video-manager";
 import { Regular2DProjectionShader } from "./preview-render";
+import { secsToTimeString } from "../../util";
 
 export interface PreviewPanelProps {
     //videoManager: VideoManager | null;
+    startSec: number;
+    endSec: number;
     videoAspectRatio: number;
     video: HTMLVideoElement | undefined;
 }
@@ -80,16 +83,22 @@ export class PreviewPanel extends React.Component<PreviewPanelProps, PreviewPane
 
     render() {
         let videoLen = this.props.video?.duration || 0;
+        let videoEnd = this.props.endSec;
+        if (videoEnd === Infinity) {
+            videoEnd = videoLen;
+        }
 
         return (
             <div className="preview-root">
                 <div className="preview-playback-controls">
                     <button onClick={this.togglePlay.bind(this)}>Toggle Play</button>
+                    {secsToTimeString(this.props.video?.currentTime || 0)}
                     <input
                         className="preview-timeline"
                         type="range"
                         min={0}
                         max={videoLen}
+                        step={0.1}
                         onChange={this.videoTimeSet.bind(this)}
                         value={this.state.videoTime}
                     >

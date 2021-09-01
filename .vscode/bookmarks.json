@@ -1,17 +1,17 @@
 [
-    {
-        "path": "$ROOTPATH$\\src\\ui-mixed\\export-panel\\export-panel.tsx",
-        "bookmarks": [
-            {
-                "line": 360,
-                "column": 54,
-                "label": ""
-            },
-            {
-                "line": 431,
-                "column": 5,
-                "label": ""
-            }
-        ]
-    }
+	{
+		"path": "$ROOTPATH$\\src\\ui-mixed\\export-panel\\export-panel.tsx",
+		"bookmarks": [
+			{
+				"line": 390,
+				"column": 54,
+				"label": ""
+			},
+			{
+				"line": 463,
+				"column": 5,
+				"label": ""
+			}
+		]
+	}
 ]

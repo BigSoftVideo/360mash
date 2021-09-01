@@ -1,6 +1,7 @@
 import "./export-overlay.css";
 
 import * as React from "react";
+import { secsToTimeString } from "../../util";
 
 export interface MiscExportInfo {
     /** The number of exported video frames per second */
@@ -96,15 +97,8 @@ export class ExportOverlay extends React.Component<ExportOverlayProps, ExportOve
             !isNaN(this.state.miscInfo.remainingMs) &&
             this.state.miscInfo.remainingMs !== Infinity
         ) {
-            let remainigSecAll = Math.floor(this.state.miscInfo.remainingMs / 1000);
-            let remH = Math.floor(remainigSecAll / 3600);
-            let remM = Math.floor(remainigSecAll / 60) % 60;
-            let remS = remainigSecAll % 60;
-
-            let remHStr = remH.toString().padStart(2, "0");
-            let remMStr = remM.toString().padStart(2, "0");
-            let remSStr = remS.toString().padStart(2, "0");
-            remStr = remHStr + ":" + remMStr + ":" + remSStr;
+            let remainigSec = Math.floor(this.state.miscInfo.remainingMs / 1000);
+            remStr = secsToTimeString(remainigSec);
         }
         let fpsStr = Math.round(this.state.miscInfo.fps).toString();
         return (

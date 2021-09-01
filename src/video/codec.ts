@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { Server } from "net";
 import { spawn, ChildProcess, ChildProcessWithoutNullStreams } from "child_process";
+import { secsToTimeString } from "../util";
 
 // const ffmpegBin =
 //     "C:\\Users\\Dighumlab2\\Desktop\\Media Tools\\ffmpeg-4.4-full_build\\bin\\ffmpeg";
@@ -54,6 +55,13 @@ export interface EncoderDesc {
     bitrate?: number;
     encoder?: string;
     audioFilePath: string;
+    audioStartSec: number;
+    audioEndSec: number;
+}
+
+export interface DecoderDesc {
+    startSec?: number;
+    endSec?: number;
 }
 
 interface FrameSetElement {
@@ -286,6 +294,22 @@ export class Encoder {
             resStr,
             "-i",
             "-",
+        ];
+        if (encoderDesc.audioStartSec) {
+            ffmpegArgs.push(
+                "-ss",
+                secsToTimeString(encoderDesc.audioStartSec)
+            );
+        }
+        if (isFinite(encoderDesc.audioEndSec)) {
+            let start = encoderDesc.audioStartSec;
+            let duration = encoderDesc.audioEndSec - encoderDesc.audioStartSec;
+            ffmpegArgs.push(
+                "-t",
+                secsToTimeString(duration)
+            );
+        }
+        ffmpegArgs.push(
             "-i",
             encoderDesc.audioFilePath,
             "-c:a",
@@ -304,7 +328,7 @@ export class Encoder {
             // have an audio track
             "1:a:0?",
             outFileNameArg,
-        ];
+        );
 
         console.log("Starting encoding with ffmpeg arguments:", { ffmpegArgs });
 
@@ -710,6 +734,7 @@ export class Decoder {
     startDecoding(
         ffmpegBinParentPath: string,
         inFilePath: string,
+        desc: DecoderDesc,
         receivedMetadata: ReceivedMetadataCallback,
         receivedImage: ReceivedImageCallback,
         done: (success: boolean) => void
@@ -819,7 +844,7 @@ export class Decoder {
                 this.frameSize = yuvFrameSize;
                 this.pixelBuffer = new Uint8Array(this.frameSize);
                 receivedMetadata(this.metadata);
-                this.processPipeFrames(inFilePath, ffmpegBin);
+                this.processPipeFrames(inFilePath, ffmpegBin, desc);
             });
         });
     }
@@ -828,7 +853,7 @@ export class Decoder {
      * Starts up an ffmpeg process and commands it to send the decoded frames through an
      * stdio pipe to this process.
      */
-    protected processPipeFrames(inFilePath: string, ffmpegBin: string) {
+    protected processPipeFrames(inFilePath: string, ffmpegBin: string, desc: DecoderDesc) {
         let processingData = false;
         this.sumInterTryRead = 0;
         this.prevTryReadEnd = 0;
@@ -880,27 +905,50 @@ export class Decoder {
             }
         };
 
+        let ffmpegArgs = [
+            "-hide_banner",
+            "-loglevel",
+            "error",
+        ];
+
+        if (desc.startSec) {
+            ffmpegArgs.push(
+                "-ss",
+                secsToTimeString(desc.startSec)
+            );
+        }
+        if (desc.endSec) {
+            let start = desc.startSec || 0;
+            let duration = desc.endSec - start;
+            if (duration < 0) {
+                throw new Error("The duration was negative. Halting the export. Start " + desc.startSec + " end " + desc.endSec);
+            }
+            ffmpegArgs.push(
+                "-t",
+                secsToTimeString(duration)
+            );
+        }
+
+        ffmpegArgs.push(
+            // Enabling HW acceleration here, doesn't seem to have any effect on the speed
+            // "-hwaccel",
+            // "d3d11va",
+            "-i",
+            `${inFilePath}`,
+            "-f",
+            "rawvideo",
+            "-vcodec",
+            "rawvideo",
+            "-pix_fmt",
+            "yuv420p",
+            "-an",
+            "pipe:1"
+        );
+
         this.frameReadStartTime = new Date();
         this.ffmpegProc = spawn(
             `${ffmpegBin}`,
-            [
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                // Enabling HW acceleration here, doesn't seem to have any effect on the speed
-                // "-hwaccel",
-                // "d3d11va",
-                "-i",
-                `${inFilePath}`,
-                "-f",
-                "rawvideo",
-                "-vcodec",
-                "rawvideo",
-                "-pix_fmt",
-                "yuv420p",
-                "-an",
-                "pipe:1",
-            ],
+            ffmpegArgs,
             {
                 stdio: ["pipe", "pipe", "pipe"],
             }
