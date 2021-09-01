@@ -140,10 +140,11 @@ export class App extends React.Component<{}, AppState> {
         let filterList;
         let exportPanel;
         let filterAttributes = undefined;
-        if (this.videoManager) {
+        if (this.videoManager && this.videoManager.video) {
             filterList = (
                 <FilterList
                     pipeline={this.videoManager.pipeline}
+                    selectedId={this.state.selectedFilterId}
                     selectionChanged={(selectedId) => {
                         this.setState({ selectedFilterId: selectedId });
                     }}
@@ -232,6 +233,7 @@ export class App extends React.Component<{}, AppState> {
                 this.videoManager.pipeline.addDimensionChangeListener(
                     this.outputDimensionChangeListener
                 );
+                this.forceUpdate();
             }
         }
     }

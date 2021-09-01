@@ -8,15 +8,15 @@ import { GRAYSCALE_FILTER_NAME } from "../../filters/grayscale";
 interface FilterDesc {
     id: string;
     inUse: boolean;
-    selected: boolean;
 }
 
 interface FilterListState {
-    filters: FilterDesc[];
+    filters: FilterDesc[] | null;
 }
 
 export interface FilterListProps {
     pipeline: FilterPipeline;
+    selectedId: string | null;
     selectionChanged: (selectedId: string | null) => void;
 }
 
@@ -26,17 +26,8 @@ export class FilterList extends React.Component<FilterListProps, FilterListState
     constructor(params: any) {
         super(params);
 
-        let thisFilters: FilterDesc[] = [];
-        let filterDescs = this.props.pipeline.getFilters();
-        for (const desc of filterDescs) {
-            thisFilters.push({
-                id: desc.id,
-                inUse: true,
-                selected: false,
-            });
-        }
         this.state = {
-            filters: thisFilters,
+            filters: null,
         };
         this.onChanged = (elements) => {
             let oldFilters = this.props.pipeline.getFilters();
@@ -71,13 +62,16 @@ export class FilterList extends React.Component<FilterListProps, FilterListState
     }
 
     render() {
-        let checklistElements = this.state.filters.map((f) => {
-            return {
-                name: f.id,
-                checked: f.inUse,
-                selected: f.selected,
-            };
-        });
+        let checklistElements: ChecklistElement[] = [];
+        if (this.state.filters) {
+            checklistElements = this.state.filters.map((f) => {
+                return {
+                    name: f.id,
+                    checked: f.inUse,
+                    selected: f.id === this.props.selectedId,
+                };
+            });
+        }
         return (
             <Checklist
                 elements={checklistElements}
@@ -85,5 +79,17 @@ export class FilterList extends React.Component<FilterListProps, FilterListState
                 selectable={true}
             ></Checklist>
         );
+    }
+
+    componentDidMount() {
+        let thisFilters: FilterDesc[] = [];
+        let filterDescs = this.props.pipeline.getFilters();
+        for (const desc of filterDescs) {
+            thisFilters.push({
+                id: desc.id,
+                inUse: true,
+            });
+        }
+        this.setState({filters: thisFilters});
     }
 }
