@@ -166,24 +166,28 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                             }}
                         ></input>
                     </div>
-                    <button onClick={() => {
-                        let video = this.props.videoManager.video;
-                        if (video) {
-                            let start = video.htmlVideo.currentTime;
-                            let end = Math.max(this.props.endSec, start);
-                            this.props.clipRangeChange(start, end);
-                        }
-                    }}>
+                    <button
+                        onClick={() => {
+                            let video = this.props.videoManager.video;
+                            if (video) {
+                                let start = video.htmlVideo.currentTime;
+                                let end = Math.max(this.props.endSec, start);
+                                this.props.clipRangeChange(start, end);
+                            }
+                        }}
+                    >
                         Set start: {secsToTimeString(this.props.startSec)}
                     </button>
-                    <button onClick={() => {
-                        let video = this.props.videoManager.video;
-                        if (video) {
-                            let end = video.htmlVideo.currentTime;
-                            let start = Math.min(this.props.startSec, end);
-                            this.props.clipRangeChange(start, end)
-                        }
-                    }}>
+                    <button
+                        onClick={() => {
+                            let video = this.props.videoManager.video;
+                            if (video) {
+                                let end = video.htmlVideo.currentTime;
+                                let start = Math.min(this.props.startSec, end);
+                                this.props.clipRangeChange(start, end);
+                            }
+                        }}
+                    >
                         Set end: {secsToTimeString(this.props.endSec)}
                     </button>
                     <select
@@ -452,7 +456,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                 encoder: this.selectedEncoder,
                 audioFilePath: video.filePath,
                 audioStartSec: this.props.startSec,
-                audioEndSec: this.props.endSec
+                audioEndSec: this.props.endSec,
             };
             this.props.encoder.startEncoding(
                 ffmpegParentPath,
@@ -519,7 +523,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         }
         let desc: DecoderDesc = {
             startSec: this.props.videoManager.startSec,
-            endSec
+            endSec,
         };
         this.props.decoder.startDecoding(
             ffmpegParentPath,

@@ -34,7 +34,7 @@ export class PreviewPanel extends React.Component<PreviewPanelProps, PreviewPane
         super(params);
 
         this.state = {
-            videoTime: 0
+            videoTime: 0,
         };
 
         this.aspectFitterRef = React.createRef();
@@ -42,9 +42,9 @@ export class PreviewPanel extends React.Component<PreviewPanelProps, PreviewPane
         this.shader = null;
         this.videoTimeUpdate = () => {
             if (this.props.video) {
-                this.setState({videoTime: this.props.video.currentTime});
+                this.setState({ videoTime: this.props.video.currentTime });
             }
-        }
+        };
         this.canvasRefSet = (canvas: HTMLCanvasElement) => {
             if (this.canvasElement !== canvas) {
                 if (this.canvasElement !== null) {
@@ -71,12 +71,12 @@ export class PreviewPanel extends React.Component<PreviewPanelProps, PreviewPane
 
         if (prevProps.video !== this.props.video) {
             if (prevProps.video) {
-                prevProps.video.removeEventListener('timeupdate', this.videoTimeUpdate);
+                prevProps.video.removeEventListener("timeupdate", this.videoTimeUpdate);
             }
 
             if (this.props.video) {
-                this.setState({ videoTime: this.props.video.currentTime})
-                this.props.video.addEventListener('timeupdate', this.videoTimeUpdate);
+                this.setState({ videoTime: this.props.video.currentTime });
+                this.props.video.addEventListener("timeupdate", this.videoTimeUpdate);
             }
         }
     }
@@ -101,8 +101,7 @@ export class PreviewPanel extends React.Component<PreviewPanelProps, PreviewPane
                         step={0.1}
                         onChange={this.videoTimeSet.bind(this)}
                         value={this.state.videoTime}
-                    >
-                    </input>
+                    ></input>
                 </div>
                 <AspectRatioFitter
                     ref={this.aspectFitterRef}

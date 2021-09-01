@@ -1,4 +1,3 @@
-
 export function secsToTimeString(secs: number): string {
     if (!isFinite(secs)) {
         return secs.toString();

@@ -296,18 +296,12 @@ export class Encoder {
             "-",
         ];
         if (encoderDesc.audioStartSec) {
-            ffmpegArgs.push(
-                "-ss",
-                secsToTimeString(encoderDesc.audioStartSec)
-            );
+            ffmpegArgs.push("-ss", secsToTimeString(encoderDesc.audioStartSec));
         }
         if (isFinite(encoderDesc.audioEndSec)) {
             let start = encoderDesc.audioStartSec;
             let duration = encoderDesc.audioEndSec - encoderDesc.audioStartSec;
-            ffmpegArgs.push(
-                "-t",
-                secsToTimeString(duration)
-            );
+            ffmpegArgs.push("-t", secsToTimeString(duration));
         }
         ffmpegArgs.push(
             "-i",
@@ -327,7 +321,7 @@ export class Encoder {
             // The question mark indicates that it's okay if the source does NOT
             // have an audio track
             "1:a:0?",
-            outFileNameArg,
+            outFileNameArg
         );
 
         console.log("Starting encoding with ffmpeg arguments:", { ffmpegArgs });
@@ -905,28 +899,23 @@ export class Decoder {
             }
         };
 
-        let ffmpegArgs = [
-            "-hide_banner",
-            "-loglevel",
-            "error",
-        ];
+        let ffmpegArgs = ["-hide_banner", "-loglevel", "error"];
 
         if (desc.startSec) {
-            ffmpegArgs.push(
-                "-ss",
-                secsToTimeString(desc.startSec)
-            );
+            ffmpegArgs.push("-ss", secsToTimeString(desc.startSec));
         }
         if (desc.endSec) {
             let start = desc.startSec || 0;
             let duration = desc.endSec - start;
             if (duration < 0) {
-                throw new Error("The duration was negative. Halting the export. Start " + desc.startSec + " end " + desc.endSec);
+                throw new Error(
+                    "The duration was negative. Halting the export. Start " +
+                        desc.startSec +
+                        " end " +
+                        desc.endSec
+                );
             }
-            ffmpegArgs.push(
-                "-t",
-                secsToTimeString(duration)
-            );
+            ffmpegArgs.push("-t", secsToTimeString(duration));
         }
 
         ffmpegArgs.push(
@@ -946,13 +935,9 @@ export class Decoder {
         );
 
         this.frameReadStartTime = new Date();
-        this.ffmpegProc = spawn(
-            `${ffmpegBin}`,
-            ffmpegArgs,
-            {
-                stdio: ["pipe", "pipe", "pipe"],
-            }
-        );
+        this.ffmpegProc = spawn(`${ffmpegBin}`, ffmpegArgs, {
+            stdio: ["pipe", "pipe", "pipe"],
+        });
         this.ffmpegProc.on("exit", (code) => {
             // server.close();
             if (code === 0) {
