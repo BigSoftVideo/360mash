@@ -1,4 +1,3 @@
-
 import "./export-overlay.css";
 
 import * as React from "react";
@@ -15,7 +14,6 @@ export type ProgressListener = (progress: number) => void;
 export type InfoListener = (info: MiscExportInfo) => void;
 
 export class ExportInfoProvider {
-
     progressListeners: Set<ProgressListener>;
     infoListeners: Set<InfoListener>;
 
@@ -52,7 +50,7 @@ export class ExportInfoProvider {
 }
 
 export interface ExportOverlayProps {
-    infoProvider: ExportInfoProvider
+    infoProvider: ExportInfoProvider;
 }
 
 interface ExportOverlayState {
@@ -62,20 +60,23 @@ interface ExportOverlayState {
 }
 
 export class ExportOverlay extends React.Component<ExportOverlayProps, ExportOverlayState> {
-
     progressListener: ProgressListener;
     infoListener: InfoListener;
 
     constructor(props: any) {
         super(props);
-        this.progressListener = progress => { this.setState({ progess: progress }) };
-        this.infoListener = (info) => { this.setState({miscInfo: info}) };
+        this.progressListener = (progress) => {
+            this.setState({ progess: progress });
+        };
+        this.infoListener = (info) => {
+            this.setState({ miscInfo: info });
+        };
         this.state = {
             progess: 0,
             miscInfo: {
                 fps: 0,
-                remainingMs: NaN
-            }
+                remainingMs: NaN,
+            },
         };
     }
 
@@ -91,15 +92,18 @@ export class ExportOverlay extends React.Component<ExportOverlayProps, ExportOve
 
     render() {
         let remStr = "Unknown";
-        if (!isNaN(this.state.miscInfo.remainingMs) && this.state.miscInfo.remainingMs !== Infinity) {
+        if (
+            !isNaN(this.state.miscInfo.remainingMs) &&
+            this.state.miscInfo.remainingMs !== Infinity
+        ) {
             let remainigSecAll = Math.floor(this.state.miscInfo.remainingMs / 1000);
             let remH = Math.floor(remainigSecAll / 3600);
             let remM = Math.floor(remainigSecAll / 60) % 60;
             let remS = remainigSecAll % 60;
-    
-            let remHStr = remH.toString().padStart(2, '0');
-            let remMStr = remM.toString().padStart(2, '0');
-            let remSStr = remS.toString().padStart(2, '0');
+
+            let remHStr = remH.toString().padStart(2, "0");
+            let remMStr = remM.toString().padStart(2, "0");
+            let remSStr = remS.toString().padStart(2, "0");
             remStr = remHStr + ":" + remMStr + ":" + remSStr;
         }
         let fpsStr = Math.round(this.state.miscInfo.fps).toString();
@@ -111,17 +115,16 @@ export class ExportOverlay extends React.Component<ExportOverlayProps, ExportOve
                         <table className="export-overlay-table">
                             <tbody>
                                 <tr>
-                                    <td>
-                                        Export framerate: {fpsStr} FPS
-                                    </td>
-                                    <td>
-                                        Remaining time: {remStr}
-                                    </td>
+                                    <td>Export framerate: {fpsStr} FPS</td>
+                                    <td>Remaining time: {remStr}</td>
                                 </tr>
                             </tbody>
                         </table>
                         <div className="export-overlay-progress-bar-parent">
-                            <div className="export-overlay-progress-bar" style={{ width: (this.state.progess * 100) + "%" }}></div>
+                            <div
+                                className="export-overlay-progress-bar"
+                                style={{ width: this.state.progess * 100 + "%" }}
+                            ></div>
                             <div className="export-overlay-progress-bar-outline"></div>
                         </div>
                     </div>

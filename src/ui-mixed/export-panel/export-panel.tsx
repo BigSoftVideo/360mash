@@ -73,7 +73,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         this.sumOutputWaitTime = 0;
         this.progress = 0;
         this.frameProcessStartTime = NaN;
-        this.infoReportInterval = null
+        this.infoReportInterval = null;
         // this.selectedOutputHeight = 2160;
         // this.selectedOutputWidth = 3840;
         this.selectedOutputDim = MATCH_INPUT_RESOLUTION;
@@ -407,7 +407,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                 let fps = this.outFrameCount / (elapsedMs / 1000);
                 let info: MiscExportInfo = {
                     remainingMs: remainingMs,
-                    fps
+                    fps,
                 };
                 this.props.infoProvider.reportInfo(info);
                 this.props.infoProvider.reportProgress(this.progress);
