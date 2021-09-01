@@ -111,17 +111,25 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         }
 
         let encoderKinds = [
-            (<option key="h264" value="h264">H.264 (CPU)</option>)
+            <option key="h264" value="h264">
+                H.264 (CPU)
+            </option>,
         ];
         if (navigator.platform.startsWith("Win")) {
             encoderKinds.push(
-                (<option key="h264_amf" value="h264_amf">H.264 AMD AMF (GPU)</option>),
-                (<option key="h264_nvenc" value="h264_nvenc">H.264 NVENC (GPU)</option>),
+                <option key="h264_amf" value="h264_amf">
+                    H.264 AMD AMF (GPU)
+                </option>,
+                <option key="h264_nvenc" value="h264_nvenc">
+                    H.264 NVENC (GPU)
+                </option>
             );
         }
         if (navigator.platform.startsWith("Mac")) {
             encoderKinds.push(
-                (<option key="h264_videotoolbox" value="h264_videotoolbox">H.264 VideoToolbox (GPU)</option>),
+                <option key="h264_videotoolbox" value="h264_videotoolbox">
+                    H.264 VideoToolbox (GPU)
+                </option>
             );
         }
 
@@ -159,10 +167,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                                 // this.selectedOutputWidth = w;
                                 // this.selectedOutputHeight = h;
                             }
-                            console.log(
-                                "Selected resolution is",
-                                this.selectedOutputDim
-                            );
+                            console.log("Selected resolution is", this.selectedOutputDim);
                         }}
                     >
                         <option value={MATCH_INPUT_RESOLUTION}>Match Input</option>
@@ -214,7 +219,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         if (this.selectedOutputDim === MATCH_INPUT_RESOLUTION) {
             selectedW = video.videoWidth;
             selectedH = video.videoHeight;
-        } else  {
+        } else {
             selectedW = this.selectedOutputDim[0];
             selectedH = this.selectedOutputDim[1];
         }

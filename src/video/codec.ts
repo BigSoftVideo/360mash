@@ -308,13 +308,9 @@ export class Encoder {
 
         console.log("Starting encoding with ffmpeg arguments:", { ffmpegArgs });
 
-        this.ffmpegProc = spawn(
-            ffmpegBin,
-            ffmpegArgs,
-            {
-                stdio: ["pipe", "pipe", "pipe"],
-            }
-        );
+        this.ffmpegProc = spawn(ffmpegBin, ffmpegArgs, {
+            stdio: ["pipe", "pipe", "pipe"],
+        });
 
         this.ffmpegProc.stdin.on("finish", () => {
             console.log("The stdin of ffmpeg was successfully closed");
