@@ -32,10 +32,7 @@ const setImmediateAsync = util.promisify(setImmediate);
  * buffer: The buffer into which the pixel data should be written.
  *
  */
-export type GetImageCallback = (
-    frameId: number,
-    buffer: Uint8Array,
-) => Promise<number>;
+export type GetImageCallback = (frameId: number, buffer: Uint8Array) => Promise<number>;
 
 export type ReceivedMetadataCallback = (metadata: MediaMetadata) => void;
 
@@ -60,13 +57,13 @@ export interface EncoderDesc {
 }
 
 interface FrameSetElement {
-    buffer: Uint8Array,
+    buffer: Uint8Array;
     isBeingRead: boolean;
 }
 type FrameInputCallback = (buffer: Uint8Array) => Promise<void>;
 class FrameFifo {
     allBuffers: Uint8Array[];
-    
+
     emptyBuffers: Uint8Array[];
     writtenBuffers: Uint8Array[];
 
@@ -100,7 +97,10 @@ class FrameFifo {
     /**
      * Expects that `buffer` at this point is not within `emptyBuffers`
      */
-    protected async writeBuffer(buffer: Uint8Array, writer: FrameInputCallback): Promise<void> {
+    protected async writeBuffer(
+        buffer: Uint8Array,
+        writer: FrameInputCallback
+    ): Promise<void> {
         await writer(buffer);
         this.writtenBuffers.push(buffer);
     }
@@ -184,11 +184,7 @@ export class Encoder {
         //     "D:/personal/Documents/DoteExample/Camerawork training Panasonic HD.mp4",
         //     "r"
         // );
-        this.frameFifo = new FrameFifo([
-            new Uint8Array(),
-            new Uint8Array(),
-            new Uint8Array()
-        ]);
+        this.frameFifo = new FrameFifo([new Uint8Array(), new Uint8Array(), new Uint8Array()]);
         this.ffmpegProc = null;
         this.width = 0;
         this.height = 0;
@@ -215,11 +211,7 @@ export class Encoder {
         this.lastFrameId = Infinity;
         this.ffmpegStdout = "";
         this.ffmpegStderr = "";
-        this.frameFifo = new FrameFifo([
-            new Uint8Array(),
-            new Uint8Array(),
-            new Uint8Array()
-        ]);
+        this.frameFifo = new FrameFifo([new Uint8Array(), new Uint8Array(), new Uint8Array()]);
     }
 
     /**
@@ -260,14 +252,10 @@ export class Encoder {
             let h = encoderDesc.height;
             let halfW = encoderDesc.width / 2;
             let halfH = encoderDesc.height / 2;
-            let createBuffer= () => {
+            let createBuffer = () => {
                 return new Uint8Array(w * h + 2 * halfW * halfH);
-            }
-            this.frameFifo = new FrameFifo([
-                createBuffer(),
-                createBuffer(),
-                createBuffer(),
-            ]);
+            };
+            this.frameFifo = new FrameFifo([createBuffer(), createBuffer(), createBuffer()]);
         }
         this.width = encoderDesc.width;
         this.height = encoderDesc.height;
@@ -340,7 +328,7 @@ export class Encoder {
             console.log("Exiting the ffmpeg proc. The stderr was:", this.ffmpegStderr);
             this.runningEncoding = false;
             this.resetEncodingSession();
-            // It's important that we use a copy of the stderr, because that gets reset by the 
+            // It's important that we use a copy of the stderr, because that gets reset by the
             // resetEncodingSession
             onExit(code, msg);
         });
@@ -374,7 +362,12 @@ export class Encoder {
     getUserFrames() {
         let writeFrame = async (buffer: Uint8Array) => {
             let frameId = this.frameId;
-            console.log("Writing frame", frameId, "written buffer count:", this.frameFifo.writtenBufferCount());
+            console.log(
+                "Writing frame",
+                frameId,
+                "written buffer count:",
+                this.frameFifo.writtenBufferCount()
+            );
             this.frameId += 1;
 
             let start = new Date().getTime();
@@ -424,7 +417,9 @@ export class Encoder {
                     return;
                 }
                 if (!this.ffmpegProc.stdin) {
-                    console.error("Expected that the ffmpeg process has an stdin but it didn't");
+                    console.error(
+                        "Expected that the ffmpeg process has an stdin but it didn't"
+                    );
                     return;
                 }
                 let canWriteMore = false;
@@ -438,9 +433,9 @@ export class Encoder {
                     if (err) {
                         console.error(
                             "There was an error while writing to ffmpeg: " +
-                            err +
-                            "\nProc output: " +
-                            this.ffmpegStdout
+                                err +
+                                "\nProc output: " +
+                                this.ffmpegStdout
                         );
                         return;
                     }
@@ -471,7 +466,8 @@ export class Encoder {
                         // into it.
                         let drainWaitStart = new Date();
                         this.ffmpegProc.stdin.once("drain", () => {
-                            this.sumDrainWaitMs += new Date().getTime() - drainWaitStart.getTime();
+                            this.sumDrainWaitMs +=
+                                new Date().getTime() - drainWaitStart.getTime();
                             if (writeIsDone) {
                                 finishedWriting = currFrameId;
                             } else {
@@ -480,7 +476,7 @@ export class Encoder {
                         });
                     }
                 }
-            })
+            });
             await setImmediateAsync();
         }
     }
@@ -595,9 +591,7 @@ export class Encoder {
     endEncoding() {
         this.runningEncoding = false;
         if (!this.ffmpegProc) {
-            console.error(
-                "Tried to end the encoding but the ffmpegProc was null"
-            );
+            console.error("Tried to end the encoding but the ffmpegProc was null");
             this.resetEncodingSession();
             return;
         }
@@ -605,13 +599,15 @@ export class Encoder {
         let endTime = new Date();
         let elapsedSecs = (endTime.getTime() - this.encStartTime.getTime()) / 1000;
         let avgFramerate = this.frameId / elapsedSecs;
-        console.log([
-            "ENCODING",
-            "The avg frametime (ms) was: " + (elapsedSecs / this.frameId) * 1000,
-            "Avg inter frame ms was " + this.sumWriteMs / this.frameId,
-            "Avg drain wait time was " + this.sumDrainWaitMs / this.frameId,
-            "Avg get image ms " + this.sumGetImageMs / this.frameId,
-        ].join("\n"));
+        console.log(
+            [
+                "ENCODING",
+                "The avg frametime (ms) was: " + (elapsedSecs / this.frameId) * 1000,
+                "Avg inter frame ms was " + this.sumWriteMs / this.frameId,
+                "Avg drain wait time was " + this.sumDrainWaitMs / this.frameId,
+                "Avg get image ms " + this.sumGetImageMs / this.frameId,
+            ].join("\n")
+        );
 
         // The encoding settings are reset by the callback that listens on the "finish" event.
         this.ffmpegProc.stdin?.end();
@@ -816,8 +812,8 @@ export class Decoder {
                 // TODO: This depends on the pix_fmt
                 // For rgba this is w * h * 4
                 // But for yuv, this is w * h + 2 * (w/2 * h/2)
-                let halfW = Math.floor(w/2);
-                let halfH = Math.floor(h/2);
+                let halfW = Math.floor(w / 2);
+                let halfH = Math.floor(h / 2);
                 let yuvFrameSize = w * h + 2 * (halfW * halfH);
                 this.frameSize = yuvFrameSize;
                 this.pixelBuffer = new Uint8Array(this.frameSize);
@@ -827,7 +823,7 @@ export class Decoder {
         });
     }
 
-    /** 
+    /**
      * Starts up an ffmpeg process and commands it to send the decoded frames through an
      * stdio pipe to this process.
      */
@@ -902,7 +898,7 @@ export class Decoder {
                 "-pix_fmt",
                 "yuv420p",
                 "-an",
-                'pipe:1'
+                "pipe:1",
             ],
             {
                 stdio: ["pipe", "pipe", "pipe"],
@@ -953,7 +949,9 @@ export class Decoder {
                         continue;
                     }
                     if (frame.length !== this.frameSize) {
-                        console.error("Received a package from ffmpeg that was not the expected size")
+                        console.error(
+                            "Received a package from ffmpeg that was not the expected size"
+                        );
                         return;
                     }
                     frameQueue.push(frame);
@@ -964,7 +962,7 @@ export class Decoder {
                 setTimeout(tryReading, 5);
                 // setImmediate(tryReading);
             }
-        }
+        };
         setImmediate(tryReading);
         // ffmpegOut.on("readable", tryReading);
         this.ffmpegProc.stderr.on("data", (data) => {
@@ -1010,7 +1008,10 @@ export class Decoder {
                         let copyAmount = Math.min(remainingSrcBytes, pixBufRemaining);
 
                         let tmp = new Uint8Array(src.buffer);
-                        let srcSlice = tmp.subarray(copiedSrcBytes, copiedSrcBytes + copyAmount);
+                        let srcSlice = tmp.subarray(
+                            copiedSrcBytes,
+                            copiedSrcBytes + copyAmount
+                        );
                         this.pixelBuffer.set(srcSlice, this.recvPixelBytes);
 
                         this.recvPixelBytes += copyAmount;
@@ -1020,8 +1021,7 @@ export class Decoder {
                             let frameStart = new Date();
                             if (this.prevFrameDoneTime > 0) {
                                 this.sumInterframeSec +=
-                                    (frameStart.getTime() - this.prevFrameDoneTime) /
-                                    1000;
+                                    (frameStart.getTime() - this.prevFrameDoneTime) / 1000;
                             }
                             await this.receivedImageCb(this.pixelBuffer);
                             let frameEnd = new Date();
@@ -1057,7 +1057,7 @@ export class Decoder {
                 "-pix_fmt",
                 "yuv420p",
                 "-an",
-                'pipe:1'
+                "pipe:1",
             ],
             {
                 stdio: ["pipe", "pipe", "pipe"],
@@ -1097,8 +1097,8 @@ export class Decoder {
         let inputDataQueue: Buffer[] = [];
         // For whatever reason it's significantly faster to receive the frame data through a tcp
         // connection than through an stdio pipe.
-        let server = new Server(socket => {
-            socket.on("data", src => {
+        let server = new Server((socket) => {
+            socket.on("data", (src) => {
                 let now = new Date().getTime();
                 if (this.prevTcpDataTime > 0) {
                     this.sumInterTcpDataTime += now - this.prevTcpDataTime;
@@ -1107,7 +1107,7 @@ export class Decoder {
                 // let srcCopy = Buffer.alloc(src.length, src);
                 inputDataQueue.push(src);
                 processData();
-            })
+            });
         });
         server.on("listening", () => {
             let address = server.address();
@@ -1164,7 +1164,7 @@ export class Decoder {
                 console.warn("ffmpeg stderr was:\n" + this.ffmpegStderr);
                 this.finishedDecoding(false);
             });
-    
+
             // this.ffmpegProc.stdout.on("data", (src: Buffer) => {
             //     console.log("Got data from encoder.");
             //     let srcCopy = Buffer.alloc(src.length, src);
@@ -1174,7 +1174,7 @@ export class Decoder {
             this.ffmpegProc.stderr.on("data", (data) => {
                 this.ffmpegStderr += data;
             });
-        }
+        };
         let processData = async (): Promise<void> => {
             if (processingData) {
                 // console.log("Already processing data, returning");
@@ -1203,20 +1203,22 @@ export class Decoder {
                         let pixBufRemaining = this.pixelBuffer.length - this.recvPixelBytes;
                         let remainingSrcBytes = src.length - copiedSrcBytes;
                         let copyAmount = Math.min(remainingSrcBytes, pixBufRemaining);
-        
+
                         let tmp = new Uint8Array(src.buffer);
-                        let srcSlice = tmp.subarray(copiedSrcBytes, copiedSrcBytes + copyAmount);
+                        let srcSlice = tmp.subarray(
+                            copiedSrcBytes,
+                            copiedSrcBytes + copyAmount
+                        );
                         this.pixelBuffer.set(srcSlice, this.recvPixelBytes);
-        
+
                         this.recvPixelBytes += copyAmount;
                         copiedSrcBytes += copyAmount;
-        
+
                         if (this.recvPixelBytes == this.pixelBuffer.length) {
                             let frameStart = new Date();
                             if (this.prevFrameDoneTime > 0) {
                                 this.sumInterframeSec +=
-                                    (frameStart.getTime() - this.prevFrameDoneTime) /
-                                    1000;
+                                    (frameStart.getTime() - this.prevFrameDoneTime) / 1000;
                             }
                             await this.receivedImageCb(this.pixelBuffer);
                             let frameEnd = new Date();
@@ -1243,22 +1245,31 @@ export class Decoder {
         let elapsed = (now.getTime() - this.decStartTime.getTime()) / 1000;
         let decodeTime = (now.getTime() - this.frameReadStartTime.getTime()) / 1000;
 
-        // Subtracting the 
+        // Subtracting the
         // let interFrameMs = this.sumInterframeSec * 1000 - this.sumInterTryRead;
 
         console.log(
             [
                 `Total elapsed time is ${elapsed}`,
-                `Decode time is ${decodeTime}, avg decode framerate ${this.frameId / decodeTime}.`,
-                `Avg inter frame ms ${(this.sumInterframeSec * 1000) / this.frameId} (High if decoding OR filtering OR encoding is slow)`,
-                `Avg intra frame ms ${this.sumFrameProcMs / this.frameId} (High if encoding is slow)`,
+                `Decode time is ${decodeTime}, avg decode framerate ${
+                    this.frameId / decodeTime
+                }.`,
+                `Avg inter frame ms ${
+                    (this.sumInterframeSec * 1000) / this.frameId
+                } (High if decoding OR filtering OR encoding is slow)`,
+                `Avg intra frame ms ${
+                    this.sumFrameProcMs / this.frameId
+                } (High if encoding is slow)`,
                 `Avg pipe chunk kb ${this.avgChunkSize / 1000}`,
-                `Avg inter valid read ms ${this.sumInterValidRead / this.frameId} (This should be practically identical to 'inter packet ms')`,
+                `Avg inter valid read ms ${
+                    this.sumInterValidRead / this.frameId
+                } (This should be practically identical to 'inter packet ms')`,
                 `Avg inter packet ms ${this.sumInterPacketMs / this.frameId}`,
                 `Avg intra packet ms ${this.sumPacketProcMs / this.frameId}`,
-                `Avg inter TRY READ ms ${this.sumInterTryRead / this.sumReadAttempts} (High if filtering OR encoding is slow)`,
+                `Avg inter TRY READ ms ${
+                    this.sumInterTryRead / this.sumReadAttempts
+                } (High if filtering OR encoding is slow)`,
                 `Avg inter tcp packet ms ${this.sumInterTcpDataTime / this.frameId}`,
-
             ].join("\n")
         );
         this.doneCb(success);

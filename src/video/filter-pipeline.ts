@@ -1,16 +1,20 @@
-
 import * as util from "util";
 import { FilterBase, FilterId } from "./filter-base";
 import { FilterManager } from "./filter-manager";
 import { Video } from "./video-manager";
 import { GlTexture, RenderTexture, TargetDimensions } from "./core";
-import { PlanarYuvToRgbShader, RgbToUShader, RgbToVShader, RgbToYShader } from "../misc-shaders/colorspace";
+import {
+    PlanarYuvToRgbShader,
+    RgbToUShader,
+    RgbToVShader,
+    RgbToYShader,
+} from "../misc-shaders/colorspace";
 
 const setImmedateAsync = util.promisify(setImmediate);
 
 export enum ImageFormat {
     RGBA,
-    YUV420P
+    YUV420P,
 }
 
 export interface FilterDesc {
@@ -89,7 +93,7 @@ export class FilterPipeline {
 
     /**
      * When using RGBA input, this is the only relevant input texture.
-     * 
+     *
      * When using YUV420P input, this is the Y plane. It's resolution is identical to the
      * full video resolution.
      */
@@ -393,7 +397,7 @@ export class FilterPipeline {
 
     /**
      * Uploads the data from imgSource into inputTex0, inputTex1, and inputTex2
-     * 
+     *
      * And also binds the correspongind textures to TEXTURE0, TEXTURE1, and TEXTURE2 respectively
      */
     protected updateYuvSource(imgSource: PackedPixelData) {
@@ -440,7 +444,7 @@ export class FilterPipeline {
         this.inputTex1 = {
             width: halfW,
             height: halfH,
-            texture: this.inputTex1.texture
+            texture: this.inputTex1.texture,
         };
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, this.inputTex1.texture);
@@ -468,7 +472,7 @@ export class FilterPipeline {
         this.inputTex2 = {
             width: halfW,
             height: halfH,
-            texture: this.inputTex2.texture
+            texture: this.inputTex2.texture,
         };
         gl.activeTexture(gl.TEXTURE2);
         gl.bindTexture(gl.TEXTURE_2D, this.inputTex2.texture);
@@ -491,10 +495,7 @@ export class FilterPipeline {
         if (this.inputTex0 === null) {
             this.inputTex0 = this.createInputTexture(inWidth, inHeight, this.gl.TEXTURE0);
             this.updateDimensions();
-        } else if (
-            inWidth != this.inputTex0.width ||
-            inHeight != this.inputTex0.height
-        ) {
+        } else if (inWidth != this.inputTex0.width || inHeight != this.inputTex0.height) {
             this.inputTex0 = {
                 width: inWidth,
                 height: inHeight,
@@ -612,21 +613,29 @@ export class FilterPipeline {
 
     /**
      * Fills the provided buffer with YUV420P pixel data.
-     * 
+     *
      * This means that the first `w*h` bytes will all be Y channel values.
-     * 
+     *
      * The next `w/2 * h/2` bytes will all be U channel values.
      * The final `w/2 * h/2` bytes will all be V channel values.
      */
     public async fillYuv420pPixelData(buffer: PackedPixelData): Promise<void> {
         if (!this.lastRt) {
-            throw new Error("Trying to copy to CPU, but no rendertarget was found that was written to.");
+            throw new Error(
+                "Trying to copy to CPU, but no rendertarget was found that was written to."
+            );
         }
         if (this.lastRt.width % 2 != 0) {
-            throw new Error("The width of the last render target was not an even number. Can't export to yuv420. Width was " + this.lastRt.width);
+            throw new Error(
+                "The width of the last render target was not an even number. Can't export to yuv420. Width was " +
+                    this.lastRt.width
+            );
         }
         if (this.lastRt.height % 2 != 0) {
-            throw new Error("The height of the last render target was not an even number. Can't export to yuv420. Height was " + this.lastRt.height);
+            throw new Error(
+                "The height of the last render target was not an even number. Can't export to yuv420. Height was " +
+                    this.lastRt.height
+            );
         }
         let w = this.lastRt.width;
         let h = this.lastRt.height;
@@ -638,7 +647,12 @@ export class FilterPipeline {
             // TODO: Should this be an exception? If the readPixels function allocates the buffer
             // than we don't even need to warn about it. But if the buffer must be already allocated
             // than we should probably throw an exception here.
-            console.warn("The target buffer was not of the expected size for YUV data. Expected " + targetByteCount + ", got " + buffer.data.byteLength);
+            console.warn(
+                "The target buffer was not of the expected size for YUV data. Expected " +
+                    targetByteCount +
+                    ", got " +
+                    buffer.data.byteLength
+            );
         }
         if (w !== buffer.w) {
             throw new Error("The target buffer width does not match the framebuffer width");
@@ -668,7 +682,7 @@ export class FilterPipeline {
         let prevActiveFb = gl.getParameter(gl.READ_FRAMEBUFFER_BINDING);
         let prevRowLength = gl.getParameter(gl.PACK_ROW_LENGTH);
         // Pack rows tightly after each other
-        gl.pixelStorei(gl.PACK_ROW_LENGTH, 0); 
+        gl.pixelStorei(gl.PACK_ROW_LENGTH, 0);
 
         // Just before we start reading the pixels, lets give some time for other stuff to execute
         await setImmedateAsync();
@@ -717,7 +731,7 @@ export class FilterPipeline {
 
     protected renderRtToYuv(rt: RenderTexture) {
         let gl = this.gl;
-        
+
         this.updateYuv420pOutputSize(rt.width, rt.height);
 
         gl.activeTexture(gl.TEXTURE0);
@@ -738,10 +752,16 @@ export class FilterPipeline {
 
     protected updateYuv420pOutputSize(w: number, h: number) {
         if (w % 2 != 0) {
-            throw new Error("Tried to set the yuv buffer sizes according to yuv420p but the width was not even: " + w);
+            throw new Error(
+                "Tried to set the yuv buffer sizes according to yuv420p but the width was not even: " +
+                    w
+            );
         }
         if (h % 2 != 0) {
-            throw new Error("Tried to set the yuv buffer sizes according to yuv420p but the height was not even: " + h);
+            throw new Error(
+                "Tried to set the yuv buffer sizes according to yuv420p but the height was not even: " +
+                    h
+            );
         }
         this.rgbToYOutput.ensureDimensions(w, h);
         this.rgbToUOutput.ensureDimensions(w / 2, h / 2);

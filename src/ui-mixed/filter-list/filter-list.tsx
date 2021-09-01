@@ -90,6 +90,6 @@ export class FilterList extends React.Component<FilterListProps, FilterListState
                 inUse: true,
             });
         }
-        this.setState({filters: thisFilters});
+        this.setState({ filters: thisFilters });
     }
 }

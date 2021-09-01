@@ -1,7 +1,11 @@
 import "./creator.css";
 
 import * as React from "react";
-import { FilterAttributes, FilterAttributeBinding, FilterAttributeKind } from "./filter-attributes";
+import {
+    FilterAttributes,
+    FilterAttributeBinding,
+    FilterAttributeKind,
+} from "./filter-attributes";
 import { GrayscaleFilter } from "../../filters/grayscale";
 import { Conv360ShaderKind, Conv360To2DFilter } from "../../filters/conv360to2d";
 import { CartoonFilter } from "../../filters/cartoon";
@@ -87,7 +91,7 @@ class Conv360To2DAttributes extends React.Component<{ filter: Conv360To2DFilter 
             optionValues: [
                 [Conv360ShaderKind.Equirect360, "360 - Equirectangular"],
                 [Conv360ShaderKind.Fisheye180, "180 - Fisheye"],
-            ]
+            ],
         });
         this.attributes.set("Vertical Field of View (radians)", {
             getter: (f) => f.fovY,
@@ -128,10 +132,7 @@ class Conv360To2DAttributes extends React.Component<{ filter: Conv360To2DFilter 
 
     render() {
         return (
-            <div
-                ref={this.rootDiv}
-                className="conv360-to-2d-attribs-root"
-            >
+            <div ref={this.rootDiv} className="conv360-to-2d-attribs-root">
                 <FilterAttributes
                     filter={this.props.filter}
                     attributes={this.attributes}

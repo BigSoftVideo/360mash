@@ -17,7 +17,7 @@ const PREVIEW_CANVAS_WIDTH = 600;
 /**
  * A shader that projects from 360 equirectangular input to a custom projection that's similar to
  * "Lambert azimuthal equal area projection"
- * 
+ *
  * This shader is suitable for producing a regular 16:9 aspect ratio video from an equirectangular
  * input.
  */
@@ -247,7 +247,7 @@ export class Project180FisheyeShader extends FilterShader {
 
 export enum Conv360ShaderKind {
     Equirect360,
-    Fisheye180
+    Fisheye180,
 }
 
 export class Conv360To2DFilter extends FilterBase {
@@ -323,7 +323,9 @@ export class Conv360To2DFilter extends FilterBase {
                 this.shader180.draw(gl);
                 break;
             default:
-                console.error("This should be unreachable. Please call the draw function of the correct shader here");
+                console.error(
+                    "This should be unreachable. Please call the draw function of the correct shader here"
+                );
                 break;
         }
         this.copyResultToPreview();

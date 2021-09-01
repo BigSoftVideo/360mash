@@ -110,7 +110,7 @@ function ffmpegTest() {
     );
     let stderr = "";
     let packetCnt = 0;
-    testProc.stderr.on("data", (msg) => stderr += msg);
+    testProc.stderr.on("data", (msg) => (stderr += msg));
     testProc.stdout.pause();
     testProc.stdout.on("readable", () => {
         // pacekt size: 1024 * 16
@@ -118,13 +118,17 @@ function ffmpegTest() {
             // Make sure we read all available data
             packetCnt += 1;
         }
-    })
+    });
     // testProc.stdout.on("data", buff => {
     //     packetCnt += 1;
     // });
-    testProc.on("exit", code => {
+    testProc.on("exit", (code) => {
         let elapsedSec = (new Date().getTime() - testProcStart.getTime()) / 1000;
-        console.log("Test process exited with", code, "it took " + elapsedSec + " seconds. Packet count was " + packetCnt);
+        console.log(
+            "Test process exited with",
+            code,
+            "it took " + elapsedSec + " seconds. Packet count was " + packetCnt
+        );
     });
 }
 
@@ -145,17 +149,17 @@ function ffmpegNetworkTest() {
     let packetCnt = 0;
 
     // listen on a port
-    let server = new Server(socket => {
-        console.log("Got connection!", socket.localPort)
-        socket.on("data", data => {
+    let server = new Server((socket) => {
+        console.log("Got connection!", socket.localPort);
+        socket.on("data", (data) => {
             packetCnt += 1;
             // console.log("Received from the connection:", data.toString("utf8"));
         });
-        socket.on("close", hadError => {
+        socket.on("close", (hadError) => {
             console.log("Socket was closed. Had error:", hadError);
-        })
+        });
     });
-    server.on("error", e => {
+    server.on("error", (e) => {
         console.log("Error happened with the server: ", e);
     });
     server.on("listening", () => {
@@ -182,9 +186,9 @@ function ffmpegNetworkTest() {
         //     });
         // });
         // --------------------------------------------------------
-        
+
         startFfmpeg(address.port);
-    })
+    });
     // 0 as port means that the OS will give us an available port.
     server.listen(0, "127.0.0.1");
 
@@ -209,7 +213,7 @@ function ffmpegNetworkTest() {
             }
         );
         let stderr = "";
-        testProc.stderr.on("data", (msg) => stderr += msg);
+        testProc.stderr.on("data", (msg) => (stderr += msg));
         testProc.stdout.pause();
         testProc.stdout.on("readable", () => {
             // pacekt size: 1024 * 16
@@ -217,25 +221,28 @@ function ffmpegNetworkTest() {
                 // Make sure we read all available data
                 // packetCnt += 1;
             }
-        })
+        });
         // testProc.stdout.on("data", buff => {
         //     packetCnt += 1;
         // });
-        testProc.on("exit", code => {
+        testProc.on("exit", (code) => {
             let elapsedSec = (new Date().getTime() - testProcStart.getTime()) / 1000;
-            console.log("Test process exited with", code, "it took " + elapsedSec + " seconds. Packet count was " + packetCnt);
+            console.log(
+                "Test process exited with",
+                code,
+                "it took " + elapsedSec + " seconds. Packet count was " + packetCnt
+            );
         });
     };
 
     // DEBUG TEST
 }
 
-
 function fullExportTest() {
     console.log("Started full export test");
     const INPUT_VIDEO_PATH = "Y:\\Dote-Projects\\New Horizon\\GoPro Back.mp4";
 
-    let canvas = document.createElement('canvas');
+    let canvas = document.createElement("canvas");
 
     // let gl = canvas.getContext("webgl2");
     // if (!gl) {
@@ -261,7 +268,7 @@ function fullExportTest() {
             return new GrayscaleFilter(gl);
         },
     });
-    let videoManager = new VideoManager(canvas, () => { }, filterManager);
+    let videoManager = new VideoManager(canvas, () => {}, filterManager);
     videoManager.stopRendering();
 
     videoManager.pipeline.setFilters([CARTOON_FILTER_NAME]);
@@ -292,7 +299,12 @@ function fullExportTest() {
     // WARNING
     // Video resolution: 3840x2160
     // TODO: This function should probably just take a width and a height since that's all it needs
-    const [outWidth, outHeight] = pipeline.getRealOutputDimensions({ w: 3840, h: 2160, data: new Uint8Array(), format: 0});
+    const [outWidth, outHeight] = pipeline.getRealOutputDimensions({
+        w: 3840,
+        h: 2160,
+        data: new Uint8Array(),
+        format: 0,
+    });
 
     // This is just a default, but actually we will use the same framerate as the input
     let outFps = 29.97;
@@ -301,10 +313,7 @@ function fullExportTest() {
     let readyOutFrameId = -1;
     let isDone = false;
 
-    let getImage = async (
-        outFrameId: number,
-        buffer: Uint8Array,
-    ): Promise<number> => {
+    let getImage = async (outFrameId: number, buffer: Uint8Array): Promise<number> => {
         const waitStart = new Date();
         // When this function gets called, the next frame may not yet be decoded. In this case
         // we wait until it's ready.
@@ -315,7 +324,7 @@ function fullExportTest() {
             data: buffer,
             w: outWidth,
             h: outHeight,
-            format: ImageFormat.YUV420P
+            format: ImageFormat.YUV420P,
         };
         videoManager.pipeline.fillYuv420pPixelData(targetPixelBuffer);
         // let progress = outFrameId / outFps / duration;
@@ -323,7 +332,7 @@ function fullExportTest() {
 
         if (isDone) {
             console.log(
-                "Export panel done. Avg ms spent waiting on the input frame "// +
+                "Export panel done. Avg ms spent waiting on the input frame " // +
                 // sumInputFrameWaitMs / outFrameId
             );
             return 1;
@@ -383,7 +392,7 @@ function fullExportTest() {
             h: inHeight,
 
             // TODO: change this if requesting the data from ffmpeg in another format
-            format: ImageFormat.YUV420P
+            format: ImageFormat.YUV420P,
         };
         videoManager.renderOnce(pixelData);
         readyOutFrameId = nextOutFrameId;

@@ -1,22 +1,19 @@
-
 import { TargetDimensions, RenderTexture, FilterShader } from "../video/core";
 import { FilterBase } from "../video/filter-base";
 
 /** Takes an input of three textures: the Y, the U, and the V channel each in a separate texture.
- * 
+ *
  * To be pedantic, this is actually a YCbCr to RGB conversion (because the input values are unsigned)
- * 
+ *
  * Render an RGB image
- * 
-*/
+ *
+ */
 export class PlanarYuvToRgbShader extends FilterShader {
-
     protected uTexY: WebGLUniformLocation | null;
     protected uTexU: WebGLUniformLocation | null;
     protected uTexV: WebGLUniformLocation | null;
 
     constructor(gl: WebGLRenderingContext) {
-
         // THE SOURCE OF THIS FORMULA IS: https://en.wikipedia.org/wiki/YCbCr
         // I decided to find a forumla that contains the offset by 16 (FOOTROOM)
         // because I found that ffmpeg provides the values with the footroom
@@ -57,7 +54,7 @@ export class PlanarYuvToRgbShader extends FilterShader {
             }`;
         let fragmentShader = FilterShader.createShader(gl, gl.FRAGMENT_SHADER, fragmentSrc);
         super(gl, fragmentShader);
-        
+
         if (this.shaderProgram) {
             this.uTexY = gl.getUniformLocation(this.shaderProgram, "uTexY");
             this.uTexU = gl.getUniformLocation(this.shaderProgram, "uTexU");
@@ -67,7 +64,6 @@ export class PlanarYuvToRgbShader extends FilterShader {
             this.uTexU = null;
             this.uTexV = null;
         }
-
     }
     protected updateUniforms(gl: WebGLRenderingContext): void {
         gl.uniform1i(this.uTexY, 0);
@@ -81,7 +77,6 @@ export class PlanarYuvToRgbShader extends FilterShader {
  */
 export class RgbToYShader extends FilterShader {
     constructor(gl: WebGLRenderingContext) {
-
         // For more info, see the PlanarYuvToRgbShader
 
         let fragmentSrc = `
@@ -113,7 +108,6 @@ export class RgbToYShader extends FilterShader {
  */
 export class RgbToUShader extends FilterShader {
     constructor(gl: WebGLRenderingContext) {
-
         // For more info, see the PlanarYuvToRgbShader
 
         let fragmentSrc = `
@@ -134,7 +128,7 @@ export class RgbToUShader extends FilterShader {
         let fragmentShader = FilterShader.createShader(gl, gl.FRAGMENT_SHADER, fragmentSrc);
         super(gl, fragmentShader);
     }
-    protected updateUniforms(gl: WebGLRenderingContext): void { }
+    protected updateUniforms(gl: WebGLRenderingContext): void {}
 }
 
 /**
@@ -142,7 +136,6 @@ export class RgbToUShader extends FilterShader {
  */
 export class RgbToVShader extends FilterShader {
     constructor(gl: WebGLRenderingContext) {
-
         // For more info, see the PlanarYuvToRgbShader
 
         let fragmentSrc = `
@@ -163,5 +156,5 @@ export class RgbToVShader extends FilterShader {
         let fragmentShader = FilterShader.createShader(gl, gl.FRAGMENT_SHADER, fragmentSrc);
         super(gl, fragmentShader);
     }
-    protected updateUniforms(gl: WebGLRenderingContext): void { }
+    protected updateUniforms(gl: WebGLRenderingContext): void {}
 }

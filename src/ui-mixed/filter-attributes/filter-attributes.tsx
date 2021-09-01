@@ -5,7 +5,7 @@ import { NumberInput } from "../../ui-presentational/number-input/number-input";
 
 export enum FilterAttributeKind {
     Number,
-    Option
+    Option,
 }
 
 export interface FilterAttributeBinding<FilterT extends FilterBase> {
@@ -56,15 +56,22 @@ export class FilterAttributes<FilterT extends FilterBase> extends React.Componen
                 );
             } else if (bindings.kind === FilterAttributeKind.Option) {
                 if (bindings.optionValues === undefined) {
-                    console.error("The option values must be defined when the attribute is of type option.")
+                    console.error(
+                        "The option values must be defined when the attribute is of type option."
+                    );
                 } else {
                     let options = bindings.optionValues.map(([value, name], i) => {
                         return (
-                            <option key={i} value={value}>{name}</option>
+                            <option key={i} value={value}>
+                                {name}
+                            </option>
                         );
                     });
                     input = (
-                        <select value={currValue} onChange={event => onChange(Number.parseInt(event.target.value))}>
+                        <select
+                            value={currValue}
+                            onChange={(event) => onChange(Number.parseInt(event.target.value))}
+                        >
                             {options}
                         </select>
                     );

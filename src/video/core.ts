@@ -23,7 +23,7 @@ export function getTargetAspect(dimensions: TargetDimensions): number {
  *
  * The aspect ratio of the output dimensions will be practically identical to `targetAspect` but the
  * resolution might be different from `dimensions`.
- * 
+ *
  * The resulting dimensions will both be an even number. This is to ensure that we can produce
  * a yuv420p output where U and V channels have a size that exactly half along both dimensions.
  *
@@ -41,17 +41,25 @@ export function fitToAspect(
 
         let outW = Math.trunc(dimensions.width);
         // We make sure that the output dimensions are even numbers. See doc comment above for why.
-        if (outW % 2 != 0) { outW += 1; }
+        if (outW % 2 != 0) {
+            outW += 1;
+        }
         let outH = Math.floor(outW / targetAspect);
-        if (outH % 2 != 0) { outH += 1; }
+        if (outH % 2 != 0) {
+            outH += 1;
+        }
         return [outW, outH];
     } else {
         // The original is taller than the target
         let outH = Math.trunc(dimensions.height);
         // We make sure that the output dimensions are even numbers. See doc comment above for why.
-        if (outH % 2 != 0) { outH += 1; }
+        if (outH % 2 != 0) {
+            outH += 1;
+        }
         let outW = Math.floor(outH * targetAspect);
-        if (outW % 2 != 0) { outW += 1; }
+        if (outW % 2 != 0) {
+            outW += 1;
+        }
         return [outW, outH];
     }
 }
@@ -145,7 +153,9 @@ export class RenderTexture {
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, color, 0);
         let status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
         if (gl.FRAMEBUFFER_COMPLETE !== status) {
-            console.warn("Failed creating the framebuffer. Status was: " + fbStatusToText(gl, status));
+            console.warn(
+                "Failed creating the framebuffer. Status was: " + fbStatusToText(gl, status)
+            );
         }
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
