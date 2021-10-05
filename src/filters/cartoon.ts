@@ -6,12 +6,13 @@ export const CARTOON_FILTER_NAME = "Cartoon";
 export class CartoonShader extends FilterShader {
     width: number;
     height: number;
-
     edgeIntensity: number;
+    colorCount: number;
 
     protected uInvWidth: WebGLUniformLocation | null;
     protected uInvHeight: WebGLUniformLocation | null;
     protected uEdgeIntensity: WebGLUniformLocation | null;
+    protected uColorCount: WebGLUniformLocation | null;
 
     constructor(gl: WebGLRenderingContext) {
         let fragmentSrc = `
@@ -21,6 +22,7 @@ export class CartoonShader extends FilterShader {
             uniform float uInvWidth;
             uniform float uInvHeight;
             uniform float uEdgeIntensity;
+            uniform float uColorCount;
             uniform sampler2D uSampler;
 
             // Assuming a gamma of 2.2, convert from the display gamma to linear color space
@@ -122,8 +124,8 @@ export class CartoonShader extends FilterShader {
                 vec3 hsv = toHsv(c.rgb);
 
                 //hsv.x = quantize(hsv.x / 360.0, 8.0) * 360.0;
-                hsv.y = quantize(hsv.y, 8.0);
-                hsv.z = quantize(hsv.z, 6.0);
+                hsv.y = quantize(hsv.y, uColorCount * 1.33);
+                hsv.z = quantize(hsv.z, uColorCount);
                 vec3 outRgb = fromHsv(hsv);
 
                 float edge = edgeStrength(vTexCoord) * uEdgeIntensity;
@@ -137,17 +139,19 @@ export class CartoonShader extends FilterShader {
 
         this.width = 1280;
         this.height = 720;
-
+        this.colorCount = 6.0;
         this.edgeIntensity = 1;
 
         if (this.shaderProgram) {
             this.uInvWidth = gl.getUniformLocation(this.shaderProgram, "uInvWidth");
             this.uInvHeight = gl.getUniformLocation(this.shaderProgram, "uInvHeight");
             this.uEdgeIntensity = gl.getUniformLocation(this.shaderProgram, "uEdgeIntensity");
+            this.uColorCount = gl.getUniformLocation(this.shaderProgram, "uColorCount");
         } else {
             this.uInvWidth = null;
             this.uInvHeight = null;
             this.uEdgeIntensity = null;
+            this.uColorCount = null;
         }
     }
 
@@ -155,6 +159,7 @@ export class CartoonShader extends FilterShader {
         gl.uniform1f(this.uInvWidth, 1 / this.width);
         gl.uniform1f(this.uInvHeight, 1 / this.height);
         gl.uniform1f(this.uEdgeIntensity, this.edgeIntensity);
+        gl.uniform1f(this.uColorCount, this.colorCount);
     }
 }
 
@@ -203,5 +208,12 @@ export class CartoonFilter extends FilterBase {
     }
     set edgeIntensity(value: number) {
         this.shader.edgeIntensity = value;
+    }
+
+    get colorCount(): number {
+        return this.shader.colorCount;
+    }
+    set colorCount(value: number) {
+        this.shader.colorCount = value;
     }
 }
