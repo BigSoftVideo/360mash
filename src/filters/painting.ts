@@ -1,20 +1,16 @@
 import { FilterShader, fitToAspect, RenderTexture, TargetDimensions } from "../video/core";
 import { FilterBase } from "../video/filter-base";
 
-export const CARTOON_FILTER_NAME = "Cartoon";
+export const PAINTING_FILTER_NAME = "Painting";
 
-export class CartoonShader extends FilterShader {
+export class PaintingShader extends FilterShader {
     width: number;
     height: number;
     edgeIntensity: number;
-    colorCount: number;
-    colorBright: number;
 
     protected uInvWidth: WebGLUniformLocation | null;
     protected uInvHeight: WebGLUniformLocation | null;
     protected uEdgeIntensity: WebGLUniformLocation | null;
-    protected uColorCount: WebGLUniformLocation | null;
-    protected uColorBright: WebGLUniformLocation | null;
 
     constructor(gl: WebGLRenderingContext) {
         let fragmentSrc = `
@@ -24,8 +20,6 @@ export class CartoonShader extends FilterShader {
             uniform float uInvWidth;
             uniform float uInvHeight;
             uniform float uEdgeIntensity;
-            uniform float uColorCount;
-            uniform float uColorBright;
             uniform sampler2D uSampler;
 
             // Assuming a gamma of 2.2, convert from the display gamma to linear color space
@@ -119,22 +113,30 @@ export class CartoonShader extends FilterShader {
                 float hor = edgeStrengthWithDelta(coords, vec2(uInvWidth*1.75, 0.0));
                 float ver = edgeStrengthWithDelta(coords, vec2(0.0, uInvHeight*1.75));
                 return (abs(hor) + abs(ver)) * 0.5;
-            }            
+            }
             void main() {
                 const float PI = 3.1415926535;
                 vec4 c = texture2D(uSampler, vTexCoord);
 
-                vec3 hsv = toHsv(c.rgb);
 
-                //hsv.x = quantize(hsv.x / 360.0, uColorShift) * 360.0;
-                hsv.y = quantize(hsv.y, uColorCount * 1.33);
-                hsv.z = quantize(hsv.z, uColorBright);
-                vec3 outRgb = fromHsv(hsv);
+                if((c.r + c.g + c.b) < 30){
+                    c.r *= 8;
+                    c.g *= 7;
+                    c.b *= 4;
+                }
+                else if((c.r + c.g + c.b) > 730){
+                    c.r *= 0.125;
+                    c.g *= 0.1428;
+                    c.b *= 0.25;
+                }
+
+                vec3 outRgb = vec3(c.r, c.g, c.b);
 
                 float edge = edgeStrength(vTexCoord) * uEdgeIntensity;
 
                 outRgb *= 1.0 - smoothstep(0.04, 0.1, edge);
 
+                
                 gl_FragColor = vec4(outRgb, 1.0);
             }`;
         let fragmentShader = FilterShader.createShader(gl, gl.FRAGMENT_SHADER, fragmentSrc);
@@ -142,22 +144,16 @@ export class CartoonShader extends FilterShader {
 
         this.width = 1280;
         this.height = 720;
-        this.colorCount = 6.0;
         this.edgeIntensity = 1;
-        this.colorBright = 10;
 
         if (this.shaderProgram) {
             this.uInvWidth = gl.getUniformLocation(this.shaderProgram, "uInvWidth");
             this.uInvHeight = gl.getUniformLocation(this.shaderProgram, "uInvHeight");
             this.uEdgeIntensity = gl.getUniformLocation(this.shaderProgram, "uEdgeIntensity");
-            this.uColorCount = gl.getUniformLocation(this.shaderProgram, "uColorCount");
-            this.uColorBright = gl.getUniformLocation(this.shaderProgram, "uColorBright");
         } else {
             this.uInvWidth = null;
             this.uInvHeight = null;
             this.uEdgeIntensity = null;
-            this.uColorCount = null;
-            this.uColorBright = null;
         }
     }
 
@@ -165,19 +161,17 @@ export class CartoonShader extends FilterShader {
         gl.uniform1f(this.uInvWidth, 1 / this.width);
         gl.uniform1f(this.uInvHeight, 1 / this.height);
         gl.uniform1f(this.uEdgeIntensity, this.edgeIntensity);
-        gl.uniform1f(this.uColorCount, this.colorCount);
-        gl.uniform1f(this.uColorBright, this.colorBright);
     }
 }
 
-export class CartoonFilter extends FilterBase {
-    protected shader: CartoonShader;
+export class PaintingFilter extends FilterBase {
+    protected shader: PaintingShader;
     protected rt: RenderTexture;
 
     constructor(gl: WebGLRenderingContext) {
         super(gl);
         this.gl = gl;
-        this.shader = new CartoonShader(gl);
+        this.shader = new PaintingShader(gl);
         this.rt = new RenderTexture(gl, gl.RGBA);
     }
 
@@ -215,18 +209,5 @@ export class CartoonFilter extends FilterBase {
     }
     set edgeIntensity(value: number) {
         this.shader.edgeIntensity = value;
-    }
-
-    get colorCount(): number {
-        return this.shader.colorCount;
-    }
-    set colorCount(value: number) {
-        this.shader.colorCount = value;
-    }
-    get colorBright(): number {
-        return this.shader.colorBright;
-    }
-    set colorBright(value: number) {
-        this.shader.colorBright = value;
     }
 }

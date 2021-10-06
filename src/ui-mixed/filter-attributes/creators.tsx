@@ -31,9 +31,18 @@ export function CartoonAttribsCreator(filter: CartoonFilter): JSX.Element {
             f.colorCount = v;
         },
         kind: FilterAttributeKind.Number,
-        minValue: 5,
-        maxValue: 12
-    })
+        minValue: 0.1,
+        maxValue: 17
+    });
+    attributes.set("Color Brightness", {
+        getter: (f) => filter.colorBright,
+        setter: (f, v) => {
+            f.colorBright = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: 2,
+        maxValue: 75
+    });
     return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
 }
 
