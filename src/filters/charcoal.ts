@@ -1,9 +1,9 @@
 import { FilterShader, fitToAspect, RenderTexture, TargetDimensions } from "../video/core";
 import { FilterBase } from "../video/filter-base";
 
-export const COMIC_FILTER_NAME = "Comic";
+export const CHARCOAL_FILTER_NAME = "Charcoal";
 
-export class ComicShader extends FilterShader {
+export class CharcoalShader extends FilterShader {
     width: number;
     height: number;
     scale: number;
@@ -22,31 +22,13 @@ export class ComicShader extends FilterShader {
 
             uniform float uInvWidth;
             uniform float uInvHeight;
-            uniform float uScale;
-            uniform float uAngle;
-            
-            mat2 rotate2d(float uAngle){
-                return mat2(cos(uAngle), -sin(uAngle), sin(uAngle),cos(uAngle));
-            }
-                       
-            float dotScreen(float scale) {                
-                float s = sin(uAngle);
-                float c = cos(uAngle);
-
-                vec2 p = vec2(0.5, 0.5) * (vTexCoord.xy / vec2(uInvWidth, uInvHeight));    //
-                vec2 q = rotate2d(uAngle) * p * scale;
-
-                return (sin(q.x) * sin(q.y)) * 4.0;
-            }
         
             void main()
             {
-                vec4 tex = texture2D(uSampler, vTexCoord);          
+                const float PI = 3.1415926535;
+                vec4 tex = texture2D(uSampler, vTexCoord);                
                 vec3 outRgb = vec3(tex.r, tex.g, tex.b);
                 
-                float scale = 1.0 + 0.3 * sin(uScale); 
-                outRgb = vec3(outRgb * 10.0 - 5.0 + dotScreen(scale));
-
                 gl_FragColor = vec4(outRgb, 1.0);
             }`;
         let fragmentShader = FilterShader.createShader(gl, gl.FRAGMENT_SHADER, fragmentSrc);
@@ -54,38 +36,30 @@ export class ComicShader extends FilterShader {
 
         this.width = 1280.0;
         this.height = 720.0;
-        this.scale = 0.1;
-        this.angle = 0.001;
 
         if (this.shaderProgram) {
             this.uInvWidth = gl.getUniformLocation(this.shaderProgram, "uInvWidth");
             this.uInvHeight = gl.getUniformLocation(this.shaderProgram, "uInvHeight");
-            this.uScale = gl.getUniformLocation(this.shaderProgram, "uScale");
-            this.uAngle = gl.getUniformLocation(this.shaderProgram, "uAngle");
         } else {
             this.uInvWidth = null;
             this.uInvHeight = null;
-            this.uScale = null;
-            this.uAngle = null;
         }
     }
 
     protected updateUniforms(gl: WebGLRenderingContext): void {
         gl.uniform1f(this.uInvWidth, 1 / this.width);
         gl.uniform1f(this.uInvHeight, 1 / this.height);
-        gl.uniform1f(this.uScale, this.scale);
-        gl.uniform1f(this.uAngle, this.angle);
     }
 }
 
-export class ComicFilter extends FilterBase {
-    protected shader: ComicShader;
+export class CharcoalFilter extends FilterBase {
+    protected shader: CharcoalShader;
     protected rt: RenderTexture;
 
     constructor(gl: WebGLRenderingContext) {
         super(gl);
         this.gl = gl;
-        this.shader = new ComicShader(gl);
+        this.shader = new CharcoalShader(gl);
         this.rt = new RenderTexture(gl, gl.RGBA);
     }
 
@@ -116,18 +90,5 @@ export class ComicFilter extends FilterBase {
         gl.bindTexture(gl.TEXTURE_2D, source);
         this.shader.draw(gl);
         return this.rt;
-    }
-
-    get scale(): number {
-        return this.shader.scale;
-    }
-    set scale(value: number) {
-        this.shader.scale = value;
-    }
-    get angle(): number {
-        return this.shader.angle;
-    }
-    set angle(value: number) {
-        this.shader.angle = value;
     }
 }

@@ -10,6 +10,7 @@ import { GrayscaleFilter } from "../../filters/grayscale";
 import { Conv360ShaderKind, Conv360To2DFilter } from "../../filters/conv360to2d";
 import { CartoonFilter } from "../../filters/cartoon";
 import { ComicFilter } from "../../filters/comic";
+import { CharcoalFilter } from "../../filters/charcoal";
 
 export function GrayscaleAttribsCreator(filter: GrayscaleFilter): JSX.Element {
     return <FilterAttributes filter={filter} attributes={new Map()}></FilterAttributes>;
@@ -49,6 +50,29 @@ export function CartoonAttribsCreator(filter: CartoonFilter): JSX.Element {
 
 export function ComicAttribsCreator(filter: ComicFilter): JSX.Element {
     let attributes = new Map<string, FilterAttributeBinding<ComicFilter>>();
+    attributes.set("Scaling", {
+        getter: (f) => filter.scale,
+        setter: (f, v) => {
+            f.scale = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: 0,
+        maxValue: 1.5
+    });
+    attributes.set("Angle", {
+        getter: (f) => filter.angle,
+        setter: (f, v) => {
+            f.angle = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: 0.1,
+        maxValue: 3.5
+    });
+    return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
+}
+
+export function CharcoalAttribsCreator(filter: CharcoalFilter): JSX.Element {
+    let attributes = new Map<string, FilterAttributeBinding<CharcoalFilter>>();
     attributes.set("Scaling", {
         getter: (f) => filter.scale,
         setter: (f, v) => {
