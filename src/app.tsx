@@ -17,6 +17,7 @@ import { Checklist } from "./ui-presentational/checklist/checklist";
 import { Conv360To2DFilter, CONV360T02D_FILTER_NAME } from "./filters/conv360to2d";
 import { GrayscaleFilter, GRAYSCALE_FILTER_NAME } from "./filters/grayscale";
 import { CartoonFilter, CARTOON_FILTER_NAME } from "./filters/cartoon";
+import { ComicFilter, COMIC_FILTER_NAME } from "./filters/comic";
 import { FilterBase, FilterId } from "./video/filter-base";
 import { FilterList } from "./ui-mixed/filter-list/filter-list";
 import { Decoder, Encoder } from "./video/codec";
@@ -25,6 +26,7 @@ import {
     Conv360To2DAttribsCreator,
     GrayscaleAttribsCreator,
     CartoonAttribsCreator,
+    ComicAttribsCreator,
 } from "./ui-mixed/filter-attributes/creators";
 import { ExportInfoProvider, ExportOverlay } from "./ui-mixed/export-overlay/export-overlay";
 import { DimensionChangeListener } from "./video/filter-pipeline";
@@ -102,6 +104,13 @@ export class App extends React.Component<{}, AppState> {
             id: CARTOON_FILTER_NAME,
             creator: (gl): FilterBase => {
                 return new CartoonFilter(gl);
+            },
+        });
+        this.filterAttribs.set(COMIC_FILTER_NAME, ComicAttribsCreator);
+        this.filterManager.registerFilter({
+            id: COMIC_FILTER_NAME,
+            creator: (gl): FilterBase => {
+                return new ComicFilter(gl);
             },
         });
         this.filterAttribs.set(GRAYSCALE_FILTER_NAME, GrayscaleAttribsCreator);
@@ -238,6 +247,7 @@ export class App extends React.Component<{}, AppState> {
                 this.videoManager.pipeline.setFilters([
                     CONV360T02D_FILTER_NAME,
                     CARTOON_FILTER_NAME,
+                    COMIC_FILTER_NAME,
                     GRAYSCALE_FILTER_NAME,
                 ]);
 
