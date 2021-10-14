@@ -6,13 +6,9 @@ export const CHARCOAL_FILTER_NAME = "Charcoal";
 export class CharcoalShader extends FilterShader {
     width: number;
     height: number;
-    scale: number;
-    angle: number;
 
     protected uInvWidth: WebGLUniformLocation | null;
     protected uInvHeight: WebGLUniformLocation | null;
-    protected uScale: WebGLUniformLocation | null;
-    protected uAngle: WebGLUniformLocation | null;
 
     constructor(gl: WebGLRenderingContext) {
         let fragmentSrc = `

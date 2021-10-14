@@ -1,18 +1,21 @@
 import { FilterShader, fitToAspect, RenderTexture, TargetDimensions } from "../video/core";
 import { FilterBase } from "../video/filter-base";
 
-export const COMIC_FILTER_NAME = "Comic";
+export const COMIC_FILTER_NAME = "Comic"; //Perhaps static is a more suitable name
 
+//Could be used with the cartoon shader to get interesting result
 export class ComicShader extends FilterShader {
     width: number;
     height: number;
     scale: number;
     angle: number;
+    brightness: number;
 
     protected uInvWidth: WebGLUniformLocation | null;
     protected uInvHeight: WebGLUniformLocation | null;
     protected uScale: WebGLUniformLocation | null;
     protected uAngle: WebGLUniformLocation | null;
+    protected uBrightness: WebGLUniformLocation | null;
 
     constructor(gl: WebGLRenderingContext) {
         let fragmentSrc = `
@@ -24,28 +27,32 @@ export class ComicShader extends FilterShader {
             uniform float uInvHeight;
             uniform float uScale;
             uniform float uAngle;
+            uniform float uBrightness;
             
-            mat2 rotate2d(float uAngle){
-                return mat2(cos(uAngle), -sin(uAngle), sin(uAngle),cos(uAngle));
+            float degToRad(float degree){
+                float PI = 3.1415926535;
+                return degree * (PI / 180.0);
+            }
+
+            mat2 rotate2d(){
+                return mat2(cos(degToRad(uAngle)), -sin(degToRad(uAngle)), sin(degToRad(uAngle)), cos(degToRad(uAngle)) );
             }
                        
-            float dotScreen(float scale) {                
-                float s = sin(uAngle);
-                float c = cos(uAngle);
+            float dotScreen(float scale, vec2 uv) {                
+                vec2 p = vec2(0.7, 0.7) * vTexCoord / vec2(uInvWidth, uInvHeight);
+                vec2 q = rotate2d() * p * scale;
 
-                vec2 p = vec2(0.5, 0.5) * (vTexCoord.xy / vec2(uInvWidth, uInvHeight));    //
-                vec2 q = rotate2d(uAngle) * p * scale;
-
-                return (sin(q.x) * sin(q.y)) * 4.0;
+                return (sin(q.x) * sin(q.y)) * 5.0;
             }
         
             void main()
             {
                 vec4 tex = texture2D(uSampler, vTexCoord);          
-                vec3 outRgb = vec3(tex.r, tex.g, tex.b);
+                vec2 uv = vTexCoord / vec2(uInvWidth, uInvHeight);
+                vec3 outRgb = tex.rgb;
                 
-                float scale = 1.0 + 0.3 * sin(uScale); 
-                outRgb = vec3(outRgb * 10.0 - 5.0 + dotScreen(scale));
+                float scale = 0.3 + 0.8 * uScale; 
+                outRgb = outRgb * uBrightness - vec3(5.0 + dotScreen(scale, uv));
 
                 gl_FragColor = vec4(outRgb, 1.0);
             }`;
@@ -54,19 +61,22 @@ export class ComicShader extends FilterShader {
 
         this.width = 1280.0;
         this.height = 720.0;
-        this.scale = 0.1;
-        this.angle = 0.001;
+        this.scale = 0.3;
+        this.angle = 2.0;
+        this.brightness = 9.5;
 
         if (this.shaderProgram) {
             this.uInvWidth = gl.getUniformLocation(this.shaderProgram, "uInvWidth");
             this.uInvHeight = gl.getUniformLocation(this.shaderProgram, "uInvHeight");
             this.uScale = gl.getUniformLocation(this.shaderProgram, "uScale");
             this.uAngle = gl.getUniformLocation(this.shaderProgram, "uAngle");
+            this.uBrightness = gl.getUniformLocation(this.shaderProgram, "uBrightness");
         } else {
             this.uInvWidth = null;
             this.uInvHeight = null;
             this.uScale = null;
             this.uAngle = null;
+            this.uBrightness = null;
         }
     }
 
@@ -75,6 +85,7 @@ export class ComicShader extends FilterShader {
         gl.uniform1f(this.uInvHeight, 1 / this.height);
         gl.uniform1f(this.uScale, this.scale);
         gl.uniform1f(this.uAngle, this.angle);
+        gl.uniform1f(this.uBrightness, this.brightness);
     }
 }
 
@@ -129,5 +140,11 @@ export class ComicFilter extends FilterBase {
     }
     set angle(value: number) {
         this.shader.angle = value;
+    }
+    get brightness(): number {
+        return this.shader.brightness;
+    }
+    set brightness(value: number) {
+        this.shader.brightness = value;
     }
 }

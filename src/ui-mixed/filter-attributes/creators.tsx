@@ -57,7 +57,7 @@ export function ComicAttribsCreator(filter: ComicFilter): JSX.Element {
         },
         kind: FilterAttributeKind.Number,
         minValue: 0,
-        maxValue: 1.5
+        maxValue: 2.0
     });
     attributes.set("Angle", {
         getter: (f) => filter.angle,
@@ -67,30 +67,22 @@ export function ComicAttribsCreator(filter: ComicFilter): JSX.Element {
         kind: FilterAttributeKind.Number,
         minValue: 0.1,
         maxValue: 3.5
+    });
+    attributes.set("Brightness", {
+        getter: (f) => filter.brightness,
+        setter: (f, v) => {
+            f.brightness = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: 8.0,
+        maxValue: 12.0
     });
     return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
 }
 
 export function CharcoalAttribsCreator(filter: CharcoalFilter): JSX.Element {
     let attributes = new Map<string, FilterAttributeBinding<CharcoalFilter>>();
-    attributes.set("Scaling", {
-        getter: (f) => filter.scale,
-        setter: (f, v) => {
-            f.scale = v;
-        },
-        kind: FilterAttributeKind.Number,
-        minValue: 0,
-        maxValue: 1.5
-    });
-    attributes.set("Angle", {
-        getter: (f) => filter.angle,
-        setter: (f, v) => {
-            f.angle = v;
-        },
-        kind: FilterAttributeKind.Number,
-        minValue: 0.1,
-        maxValue: 3.5
-    });
+
     return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
 }
 
