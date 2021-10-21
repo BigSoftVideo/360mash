@@ -27,6 +27,9 @@ export class CartoonShader extends FilterShader {
             uniform float uColorCount;
             uniform float uColorBright;
             uniform sampler2D uSampler;
+            uniform float uCsMax;
+            uniform float uCsMin;
+
 
             // Assuming a gamma of 2.2, convert from the display gamma to linear color space
             vec3 displayToLinear(vec3 color) {
@@ -223,6 +226,7 @@ export class CartoonFilter extends FilterBase {
     set colorCount(value: number) {
         this.shader.colorCount = value;
     }
+    
     get colorBright(): number {
         return this.shader.colorBright;
     }

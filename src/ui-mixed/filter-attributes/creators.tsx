@@ -82,7 +82,24 @@ export function ComicAttribsCreator(filter: ComicFilter): JSX.Element {
 
 export function CharcoalAttribsCreator(filter: CharcoalFilter): JSX.Element {
     let attributes = new Map<string, FilterAttributeBinding<CharcoalFilter>>();
-
+    attributes.set("Intensity", {
+        getter: (f) => filter.intensity,
+        setter: (f, v) => {
+            f.intensity = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: 0.1,
+        maxValue: 10.0
+    });
+    attributes.set("Smoothing", {
+        getter: (f) => filter.inverse,
+        setter: (f, v) => {
+            f.inverse = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: 0,
+        maxValue: 1
+    });
     return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
 }
 
