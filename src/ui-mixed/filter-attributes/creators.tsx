@@ -13,7 +13,17 @@ import { ComicFilter } from "../../filters/comic";
 import { CharcoalFilter } from "../../filters/charcoal";
 
 export function GrayscaleAttribsCreator(filter: GrayscaleFilter): JSX.Element {
-    return <FilterAttributes filter={filter} attributes={new Map()}></FilterAttributes>;
+    let attributes = new Map<string, FilterAttributeBinding<GrayscaleFilter>>();
+    attributes.set("Grey Multiplier", {
+        getter: (f) => filter.greyMultiplier,
+        setter: (f, v) => {
+            f.greyMultiplier = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: 1,
+        maxValue: 5
+    });
+    return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
 }
 
 export function CartoonAttribsCreator(filter: CartoonFilter): JSX.Element {
