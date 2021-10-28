@@ -34,7 +34,7 @@ export class MashProjectionShader extends FilterShader {
     // protected uOutOverInAspect: WebGLUniformLocation | null;
     protected uOutAspect: WebGLUniformLocation | null;
     protected rotationMat: glm.mat4;
-    constructor(gl: WebGLRenderingContext) {
+    constructor(gl: WebGL2RenderingContext) {
         let fragmentSrc = `
             precision mediump float;
             varying vec2 vTexCoord;
@@ -107,7 +107,7 @@ export class MashProjectionShader extends FilterShader {
         }
     }
 
-    protected updateUniforms(gl: WebGLRenderingContext): void {
+    protected updateUniforms(gl: WebGL2RenderingContext): void {
         let rotRightMat = glm.mat4.create();
         glm.mat4.fromRotation(
             rotRightMat,
@@ -145,7 +145,7 @@ export class Project180FisheyeShader extends FilterShader {
     // protected uOutOverInAspect: WebGLUniformLocation | null;
     protected uOutAspect: WebGLUniformLocation | null;
     protected rotationMat: glm.mat4;
-    constructor(gl: WebGLRenderingContext) {
+    constructor(gl: WebGL2RenderingContext) {
         let fragmentSrc = `
             precision mediump float;
             varying vec2 vTexCoord;
@@ -225,7 +225,7 @@ export class Project180FisheyeShader extends FilterShader {
         }
     }
 
-    protected updateUniforms(gl: WebGLRenderingContext): void {
+    protected updateUniforms(gl: WebGL2RenderingContext): void {
         let rotRightMat = glm.mat4.create();
         glm.mat4.fromRotation(
             rotRightMat,
@@ -265,7 +265,7 @@ export class Conv360To2DFilter extends FilterBase {
     // protected previewTexture: WebGLTexture;
     previewPixelArray: Uint8Array;
 
-    constructor(gl: WebGLRenderingContext) {
+    constructor(gl: WebGL2RenderingContext) {
         super(gl);
         this.gl = gl;
         this.shaderEquirect = new MashProjectionShader(gl);

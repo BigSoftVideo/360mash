@@ -13,7 +13,7 @@ export class PlanarYuvToRgbShader extends FilterShader {
     protected uTexU: WebGLUniformLocation | null;
     protected uTexV: WebGLUniformLocation | null;
 
-    constructor(gl: WebGLRenderingContext) {
+    constructor(gl: WebGL2RenderingContext) {
         // THE SOURCE OF THIS FORMULA IS: https://en.wikipedia.org/wiki/YCbCr
         // I decided to find a forumla that contains the offset by 16 (FOOTROOM)
         // because I found that ffmpeg provides the values with the footroom
@@ -65,7 +65,7 @@ export class PlanarYuvToRgbShader extends FilterShader {
             this.uTexV = null;
         }
     }
-    protected updateUniforms(gl: WebGLRenderingContext): void {
+    protected updateUniforms(gl: WebGL2RenderingContext): void {
         gl.uniform1i(this.uTexY, 0);
         gl.uniform1i(this.uTexU, 1);
         gl.uniform1i(this.uTexV, 2);
@@ -76,7 +76,7 @@ export class PlanarYuvToRgbShader extends FilterShader {
  * Produces the Y channel image of a YUV image.
  */
 export class RgbToYShader extends FilterShader {
-    constructor(gl: WebGLRenderingContext) {
+    constructor(gl: WebGL2RenderingContext) {
         // For more info, see the PlanarYuvToRgbShader
 
         let fragmentSrc = `
@@ -100,14 +100,14 @@ export class RgbToYShader extends FilterShader {
         let fragmentShader = FilterShader.createShader(gl, gl.FRAGMENT_SHADER, fragmentSrc);
         super(gl, fragmentShader);
     }
-    protected updateUniforms(gl: WebGLRenderingContext): void {}
+    protected updateUniforms(gl: WebGL2RenderingContext): void {}
 }
 
 /**
  * Produces the U channel image of a YUV image. AKA the Cb channel
  */
 export class RgbToUShader extends FilterShader {
-    constructor(gl: WebGLRenderingContext) {
+    constructor(gl: WebGL2RenderingContext) {
         // For more info, see the PlanarYuvToRgbShader
 
         let fragmentSrc = `
@@ -128,14 +128,14 @@ export class RgbToUShader extends FilterShader {
         let fragmentShader = FilterShader.createShader(gl, gl.FRAGMENT_SHADER, fragmentSrc);
         super(gl, fragmentShader);
     }
-    protected updateUniforms(gl: WebGLRenderingContext): void {}
+    protected updateUniforms(gl: WebGL2RenderingContext): void {}
 }
 
 /**
  * Produces the V channel image of a YUV image. AKA the Cr channel
  */
 export class RgbToVShader extends FilterShader {
-    constructor(gl: WebGLRenderingContext) {
+    constructor(gl: WebGL2RenderingContext) {
         // For more info, see the PlanarYuvToRgbShader
 
         let fragmentSrc = `
@@ -156,5 +156,5 @@ export class RgbToVShader extends FilterShader {
         let fragmentShader = FilterShader.createShader(gl, gl.FRAGMENT_SHADER, fragmentSrc);
         super(gl, fragmentShader);
     }
-    protected updateUniforms(gl: WebGLRenderingContext): void {}
+    protected updateUniforms(gl: WebGL2RenderingContext): void {}
 }
