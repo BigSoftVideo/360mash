@@ -17,6 +17,7 @@ import { Checklist } from "./ui-presentational/checklist/checklist";
 import { Conv360To2DFilter, CONV360T02D_FILTER_NAME } from "./filters/conv360to2d";
 import { GrayscaleFilter, GRAYSCALE_FILTER_NAME } from "./filters/grayscale";
 import { CharcoalFilter, CHARCOAL_FILTER_NAME } from "./filters/charcoal";
+import { PaintingFilter, PAINTING_FILTER_NAME } from "./filters/painting";
 import { CartoonFilter, CARTOON_FILTER_NAME } from "./filters/cartoon";
 import { ComicFilter, COMIC_FILTER_NAME } from "./filters/comic";
 import { FilterBase, FilterId } from "./video/filter-base";
@@ -29,6 +30,7 @@ import {
     CartoonAttribsCreator,
     ComicAttribsCreator,
     CharcoalAttribsCreator,
+    PaintingAttribsCreator
 } from "./ui-mixed/filter-attributes/creators";
 import { ExportInfoProvider, ExportOverlay } from "./ui-mixed/export-overlay/export-overlay";
 import { DimensionChangeListener } from "./video/filter-pipeline";
@@ -127,6 +129,13 @@ export class App extends React.Component<{}, AppState> {
             id: CHARCOAL_FILTER_NAME,
             creator: (gl): FilterBase => {
                 return new CharcoalFilter(gl);
+            },
+        });
+        this.filterAttribs.set(PAINTING_FILTER_NAME, PaintingAttribsCreator);
+        this.filterManager.registerFilter({
+            id: PAINTING_FILTER_NAME,
+            creator: (gl): FilterBase => {
+                return new PaintingFilter(gl);
             },
         });
         this.videoManager = null;
@@ -258,7 +267,8 @@ export class App extends React.Component<{}, AppState> {
                     CARTOON_FILTER_NAME,
                     COMIC_FILTER_NAME,
                     GRAYSCALE_FILTER_NAME,
-                    CHARCOAL_FILTER_NAME
+                    CHARCOAL_FILTER_NAME,
+                    PAINTING_FILTER_NAME
                 ]);
 
                 this.videoManager.pipeline.addDimensionChangeListener(

@@ -302,7 +302,7 @@ export abstract class FilterShader {
         gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
     }
 
-    public static createShader(
+public static createShader(
         gl: WebGL2RenderingContext,
         type: number,
         source: string

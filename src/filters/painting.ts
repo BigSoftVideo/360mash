@@ -1,7 +1,7 @@
 import { FilterShader, fitToAspect, RenderTexture, TargetDimensions } from "../video/core";
 import { FilterBase } from "../video/filter-base";
 
-export const CARTOON_FILTER_NAME = "Painting";
+export const PAINTING_FILTER_NAME = "Painting";
 
 export class PaintingShader extends FilterShader {
     width: number;
@@ -29,69 +29,6 @@ export class PaintingShader extends FilterShader {
             uniform sampler2D uSampler;
             uniform float uCsMax;
             uniform float uCsMin;
-
-
-            // Assuming a gamma of 2.2, convert from the display gamma to linear color space
-            vec3 displayToLinear(vec3 color) {
-                return pow(color, vec3(0.455));
-            }
-            // Assuming a gamma of 2.2, convert from linear color space to the display color space
-            vec3 linearToDisplay(vec3 color) {
-                return pow(color, vec3(2.2));
-            }
-
-            // From: https://en.wikipedia.org/wiki/HSL_and_HSV
-            vec3 toHsv(vec3 color) {
-                color = displayToLinear(color);
-                float r = color.r;
-                float g = color.g;
-                float b = color.b;
-
-                float V = max(max(r, g), b);
-                float Xmax = V;
-                float Xmin = min(min(r, g), b);
-                float C = Xmax - Xmin;
-                float H;
-                if (C == 0.0) {
-                    H = 0.0;
-                } else if (V == r) {
-                    H = 60.0 * (0.0 + (g - b)/C);
-                } else if (V == g) {
-                    H = 60.0 * (2.0 + (b - r)/C);
-                } else {
-                    H = 60.0 * (4.0 + (r - g)/C);
-                }
-                float S;
-                if (V == 0.0) {
-                    S = 0.0;
-                } else {
-                    S = C / V;
-                }
-                return vec3(H, S, V);
-            }
-
-            // This is called 'f(n)' in the "HSV to RGB alternative" section
-            // at https://en.wikipedia.org/wiki/HSL_and_HSV
-            float fromHsvHelper(float n, vec3 hsv) {
-                float H = hsv.x;
-                float S = hsv.y;
-                float V = hsv.z;
-
-                float k = mod(n + H / 60.0, 6.0);
-                return V - V*S*max(0.0, min(min(k, 4.0 - k), 1.0));
-            }
-
-            vec3 fromHsv(vec3 hsv) {
-                float R = fromHsvHelper(5.0, hsv);
-                float G = fromHsvHelper(3.0, hsv);
-                float B = fromHsvHelper(1.0, hsv);
-                return linearToDisplay(vec3(R, G, B));
-            }
-
-            // v has to be in [0, 1]
-            float quantize(float v, float levels) {
-                return floor(v * levels) / levels;
-            }
 
             // According to: https://en.wikipedia.org/wiki/Relative_luminance
             float luminance(vec3 c) {
@@ -122,21 +59,60 @@ export class PaintingShader extends FilterShader {
                 float hor = edgeStrengthWithDelta(coords, vec2(uInvWidth*1.75, 0.0));
                 float ver = edgeStrengthWithDelta(coords, vec2(0.0, uInvHeight*1.75));
                 return (abs(hor) + abs(ver)) * 0.5;
-            }            
+            }    
+
+            vec3 dirBlur(vec2 coords, vec2 direction){
+                vec3 outC = vec3(0.0);
+                const int radius = 8;
+                const float count = float(2*radius + 1);             
+                float weightSum = 0.0;
+
+                for(int i = -radius; i <= radius; i++){
+                    vec2 pos = coords + direction * float(i);
+                    vec3 c = texture2D(uSampler, pos).rgb;
+                    float weight = 1.0 - abs(float(i)) / float(radius);
+                    outC += c * weight;
+                    weightSum += weight;
+                }
+                return outC / weightSum;
+            }       
+            
+            vec2 edgeDirection(vec2 coords){
+                float hor = edgeStrengthWithDelta(coords, vec2(uInvWidth*1.75, 0.0));
+                float ver = edgeStrengthWithDelta(coords, vec2(0.0, uInvHeight*1.75));
+                return vec2(ver, -hor);
+            }
+
             void main() {
                 const float PI = 3.1415926535;
                 vec4 c = texture2D(uSampler, vTexCoord);
+                
+                const int rad = 10;
+                vec2 aggregate = vec2(0.0);
+                for(int x = -rad; x <= rad; x++){
+                    for (int y = -rad; y <= rad; y++){
+                        vec2 edge = edgeDirection(vTexCoord + vec2(float(x), float(y)) * 0.002);
+                        aggregate += edge;
+                        //float d = dot(normalize(aggregate), normalize(edge));
+                        //if(d < 0.0) {
+                        //    aggregate += edge * -1.0;
+                        //}
+                        //else {
+                        //    aggregate += edge;
+                        //}                       
+                    }
+                }
+                const int count = (2 * rad + 1) * (2 * rad + 1);
+                aggregate = aggregate / float(count);
 
-                vec3 hsv = toHsv(c.rgb);
-
-                //hsv.x = quantize(hsv.x / 360.0, uColorShift) * 360.0;
-                hsv.y = quantize(hsv.y, uColorCount * 1.33);
-                hsv.z = quantize(hsv.z, uColorBright);
-                vec3 outRgb = fromHsv(hsv);
-
-                float edge = edgeStrength(vTexCoord) * uEdgeIntensity;
-
-                outRgb *= 1.0 - smoothstep(0.04, 0.1, edge);
+                //vec3 outRgb = c.rgb;
+                //if (vTexCoord.x > 0.5) {
+                //    vec2 edge = edgeDirection(vTexCoord);
+                //    outRgb = vec3(aggregate.y * 20.0);
+                //}
+                vec3 outRgb = dirBlur(vTexCoord, aggregate * 0.1);
+                //float edge = edgeStrength(vTexCoord) * uEdgeIntensity;
+                //vec3 outRgb *= 1.0 - smoothstep(0.04, 0.1, edge);
 
                 gl_FragColor = vec4(outRgb, 1.0);
             }`;
@@ -173,7 +149,7 @@ export class PaintingShader extends FilterShader {
     }
 }
 
-export class CartoonFilter extends FilterBase {
+export class PaintingFilter extends FilterBase {
     protected shader: PaintingShader;
     protected rt: RenderTexture;
 

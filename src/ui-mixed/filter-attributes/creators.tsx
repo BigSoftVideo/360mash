@@ -11,6 +11,7 @@ import { Conv360ShaderKind, Conv360To2DFilter } from "../../filters/conv360to2d"
 import { CartoonFilter } from "../../filters/cartoon";
 import { ComicFilter } from "../../filters/comic";
 import { CharcoalFilter } from "../../filters/charcoal";
+import { PaintingFilter } from "../../filters/painting";
 
 export function GrayscaleAttribsCreator(filter: GrayscaleFilter): JSX.Element {
     let attributes = new Map<string, FilterAttributeBinding<GrayscaleFilter>>();
@@ -23,6 +24,10 @@ export function GrayscaleAttribsCreator(filter: GrayscaleFilter): JSX.Element {
         minValue: 1,
         maxValue: 5
     });
+    return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
+}
+export function PaintingAttribsCreator(filter: PaintingFilter): JSX.Element {
+    let attributes = new Map<string, FilterAttributeBinding<PaintingFilter>>();
     return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
 }
 
