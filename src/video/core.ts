@@ -70,7 +70,7 @@ export interface GlTexture {
     readonly texture: WebGLTexture;
 }
 
-function fbStatusToText(gl: WebGLRenderingContext, status: number): string {
+function fbStatusToText(gl: WebGL2RenderingContext, status: number): string {
     if (status == gl.FRAMEBUFFER_COMPLETE) {
         return "FRAMEBUFFER_COMPLETE";
     }
@@ -90,7 +90,7 @@ function fbStatusToText(gl: WebGLRenderingContext, status: number): string {
 }
 
 export class RenderTexture {
-    gl: WebGLRenderingContext;
+    gl: WebGL2RenderingContext;
     color: WebGLTexture;
     width: number;
     height: number;
@@ -189,12 +189,12 @@ export class RenderTexture {
 }
 
 export abstract class FilterShader {
-    protected gl: WebGLRenderingContext;
+    protected gl: WebGL2RenderingContext;
     protected shaderProgram: WebGLProgram | null;
     //protected outTexture: WebGLTexture | null;
     protected vertexBuffer: WebGLBuffer | null;
     protected indexBuffer: WebGLBuffer | null;
-    constructor(gl: WebGLRenderingContext, fragmentShader: WebGLShader) {
+    constructor(gl: WebGL2RenderingContext, fragmentShader: WebGLShader) {
         this.gl = gl;
         let vertexSrc = `
             attribute vec4 position;
@@ -287,23 +287,23 @@ export abstract class FilterShader {
         gl.deleteProgram(this.shaderProgram);
     }
 
-    protected abstract updateUniforms(gl: WebGLRenderingContext): void;
+    protected abstract updateUniforms(gl: WebGL2RenderingContext): void;
 
-    protected useProgram(gl: WebGLRenderingContext) {
+    protected useProgram(gl: WebGL2RenderingContext) {
         gl.useProgram(this.shaderProgram);
         //gl.bindTexture(gl.TEXTURE_2D, this.outTexture);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
     }
 
-    public draw(gl: WebGLRenderingContext) {
+    public draw(gl: WebGL2RenderingContext) {
         this.useProgram(gl);
         this.updateUniforms(gl);
         gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
     }
 
     public static createShader(
-        gl: WebGLRenderingContext,
+        gl: WebGL2RenderingContext,
         type: number,
         source: string
     ): WebGLShader {

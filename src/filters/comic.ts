@@ -17,7 +17,7 @@ export class ComicShader extends FilterShader {
     protected uAngle: WebGLUniformLocation | null;
     protected uBrightness: WebGLUniformLocation | null;
 
-    constructor(gl: WebGLRenderingContext) {
+    constructor(gl: WebGL2RenderingContext) {
         let fragmentSrc = `
             precision mediump float;
             varying vec2 vTexCoord;
@@ -80,7 +80,7 @@ export class ComicShader extends FilterShader {
         }
     }
 
-    protected updateUniforms(gl: WebGLRenderingContext): void {
+    protected updateUniforms(gl: WebGL2RenderingContext): void {
         gl.uniform1f(this.uInvWidth, 1 / this.width);
         gl.uniform1f(this.uInvHeight, 1 / this.height);
         gl.uniform1f(this.uScale, this.scale);
@@ -93,7 +93,7 @@ export class ComicFilter extends FilterBase {
     protected shader: ComicShader;
     protected rt: RenderTexture;
 
-    constructor(gl: WebGLRenderingContext) {
+    constructor(gl: WebGL2RenderingContext) {
         super(gl);
         this.gl = gl;
         this.shader = new ComicShader(gl);

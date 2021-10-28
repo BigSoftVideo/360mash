@@ -27,9 +27,9 @@ export interface FilterDescriptor {
 // before the other could read the filter's output.
 ////////////////////////
 export abstract class FilterBase {
-    protected gl: WebGLRenderingContext;
+    protected gl: WebGL2RenderingContext;
 
-    constructor(gl: WebGLRenderingContext) {
+    constructor(gl: WebGL2RenderingContext) {
         this.gl = gl;
     }
 

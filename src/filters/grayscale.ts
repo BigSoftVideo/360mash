@@ -9,7 +9,7 @@ export class GrayscaleShader extends FilterShader {
 
     protected uGreyMultiplier: WebGLUniformLocation | null;
 
-    constructor(gl: WebGLRenderingContext) {
+    constructor(gl: WebGL2RenderingContext) {
         let fragmentSrc = `
             precision mediump float;
             uniform float uGreyMultiplier;
@@ -33,18 +33,18 @@ export class GrayscaleShader extends FilterShader {
         }
     }
 
-    protected updateUniforms(gl: WebGLRenderingContext): void {
+    protected updateUniforms(gl: WebGL2RenderingContext): void {
         //throw new Error("Method not implemented.");
         gl.uniform1f(this.uGreyMultiplier, this.greyMultiplier);
     }
 }
 
 export class GrayscaleFilter extends FilterBase {
-    //protected gl: WebGLRenderingContext;
+    //protected gl: WebGL2RenderingContext;
     protected shader: GrayscaleShader;
     protected rt: RenderTexture;
 
-    constructor(gl: WebGLRenderingContext) {
+    constructor(gl: WebGL2RenderingContext) {
         super(gl);
         this.gl = gl;
         this.shader = new GrayscaleShader(gl);
