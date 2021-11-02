@@ -201,31 +201,31 @@ class Conv360To2DAttributes extends React.Component<{ filter: Conv360To2DFilter 
                 [Conv360ShaderKind.Fisheye180, "180 - Fisheye"],
             ],
         });
-        this.attributes.set("Vertical Field of View (radians)", {
-            getter: (f) => f.fovY,
-            setter: (f, v) => {
-                f.fovY = v;
-            },
-            kind: FilterAttributeKind.Number,
-            minValue: 0,
-            maxValue: Math.PI,
-        });
-        this.attributes.set("Yaw", {
-            getter: (f) => f.rotUp,
-            setter: (f, v) => {
-                this.setRotUp(v);
-            },
-            kind: FilterAttributeKind.Number,
-        });
-        this.attributes.set("Pitch", {
-            getter: (f) => f.rotRight,
-            setter: (f, v) => {
-                f.rotRight = v;
-            },
-            kind: FilterAttributeKind.Number,
-            minValue: -Math.PI * 0.5,
-            maxValue: Math.PI * 0.5,
-        });
+        // this.attributes.set("Vertical Field of View (radians)", {
+        //     getter: (f) => f.fovY,
+        //     setter: (f, v) => {
+        //         f.fovY = v;
+        //     },
+        //     kind: FilterAttributeKind.Number,
+        //     minValue: 0,
+        //     maxValue: Math.PI,
+        // });
+        // this.attributes.set("Yaw", {
+        //     getter: (f) => f.rotUp,
+        //     setter: (f, v) => {
+        //         this.setRotUp(v);
+        //     },
+        //     kind: FilterAttributeKind.Number,
+        // });
+        // this.attributes.set("Pitch", {
+        //     getter: (f) => f.rotRight,
+        //     setter: (f, v) => {
+        //         f.rotRight = v;
+        //     },
+        //     kind: FilterAttributeKind.Number,
+        //     minValue: -Math.PI * 0.5,
+        //     maxValue: Math.PI * 0.5,
+        // });
     }
 
     componentDidMount() {
