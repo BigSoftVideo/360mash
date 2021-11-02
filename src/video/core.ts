@@ -281,9 +281,9 @@ export abstract class FilterShader {
     dispose() {
         let gl = this.gl;
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-        gl.deleteBuffer(gl.ELEMENT_ARRAY_BUFFER);
+        gl.deleteBuffer(this.indexBuffer);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
-        gl.deleteBuffer(gl.ARRAY_BUFFER);
+        gl.deleteBuffer(this.vertexBuffer);
         gl.deleteProgram(this.shaderProgram);
     }
 
