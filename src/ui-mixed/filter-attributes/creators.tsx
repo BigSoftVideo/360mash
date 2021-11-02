@@ -28,6 +28,24 @@ export function GrayscaleAttribsCreator(filter: GrayscaleFilter): JSX.Element {
 }
 export function PaintingAttribsCreator(filter: PaintingFilter): JSX.Element {
     let attributes = new Map<string, FilterAttributeBinding<PaintingFilter>>();
+    attributes.set("Intensity", {
+        getter: (f) => filter.intensity,
+        setter: (f, v) => {
+            f.intensity = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: 1,
+        maxValue: 4
+    });
+    attributes.set("Radius", {
+        getter: (f) => filter.radius,
+        setter: (f, v) => {
+            f.radius = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: 0.1,
+        maxValue: 5
+    });
     return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
 }
 
