@@ -90,7 +90,7 @@ export class FilterAttributes<FilterT extends FilterBase> extends React.Componen
                             <Slider
                             sx={{width: 200}}
                             onChange={(event, val) => onChange(val) }
-                            value={currValue}
+                            value={typeof currValue === 'number' ? currValue : 0}
                             valueLabelDisplay="off"
                             min={bindings.minValue}
                             max={bindings.maxValue}

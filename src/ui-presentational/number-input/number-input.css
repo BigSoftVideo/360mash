@@ -4,6 +4,6 @@
     padding: 0.1em;
     border: 1px solid gray;
     border-radius: 3px;
-
+    width: 60px;
     cursor: ns-resize;
 }
