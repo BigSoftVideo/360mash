@@ -1,11 +1,17 @@
 import { FilterBase } from "../../video/filter-base";
-
+import Slider from '@mui/material/Slider';
+import Checkbox from '@mui/material/Checkbox';
 import * as React from "react";
 import { NumberInput } from "../../ui-presentational/number-input/number-input";
+import { TouchBarSlider } from "electron";
+import { FormLabel, Grid, Input } from "@mui/material";
+import { Box, width } from "@mui/system";
 
 export enum FilterAttributeKind {
     Number,
     Option,
+    Slider,
+    Bool
 }
 
 export interface FilterAttributeBinding<FilterT extends FilterBase> {
@@ -28,6 +34,7 @@ export interface FilterAttributesProps<FilterT extends FilterBase> {
     filter: FilterT;
     attributes: Map<string, FilterAttributeBinding<FilterT>>;
 }
+
 
 export class FilterAttributes<FilterT extends FilterBase> extends React.Component<
     FilterAttributesProps<FilterT>
@@ -76,6 +83,39 @@ export class FilterAttributes<FilterT extends FilterBase> extends React.Componen
                         </select>
                     );
                 }
+            } else if (bindings.kind === FilterAttributeKind.Slider) {
+                input = (
+                    <Grid container spacing={2} paddingLeft={1.5}>
+                        <Grid item>
+                            <Slider
+                            sx={{width: 200}}
+                            onChange={(event, val) => onChange(val) }
+                            value={currValue}
+                            valueLabelDisplay="off"
+                            min={bindings.minValue}
+                            max={bindings.maxValue}
+                            step={0.0001}
+                            />
+                        </Grid>
+                        <Grid item>
+                            <NumberInput
+                                onChanged={(val) => onChange(val)}
+                                value={currValue}
+                                minValue={bindings.minValue}
+                                maxValue={bindings.maxValue}
+                            />
+                        </Grid>
+                    </Grid>
+                );
+            } else if (bindings.kind === FilterAttributeKind.Bool) {
+                let val;
+                input = (
+                    <Checkbox
+                    color={"default"}
+                    checked={val}
+                    onChange={(event, val) => onChange(val ? 1 : 0)}
+                    />
+                );
             }
             return (
                 <div key={i}>

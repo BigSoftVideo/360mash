@@ -22,7 +22,7 @@ export class CharcoalShader extends FilterShader {
             uniform float uIntensity;
             uniform float uInvWidth;
             uniform float uInvHeight;
-            uniform float uInverse;
+            uniform int uInverse;
 
 
             // According to: https://en.wikipedia.org/wiki/Relative_luminance
@@ -70,7 +70,7 @@ export class CharcoalShader extends FilterShader {
                 vec2 vals = vec2(0.04, 0.11);
                 float x = 0.0;
                 
-                if(uInverse == 0.0){
+                if(uInverse == 1){
                     x = vals.x;
                 }
                 else {
@@ -94,12 +94,11 @@ export class CharcoalShader extends FilterShader {
         this.width = 1280.0;
         this.height = 720.0;
         this.intensity = 1.0;
-        this.inverse = 1.0;
+        this.inverse = 0;
 
         if (this.shaderProgram) {
             this.uInvWidth = gl.getUniformLocation(this.shaderProgram, "uInvWidth");
             this.uInvHeight = gl.getUniformLocation(this.shaderProgram, "uInvHeight");
-            this.uIntensity = gl.getUniformLocation(this.shaderProgram, "uIntensity");
             this.uIntensity = gl.getUniformLocation(this.shaderProgram, "uIntensity");
             this.uInverse = gl.getUniformLocation(this.shaderProgram, "uInverse");
         } else {
@@ -114,7 +113,8 @@ export class CharcoalShader extends FilterShader {
         gl.uniform1f(this.uInvWidth, 1 / this.width);
         gl.uniform1f(this.uInvHeight, 1 / this.height);
         gl.uniform1f(this.uIntensity, this.intensity);
-        gl.uniform1f(this.uInverse, this.inverse);
+        gl.uniform1i(this.uInverse, this.inverse);
+
     }
 }
 
