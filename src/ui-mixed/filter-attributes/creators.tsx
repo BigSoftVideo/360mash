@@ -34,8 +34,6 @@ export function PaintingAttribsCreator(filter: PaintingFilter): JSX.Element {
             f.intensity = v;
         },
         kind: FilterAttributeKind.Slider,
-        minValue: 1,
-        maxValue: 4
     });
     attributes.set("Radius", {
         getter: (f) => filter.radius,
