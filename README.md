@@ -8,5 +8,3 @@ It's important to clone all submodules when cloning. This can be done with for e
 ```
 git clone --recurse-submodules https://github.com/Big-Video/360mash.git
 ```
-
-This is just a test sentence, again

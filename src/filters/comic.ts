@@ -35,7 +35,7 @@ export class ComicShader extends FilterShader {
             }
 
             mat2 rotate2d(){
-                return mat2(cos(degToRad(uAngle)), -sin(degToRad(uAngle)), sin(degToRad(uAngle)), cos(degToRad(uAngle)) );
+                return mat2(cos(uAngle), -sin(uAngle), sin(uAngle), cos(uAngle));
             }
                        
             float dotScreen(float scale, vec2 uv) {                
@@ -84,8 +84,12 @@ export class ComicShader extends FilterShader {
         gl.uniform1f(this.uInvWidth, 1 / this.width);
         gl.uniform1f(this.uInvHeight, 1 / this.height);
         gl.uniform1f(this.uScale, this.scale);
-        gl.uniform1f(this.uAngle, this.angle);
+        gl.uniform1f(this.uAngle, this.degToRad(this.angle));
         gl.uniform1f(this.uBrightness, this.brightness);
+    }
+
+    degToRad(deg: number){
+        return deg * (Math.PI / 180.0);
     }
 }
 

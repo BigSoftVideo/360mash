@@ -15,15 +15,6 @@ import { PaintingFilter } from "../../filters/painting";
 
 export function GrayscaleAttribsCreator(filter: GrayscaleFilter): JSX.Element {
     let attributes = new Map<string, FilterAttributeBinding<GrayscaleFilter>>();
-    attributes.set("Grey Multiplier", {
-        getter: (f) => filter.greyMultiplier,
-        setter: (f, v) => {
-            f.greyMultiplier = v;
-        },
-        kind: FilterAttributeKind.Slider,
-        minValue: 1,
-        maxValue: 5
-    });
     return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
 }
 export function PaintingAttribsCreator(filter: PaintingFilter): JSX.Element {
@@ -33,7 +24,7 @@ export function PaintingAttribsCreator(filter: PaintingFilter): JSX.Element {
         setter: (f, v) => {
             f.intensity = v;
         },
-        kind: FilterAttributeKind.Slider,
+        kind: FilterAttributeKind.Number,
         minValue: 1,
         maxValue: 4
     });
@@ -42,7 +33,7 @@ export function PaintingAttribsCreator(filter: PaintingFilter): JSX.Element {
         setter: (f, v) => {
             f.radius = v;
         },
-        kind: FilterAttributeKind.Slider,
+        kind: FilterAttributeKind.Number,
         minValue: 0.1,
         maxValue: 5
     });
@@ -56,7 +47,7 @@ export function CartoonAttribsCreator(filter: CartoonFilter): JSX.Element {
         setter: (f, v) => {
             f.edgeIntensity = v;
         },
-        kind: FilterAttributeKind.Slider,
+        kind: FilterAttributeKind.Number,
         minValue: 0,
         maxValue: 1
     });
@@ -65,16 +56,16 @@ export function CartoonAttribsCreator(filter: CartoonFilter): JSX.Element {
         setter: (f, v) => {
             f.colorCount = v;
         },
-        kind: FilterAttributeKind.Slider,
+        kind: FilterAttributeKind.Number,
         minValue: 0.1,
         maxValue: 17
     });
-    attributes.set("Color Brightness", {
-        getter: (f) => filter.colorBright,
+    attributes.set("Brightness Count", {
+        getter: (f) => filter.brightCount,
         setter: (f, v) => {
-            f.colorBright = v;
+            f.brightCount = v;
         },
-        kind: FilterAttributeKind.Slider,
+        kind: FilterAttributeKind.Number,
         minValue: 2,
         maxValue: 15
     });
@@ -88,16 +79,16 @@ export function ComicAttribsCreator(filter: ComicFilter): JSX.Element {
         setter: (f, v) => {
             f.scale = v;
         },
-        kind: FilterAttributeKind.Slider,
+        kind: FilterAttributeKind.Number,
         minValue: 0,
-        maxValue: 2.0
+        maxValue: 1.5
     });
     attributes.set("Angle", {
         getter: (f) => filter.angle,
         setter: (f, v) => {
             f.angle = v;
         },
-        kind: FilterAttributeKind.Slider,
+        kind: FilterAttributeKind.Number,
         minValue: 0.1,
         maxValue: 3.5
     });
@@ -106,7 +97,7 @@ export function ComicAttribsCreator(filter: ComicFilter): JSX.Element {
         setter: (f, v) => {
             f.brightness = v;
         },
-        kind: FilterAttributeKind.Slider,
+        kind: FilterAttributeKind.Number,
         minValue: 8.0,
         maxValue: 12.0
     });
@@ -120,7 +111,7 @@ export function CharcoalAttribsCreator(filter: CharcoalFilter): JSX.Element {
         setter: (f, v) => {
             f.intensity = v;
         },
-        kind: FilterAttributeKind.Slider,
+        kind: FilterAttributeKind.Number,
         minValue: 0.1,
         maxValue: 10.0
     });

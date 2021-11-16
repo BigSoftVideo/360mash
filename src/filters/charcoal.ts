@@ -51,8 +51,11 @@ export class CharcoalShader extends FilterShader {
                 return (after - before) * 0.3333;
             }
             float edgeStrength(vec2 coords) {
-                float hor = edgeStrengthWithDelta(coords, vec2(uInvWidth*1.75, 0.0));
-                float ver = edgeStrengthWithDelta(coords, vec2(0.0, uInvHeight*1.75));
+                float aspect = uInvHeight / uInvWidth;
+                float xStep = 0.005 * sin(0.33);
+                float yStep = xStep * aspect;
+                float hor = edgeStrengthWithDelta(coords, vec2(xStep, 0.0));
+                float ver = edgeStrengthWithDelta(coords, vec2(0.0, yStep));
                 return (abs(hor) + abs(ver)) * 0.2;
             }
             
@@ -61,7 +64,6 @@ export class CharcoalShader extends FilterShader {
                 vec4 tex = texture2D(uSampler, vTexCoord);
                 const float PI = 3.1415926535;
 
-                vec2 uv = vTexCoord / vec2(uInvWidth, uInvHeight);
                 vec3 outRgb = tex.rgb;
                 outRgb = (outRgb.r + outRgb.g + outRgb.b) * vec3(0.333);
                 

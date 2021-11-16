@@ -8,13 +8,13 @@ export class CartoonShader extends FilterShader {
     height: number;
     edgeIntensity: number;
     colorCount: number;
-    colorBright: number;
+    brightnessCount: number;
 
     protected uInvWidth: WebGLUniformLocation | null;
     protected uInvHeight: WebGLUniformLocation | null;
     protected uEdgeIntensity: WebGLUniformLocation | null;
     protected uColorCount: WebGLUniformLocation | null;
-    protected uColorBright: WebGLUniformLocation | null;
+    protected uBrightnessCount: WebGLUniformLocation | null;
 
     constructor(gl: WebGL2RenderingContext) {
         let fragmentSrc = `
@@ -147,20 +147,20 @@ export class CartoonShader extends FilterShader {
         this.height = 720;
         this.colorCount = 6.0;
         this.edgeIntensity = 1;
-        this.colorBright = 10;
+        this.brightnessCount = 10;
 
         if (this.shaderProgram) {
             this.uInvWidth = gl.getUniformLocation(this.shaderProgram, "uInvWidth");
             this.uInvHeight = gl.getUniformLocation(this.shaderProgram, "uInvHeight");
             this.uEdgeIntensity = gl.getUniformLocation(this.shaderProgram, "uEdgeIntensity");
             this.uColorCount = gl.getUniformLocation(this.shaderProgram, "uColorCount");
-            this.uColorBright = gl.getUniformLocation(this.shaderProgram, "uColorBright");
+            this.uBrightnessCount = gl.getUniformLocation(this.shaderProgram, "uColorBright");
         } else {
             this.uInvWidth = null;
             this.uInvHeight = null;
             this.uEdgeIntensity = null;
             this.uColorCount = null;
-            this.uColorBright = null;
+            this.uBrightnessCount = null;
         }
     }
 
@@ -169,7 +169,7 @@ export class CartoonShader extends FilterShader {
         gl.uniform1f(this.uInvHeight, 1 / this.height);
         gl.uniform1f(this.uEdgeIntensity, this.edgeIntensity);
         gl.uniform1f(this.uColorCount, this.colorCount);
-        gl.uniform1f(this.uColorBright, this.colorBright);
+        gl.uniform1f(this.uBrightnessCount, this.brightnessCount);
     }
 }
 
@@ -227,10 +227,10 @@ export class CartoonFilter extends FilterBase {
         this.shader.colorCount = value;
     }
     
-    get colorBright(): number {
-        return this.shader.colorBright;
+    get brightCount(): number {
+        return this.shader.brightnessCount;
     }
-    set colorBright(value: number) {
-        this.shader.colorBright = value;
+    set brightCount(value: number) {
+        this.shader.brightnessCount = value;
     }
 }

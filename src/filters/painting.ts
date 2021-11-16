@@ -69,17 +69,9 @@ export class PaintingShaderEdge extends FilterShader {
             }`;
         let fragmentShader = FilterShader.createShader(gl, gl.FRAGMENT_SHADER, fragmentSrc);
         super(gl, fragmentShader);
-
-        if (this.shaderProgram) {
-
-        } else {
-
-        }
     }
 
-    protected updateUniforms(gl: WebGL2RenderingContext): void {
-        
-    }
+    protected updateUniforms(gl: WebGL2RenderingContext): void {}
 }
 
 export class PaintingFilter extends FilterBase {

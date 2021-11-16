@@ -9,7 +9,6 @@ import "./filter-attributes.css";
 export enum FilterAttributeKind {
     Number,
     Option,
-    Slider,
     Bool
 }
 
@@ -74,7 +73,7 @@ export class FilterAttributes<FilterT extends FilterBase> extends React.Componen
                         </select>
                     );
                 }
-            } else if (bindings.kind === FilterAttributeKind.Slider && bindings.minValue != undefined && bindings.maxValue != undefined) {
+            } else if (bindings.kind === FilterAttributeKind.Number) {
                 input = (
                     <Grid container spacing={2} paddingLeft={1.5}>
                         <Grid item>
@@ -99,24 +98,23 @@ export class FilterAttributes<FilterT extends FilterBase> extends React.Componen
                     </Grid>
                 );
             } else if (bindings.kind === FilterAttributeKind.Bool) {
-                let val;
                 input = (
                     <Checkbox
                     color={"default"}
-                    checked={val}
+                    checked={currValue != 0}
                     onChange={(event, val) => onChange(val ? 1 : 0)}
                     />
                 );
-            } else if (bindings.kind === FilterAttributeKind.Number || bindings.maxValue == undefined || bindings.minValue == undefined) {
-                input = (
-                    <NumberInput
-                        onChanged={(val) => onChange(val)}
-                        value={currValue}
-                        minValue={bindings.minValue}
-                        maxValue={bindings.maxValue}
-                    ></NumberInput>
-                );
-            }
+            }// else if (bindings.kind === FilterAttributeKind.Number || bindings.maxValue == undefined || bindings.minValue == undefined) {
+            //     input = (
+            //         <NumberInput
+            //             onChanged={(val) => onChange(val)}
+            //             value={currValue}
+            //             minValue={bindings.minValue}
+            //             maxValue={bindings.maxValue}
+            //         ></NumberInput>
+            //     );
+            // }
             return (
                 <div key={i}>
                     <label className="filter-attributes">
