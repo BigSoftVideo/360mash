@@ -98,7 +98,7 @@ export class PreviewPanel extends React.Component<PreviewPanelProps, PreviewPane
                         type="range"
                         min={0}
                         max={videoLen}
-                        step={0.1}
+                        step={0.01}
                         onChange={this.videoTimeSet.bind(this)}
                         value={this.state.videoTime}
                     ></input>
