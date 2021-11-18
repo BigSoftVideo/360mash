@@ -52,7 +52,7 @@ export class CharcoalShader extends FilterShader {
             }
             float edgeStrength(vec2 coords) {
                 float aspect = uInvHeight / uInvWidth;
-                float xStep = 0.005 * sin(0.33);
+                float xStep = 0.00162;
                 float yStep = xStep * aspect;
                 float hor = edgeStrengthWithDelta(coords, vec2(xStep, 0.0));
                 float ver = edgeStrengthWithDelta(coords, vec2(0.0, yStep));
@@ -79,11 +79,7 @@ export class CharcoalShader extends FilterShader {
                     x = vals.y;
                 }
 
-                if (edge <= 1.0){
-                    outRgb *= 1.0 - smoothstep(x, 0.1, edge);//smoothstep(0.04, 0.1, edge);
-                } else {
-                    outRgb *= 1.1 - smoothstep(x, 0.1, edge);//smoothstep(0.04, 0.1, edge);
-                }
+                outRgb *= 1.0 - smoothstep(x, 0.1, edge);
                 
                 if(outRgb.rgb != vec3(0.0)) {
                     outRgb.rgb = vec3(1.0);

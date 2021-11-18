@@ -14,7 +14,7 @@ export class GrayscaleShader extends FilterShader {
             void main() {
                 const float PI = 3.1415926535;
                 vec4 c = texture2D(uSampler, vTexCoord);
-                gl_FragColor = vec4(vec3(0.666) * (c.r + c.g + c.b), 1.0);
+                gl_FragColor = vec4(vec3(0.333) * (c.r + c.g + c.b), 1.0);
             }`;
         let fragmentShader = FilterShader.createShader(gl, gl.FRAGMENT_SHADER, fragmentSrc);
         super(gl, fragmentShader);
