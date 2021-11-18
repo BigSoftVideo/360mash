@@ -4,7 +4,9 @@ import { FilterBase } from "../video/filter-base";
 export const GRAYSCALE_FILTER_NAME = "Grayscale";
 
 export class GrayscaleShader extends FilterShader {
-    constructor(gl: WebGLRenderingContext) {
+    
+
+    constructor(gl: WebGL2RenderingContext) {
         let fragmentSrc = `
             precision mediump float;
             varying vec2 vTexCoord;
@@ -13,23 +15,22 @@ export class GrayscaleShader extends FilterShader {
                 const float PI = 3.1415926535;
                 vec4 c = texture2D(uSampler, vTexCoord);
                 gl_FragColor = vec4(vec3(0.333) * (c.r + c.g + c.b), 1.0);
-                //gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);
             }`;
         let fragmentShader = FilterShader.createShader(gl, gl.FRAGMENT_SHADER, fragmentSrc);
         super(gl, fragmentShader);
     }
 
-    protected updateUniforms(gl: WebGLRenderingContext): void {
+    protected updateUniforms(gl: WebGL2RenderingContext): void {
         //throw new Error("Method not implemented.");
     }
 }
 
 export class GrayscaleFilter extends FilterBase {
-    //protected gl: WebGLRenderingContext;
+    //protected gl: WebGL2RenderingContext;
     protected shader: GrayscaleShader;
     protected rt: RenderTexture;
 
-    constructor(gl: WebGLRenderingContext) {
+    constructor(gl: WebGL2RenderingContext) {
         super(gl);
         this.gl = gl;
         this.shader = new GrayscaleShader(gl);

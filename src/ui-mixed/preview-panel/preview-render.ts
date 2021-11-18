@@ -11,7 +11,7 @@ export class Regular2DProjectionShader extends FilterShader {
     protected uPitch: WebGLUniformLocation | null;
     protected uFov: WebGLUniformLocation | null;
     protected parameters: MappedParameters;
-    constructor(gl: WebGLRenderingContext) {
+    constructor(gl: WebGL2RenderingContext) {
         let fragmentSrc = `
             precision mediump float;
             varying vec2 vTexCoord;
@@ -63,7 +63,7 @@ export class Regular2DProjectionShader extends FilterShader {
         return { ...this.parameters };
     }
 
-    updateUniforms(gl: WebGLRenderingContext) {
+    updateUniforms(gl: WebGL2RenderingContext) {
         gl.uniform1f(this.uYaw, this.parameters.rotUp);
         gl.uniform1f(this.uPitch, this.parameters.rotRight);
         gl.uniform1f(this.uFov, this.parameters.fovY);

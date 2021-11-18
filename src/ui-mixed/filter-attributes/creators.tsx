@@ -9,9 +9,35 @@ import {
 import { GrayscaleFilter } from "../../filters/grayscale";
 import { Conv360ShaderKind, Conv360To2DFilter } from "../../filters/conv360to2d";
 import { CartoonFilter } from "../../filters/cartoon";
+import { ComicFilter } from "../../filters/comic";
+import { CharcoalFilter } from "../../filters/charcoal";
+import { PaintingFilter } from "../../filters/painting";
 
 export function GrayscaleAttribsCreator(filter: GrayscaleFilter): JSX.Element {
-    return <FilterAttributes filter={filter} attributes={new Map()}></FilterAttributes>;
+    let attributes = new Map<string, FilterAttributeBinding<GrayscaleFilter>>();
+    return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
+}
+export function PaintingAttribsCreator(filter: PaintingFilter): JSX.Element {
+    let attributes = new Map<string, FilterAttributeBinding<PaintingFilter>>();
+    attributes.set("Intensity", {
+        getter: (f) => filter.intensity,
+        setter: (f, v) => {
+            f.intensity = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: 1,
+        maxValue: 4
+    });
+    attributes.set("Radius", {
+        getter: (f) => filter.radius,
+        setter: (f, v) => {
+            f.radius = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: 0.1,
+        maxValue: 5
+    });
+    return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
 }
 
 export function CartoonAttribsCreator(filter: CartoonFilter): JSX.Element {
@@ -23,7 +49,78 @@ export function CartoonAttribsCreator(filter: CartoonFilter): JSX.Element {
         },
         kind: FilterAttributeKind.Number,
         minValue: 0,
-        maxValue: 1,
+        maxValue: 1
+    });
+    attributes.set("Color Count", {
+        getter: (f) => filter.colorCount,
+        setter: (f, v) => {
+            f.colorCount = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: 0.1,
+        maxValue: 17
+    });
+    attributes.set("Brightness Count", {
+        getter: (f) => filter.brightCount,
+        setter: (f, v) => {
+            f.brightCount = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: 2,
+        maxValue: 15
+    });
+    return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
+}
+
+export function ComicAttribsCreator(filter: ComicFilter): JSX.Element {
+    let attributes = new Map<string, FilterAttributeBinding<ComicFilter>>();
+    attributes.set("Scaling", {
+        getter: (f) => filter.scale,
+        setter: (f, v) => {
+            f.scale = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: 0,
+        maxValue: 1.5
+    });
+    attributes.set("Angle", {
+        getter: (f) => filter.angle,
+        setter: (f, v) => {
+            f.angle = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: 0.1,
+        maxValue: 3.5
+    });
+    attributes.set("Brightness", {
+        getter: (f) => filter.brightness,
+        setter: (f, v) => {
+            f.brightness = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: 8.0,
+        maxValue: 12.0
+    });
+    return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
+}
+
+export function CharcoalAttribsCreator(filter: CharcoalFilter): JSX.Element {
+    let attributes = new Map<string, FilterAttributeBinding<CharcoalFilter>>();
+    attributes.set("Intensity", {
+        getter: (f) => filter.intensity,
+        setter: (f, v) => {
+            f.intensity = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: 0.1,
+        maxValue: 10.0
+    });
+    attributes.set("Inverse", {
+        getter: (f) => filter.inverse,
+        setter: (f, v) => {
+            f.inverse = v;
+        },
+        kind: FilterAttributeKind.Bool
     });
     return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
 }
@@ -93,31 +190,31 @@ class Conv360To2DAttributes extends React.Component<{ filter: Conv360To2DFilter 
                 [Conv360ShaderKind.Fisheye180, "180 - Fisheye"],
             ],
         });
-        this.attributes.set("Vertical Field of View (radians)", {
-            getter: (f) => f.fovY,
-            setter: (f, v) => {
-                f.fovY = v;
-            },
-            kind: FilterAttributeKind.Number,
-            minValue: 0,
-            maxValue: Math.PI,
-        });
-        this.attributes.set("Yaw", {
-            getter: (f) => f.rotUp,
-            setter: (f, v) => {
-                this.setRotUp(v);
-            },
-            kind: FilterAttributeKind.Number,
-        });
-        this.attributes.set("Pitch", {
-            getter: (f) => f.rotRight,
-            setter: (f, v) => {
-                f.rotRight = v;
-            },
-            kind: FilterAttributeKind.Number,
-            minValue: -Math.PI * 0.5,
-            maxValue: Math.PI * 0.5,
-        });
+        // this.attributes.set("Vertical Field of View (radians)", {
+        //     getter: (f) => f.fovY,
+        //     setter: (f, v) => {
+        //         f.fovY = v;
+        //     },
+        //     kind: FilterAttributeKind.Number,
+        //     minValue: 0,
+        //     maxValue: Math.PI,
+        // });
+        // this.attributes.set("Yaw", {
+        //     getter: (f) => f.rotUp,
+        //     setter: (f, v) => {
+        //         this.setRotUp(v);
+        //     },
+        //     kind: FilterAttributeKind.Number,
+        // });
+        // this.attributes.set("Pitch", {
+        //     getter: (f) => f.rotRight,
+        //     setter: (f, v) => {
+        //         f.rotRight = v;
+        //     },
+        //     kind: FilterAttributeKind.Number,
+        //     minValue: -Math.PI * 0.5,
+        //     maxValue: Math.PI * 0.5,
+        // });
     }
 
     componentDidMount() {

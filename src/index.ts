@@ -9,7 +9,9 @@ import { FilterManager } from "./video/filter-manager";
 import { CONV360T02D_FILTER_NAME, Conv360To2DFilter } from "./filters/conv360to2d";
 import { FilterBase } from "./video/filter-base";
 import { CartoonFilter, CARTOON_FILTER_NAME } from "./filters/cartoon";
+import { ComicFilter, COMIC_FILTER_NAME } from "./filters/comic";
 import { GrayscaleFilter, GRAYSCALE_FILTER_NAME } from "./filters/grayscale";
+import { CharcoalFilter, CHARCOAL_FILTER_NAME } from "./filters/charcoal";
 import { ImageFormat, PackedPixelData } from "./video/filter-pipeline";
 import { Decoder, Encoder, EncoderDesc, MediaMetadata } from "./video/codec";
 
@@ -263,9 +265,21 @@ function fullExportTest() {
         },
     });
     filterManager.registerFilter({
+        id: COMIC_FILTER_NAME,
+        creator: (gl): FilterBase => {
+            return new ComicFilter(gl);
+        },
+    });
+    filterManager.registerFilter({
         id: GRAYSCALE_FILTER_NAME,
         creator: (gl): FilterBase => {
             return new GrayscaleFilter(gl);
+        },
+    });
+    filterManager.registerFilter({
+        id: CHARCOAL_FILTER_NAME,
+        creator: (gl): FilterBase => {
+            return new CharcoalFilter(gl);
         },
     });
     let videoManager = new VideoManager(canvas, () => {}, filterManager);
