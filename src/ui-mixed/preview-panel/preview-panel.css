@@ -1,5 +1,7 @@
 
 .preview-root {
+    display: flex;
+    flex-direction: column;
     position: absolute;
     top: 0;
     bottom: 0;
@@ -7,16 +9,26 @@
     right: 0;
 }
 
-.preview-video {
-    width: 100%;
-    padding: 0;
-}
-
 .preview-playback-controls {
     padding: 5px;
+}
+
+.preview-video-container {
+    flex-grow: 1;
+    position: relative;
+    margin-left: 2px;
+    margin-right: 2px;
+    margin-bottom: 2px;
+}
+
+.preview-video {
+    padding: 0;
+    height: 100%;
+    width: 100%;
 }
 
 .preview-timeline {
     width: 100%;
     margin-top: 5px;
 }
+

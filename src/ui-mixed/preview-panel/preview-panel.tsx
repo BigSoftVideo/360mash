@@ -103,19 +103,21 @@ export class PreviewPanel extends React.Component<PreviewPanelProps, PreviewPane
                         value={this.state.videoTime}
                     ></input>
                 </div>
-                <AspectRatioFitter
-                    ref={this.aspectFitterRef}
-                    aspectRatio={this.props.videoAspectRatio}
-                >
-                    <canvas ref={this.canvasRefSet} className="preview-video"></canvas>
-                    {/* <VideoPanel
-                        className="preview-video"
-                        videoUrl={this.props.videoUrl}
-                        requestedTime={0}
-                        isPlaying={true}
+                <div className="preview-video-container">
+                    <AspectRatioFitter
+                        ref={this.aspectFitterRef}
+                        aspectRatio={this.props.videoAspectRatio}
                     >
-                    </VideoPanel> */}
-                </AspectRatioFitter>
+                        <canvas ref={this.canvasRefSet} className="preview-video"></canvas>
+                        {/* <VideoPanel
+                            className="preview-video"
+                            videoUrl={this.props.videoUrl}
+                            requestedTime={0}
+                            isPlaying={true}
+                        >
+                        </VideoPanel> */}
+                    </AspectRatioFitter>
+                </div>
             </div>
         );
     }
