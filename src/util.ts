@@ -11,7 +11,7 @@ export function secsToTimeString(secs: number): string {
     let hStr = h.toString().padStart(2, "0");
     let mStr = m.toString().padStart(2, "0");
     let sStr = s.toString().padStart(2, "0");
-    let msStr = ms.toString().padStart(3, "000");
+    let msStr = ms.toString().padStart(3, "0");
 
     return hStr + ":" + mStr + ":" + sStr + "." + msStr;
 }

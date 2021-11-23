@@ -93,8 +93,8 @@ export class PreviewPanel extends React.Component<PreviewPanelProps, PreviewPane
                 <div className="preview-playback-controls">
                     <button className="preview-playback-controls-play" onClick={this.togglePlay.bind(this)}>Toggle Play</button>
                     {secsToTimeString(this.props.video?.currentTime || 0)}
-                    <button className="preview-playback-controls-frameshifter">+</button>
-                    <button className="preview-playback-controls-frameshifter">-</button>
+                    <button className="preview-playback-controls-frameshifter" onClick={this.addAndDecreaseTime.bind(this, 0.05)}>+</button>
+                    <button className="preview-playback-controls-frameshifter" onClick={this.addAndDecreaseTime.bind(this, -0.05)}>-</button>
                     <input
                         className="preview-timeline"
                         type="range"
@@ -174,6 +174,20 @@ export class PreviewPanel extends React.Component<PreviewPanelProps, PreviewPane
     protected videoTimeSet(event: React.ChangeEvent<HTMLInputElement>) {
         if (this.props.video) {
             this.props.video.currentTime = event.target.valueAsNumber;
+        }
+    }
+
+    protected addAndDecreaseTime(time: number){
+        if(this.props.video) {
+            if (this.props.video.currentTime + time >= 0) {
+                this.props.video.currentTime = this.props.video.currentTime + time;
+            }
+            else if (this.props.video.currentTime + time > this.props.video.duration) {
+                this.props.video.currentTime = this.props.video.duration;
+            }
+            else {
+                this.props.video.currentTime = 0;
+            }
         }
     }
 }
