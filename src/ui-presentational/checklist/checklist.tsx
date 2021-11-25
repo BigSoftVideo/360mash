@@ -34,6 +34,14 @@ export class Checklist extends React.Component<ChecklistProps> {
                             checked={element.checked}
                             onChange={this.elementToggled.bind(this, i)}
                         ></input>
+                        <button
+                            className="movebtn"
+                            onClick={this.elementMoved.bind(this, i, true)}   
+                        >U</button>
+                        <button
+                            className="movebtn"
+                            onClick={this.elementMoved.bind(this, i, false)}   
+                        >D</button>
                     </label>
                     <span
                         className="checklist-item-name"
@@ -61,6 +69,21 @@ export class Checklist extends React.Component<ChecklistProps> {
             element.selected = false;
         }
         elements[index].selected = true;
+        this.props.onChanged(elements);
+    }
+
+    protected elementMoved(index: number, movedUp: boolean) {
+        let elements = this.props.elements.slice();
+        let placeholder = elements[index];
+        if (movedUp && index > 1) {
+            elements[index] = elements[index - 1];
+            elements[index - 1] = placeholder;
+        }
+        else if (!movedUp && index < elements.length - 1 && index != 0) {
+            elements[index] = elements[index + 1];
+            elements[index + 1] = placeholder;
+        }
+        console.log("Element moved - Index array now: " + elements[0].name, elements[1].name, elements[2].name);
         this.props.onChanged(elements);
     }
 }

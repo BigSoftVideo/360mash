@@ -10,3 +10,8 @@
 .checklist-item-name {
     flex-grow: 1;
 }
+
+.movebtn {
+    height: 85%;
+    margin-right: 2px;
+}
