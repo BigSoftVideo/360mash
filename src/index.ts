@@ -9,7 +9,7 @@ import { FilterManager } from "./video/filter-manager";
 import { CONV360T02D_FILTER_NAME, Conv360To2DFilter } from "./filters/conv360to2d";
 import { FilterBase } from "./video/filter-base";
 import { CartoonFilter, CARTOON_FILTER_NAME } from "./filters/cartoon";
-import { ComicFilter, COMIC_FILTER_NAME } from "./filters/comic";
+import { NewsPrintFilter, NEWSPRINT_FILTER_NAME } from "./filters/newsprint";
 import { GrayscaleFilter, GRAYSCALE_FILTER_NAME } from "./filters/grayscale";
 import { CharcoalFilter, CHARCOAL_FILTER_NAME } from "./filters/charcoal";
 import { ImageFormat, PackedPixelData } from "./video/filter-pipeline";
@@ -265,9 +265,9 @@ function fullExportTest() {
         },
     });
     filterManager.registerFilter({
-        id: COMIC_FILTER_NAME,
+        id: NEWSPRINT_FILTER_NAME,
         creator: (gl): FilterBase => {
-            return new ComicFilter(gl);
+            return new NewsPrintFilter(gl);
         },
     });
     filterManager.registerFilter({

@@ -1,10 +1,10 @@
 import { FilterShader, fitToAspect, RenderTexture, TargetDimensions } from "../video/core";
 import { FilterBase } from "../video/filter-base";
 
-export const COMIC_FILTER_NAME = "Comic"; //Perhaps static is a more suitable name
+export const NEWSPRINT_FILTER_NAME = "News Print";
 
 //Could be used with the cartoon shader to get interesting result
-export class ComicShader extends FilterShader {
+export class NewsPrintShader extends FilterShader {
     width: number;
     height: number;
     scale: number;
@@ -93,14 +93,14 @@ export class ComicShader extends FilterShader {
     }
 }
 
-export class ComicFilter extends FilterBase {
-    protected shader: ComicShader;
+export class NewsPrintFilter extends FilterBase {
+    protected shader: NewsPrintShader;
     protected rt: RenderTexture;
 
     constructor(gl: WebGL2RenderingContext) {
         super(gl);
         this.gl = gl;
-        this.shader = new ComicShader(gl);
+        this.shader = new NewsPrintShader(gl);
         this.rt = new RenderTexture(gl, gl.RGBA);
     }
 

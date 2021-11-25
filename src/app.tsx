@@ -19,7 +19,7 @@ import { GrayscaleFilter, GRAYSCALE_FILTER_NAME } from "./filters/grayscale";
 import { CharcoalFilter, CHARCOAL_FILTER_NAME } from "./filters/charcoal";
 import { PaintingFilter, PAINTING_FILTER_NAME } from "./filters/painting";
 import { CartoonFilter, CARTOON_FILTER_NAME } from "./filters/cartoon";
-import { ComicFilter, COMIC_FILTER_NAME } from "./filters/comic";
+import { NewsPrintFilter, NEWSPRINT_FILTER_NAME } from "./filters/newsprint";
 import { FilterBase, FilterId } from "./video/filter-base";
 import { FilterList } from "./ui-mixed/filter-list/filter-list";
 import { Decoder, Encoder } from "./video/codec";
@@ -28,7 +28,7 @@ import {
     Conv360To2DAttribsCreator,
     GrayscaleAttribsCreator,
     CartoonAttribsCreator,
-    ComicAttribsCreator,
+    NewsPrintAttribsCreator,
     CharcoalAttribsCreator,
     PaintingAttribsCreator
 } from "./ui-mixed/filter-attributes/creators";
@@ -110,11 +110,11 @@ export class App extends React.Component<{}, AppState> {
                 return new CartoonFilter(gl);
             },
         });
-        this.filterAttribs.set(COMIC_FILTER_NAME, ComicAttribsCreator);
+        this.filterAttribs.set(NEWSPRINT_FILTER_NAME, NewsPrintAttribsCreator);
         this.filterManager.registerFilter({
-            id: COMIC_FILTER_NAME,
+            id: NEWSPRINT_FILTER_NAME,
             creator: (gl): FilterBase => {
-                return new ComicFilter(gl);
+                return new NewsPrintFilter(gl);
             },
         });
         this.filterAttribs.set(GRAYSCALE_FILTER_NAME, GrayscaleAttribsCreator);
@@ -265,7 +265,7 @@ export class App extends React.Component<{}, AppState> {
                 this.videoManager.pipeline.setFilters([
                     CONV360T02D_FILTER_NAME,
                     CARTOON_FILTER_NAME,
-                    COMIC_FILTER_NAME,
+                    NEWSPRINT_FILTER_NAME,
                     GRAYSCALE_FILTER_NAME,
                     CHARCOAL_FILTER_NAME,
                     PAINTING_FILTER_NAME

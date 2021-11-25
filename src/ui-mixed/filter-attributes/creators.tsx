@@ -9,7 +9,7 @@ import {
 import { GrayscaleFilter } from "../../filters/grayscale";
 import { Conv360ShaderKind, Conv360To2DFilter } from "../../filters/conv360to2d";
 import { CartoonFilter } from "../../filters/cartoon";
-import { ComicFilter } from "../../filters/comic";
+import { NewsPrintFilter } from "../../filters/newsprint";
 import { CharcoalFilter } from "../../filters/charcoal";
 import { PaintingFilter } from "../../filters/painting";
 
@@ -72,8 +72,8 @@ export function CartoonAttribsCreator(filter: CartoonFilter): JSX.Element {
     return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
 }
 
-export function ComicAttribsCreator(filter: ComicFilter): JSX.Element {
-    let attributes = new Map<string, FilterAttributeBinding<ComicFilter>>();
+export function NewsPrintAttribsCreator(filter: NewsPrintFilter): JSX.Element {
+    let attributes = new Map<string, FilterAttributeBinding<NewsPrintFilter>>();
     attributes.set("Scaling", {
         getter: (f) => filter.scale,
         setter: (f, v) => {
