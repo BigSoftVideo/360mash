@@ -281,9 +281,9 @@ export abstract class FilterShader {
     dispose() {
         let gl = this.gl;
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-        gl.deleteBuffer(gl.ELEMENT_ARRAY_BUFFER);
+        gl.deleteBuffer(this.indexBuffer);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
-        gl.deleteBuffer(gl.ARRAY_BUFFER);
+        gl.deleteBuffer(this.vertexBuffer);
         gl.deleteProgram(this.shaderProgram);
     }
 
@@ -302,7 +302,7 @@ export abstract class FilterShader {
         gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
     }
 
-    public static createShader(
+public static createShader(
         gl: WebGL2RenderingContext,
         type: number,
         source: string
