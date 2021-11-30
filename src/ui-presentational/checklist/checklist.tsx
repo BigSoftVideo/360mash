@@ -36,12 +36,12 @@ export class Checklist extends React.Component<ChecklistProps> {
                         ></input>
                         <button
                             className="movebtn"
-                            onClick={this.elementMoved.bind(this, i, true)}   
-                        >U</button>
+                            onClick={this.elementMoved.bind(this, i, true)}
+                        >⇧</button>
                         <button
                             className="movebtn"
-                            onClick={this.elementMoved.bind(this, i, false)}   
-                        >D</button>
+                            onClick={this.elementMoved.bind(this, i, false)}     
+                        >⇩</button>
                     </label>
                     <span
                         className="checklist-item-name"
@@ -55,6 +55,8 @@ export class Checklist extends React.Component<ChecklistProps> {
         });
         return <ol className="checklist-root">{items}</ol>;
     }
+
+    
 
     protected elementToggled(index: number) {
         let elements = this.props.elements.slice();
@@ -83,7 +85,6 @@ export class Checklist extends React.Component<ChecklistProps> {
             elements[index] = elements[index + 1];
             elements[index + 1] = placeholder;
         }
-        console.log("Element moved - Index array now: " + elements[0].name, elements[1].name, elements[2].name);
         this.props.onChanged(elements);
     }
 }
