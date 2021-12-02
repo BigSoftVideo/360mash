@@ -93,8 +93,8 @@ export class PreviewPanel extends React.Component<PreviewPanelProps, PreviewPane
                 <div className="preview-playback-controls">
                     <button className="preview-playback-controls-play" onClick={this.togglePlay.bind(this)}>Toggle Play</button>
                     {secsToTimeString(this.props.video?.currentTime || 0)}
-                    <button className="preview-playback-controls-frameshifter" onClick={this.addAndDecreaseTime.bind(this, 0.05)}>+</button>
                     <button className="preview-playback-controls-frameshifter" onClick={this.addAndDecreaseTime.bind(this, -0.05)}>-</button>
+                    <button className="preview-playback-controls-frameshifter" onClick={this.addAndDecreaseTime.bind(this, 0.05)}>+</button>
                     <input
                         className="preview-timeline"
                         type="range"
