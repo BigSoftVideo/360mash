@@ -12,11 +12,45 @@ import { CartoonFilter } from "../../filters/cartoon";
 import { NewsPrintFilter } from "../../filters/newsprint";
 import { CharcoalFilter } from "../../filters/charcoal";
 import { PaintingFilter } from "../../filters/painting";
+import { BAndCFilter } from "../../filters/bandc"
 
 export function GrayscaleAttribsCreator(filter: GrayscaleFilter): JSX.Element {
     let attributes = new Map<string, FilterAttributeBinding<GrayscaleFilter>>();
     return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
 }
+
+export function BAndCAttribsCreator(filter: BAndCFilter): JSX.Element {
+    let attributes = new Map<string, FilterAttributeBinding<BAndCFilter>>();
+    attributes.set("Brightness", {
+        getter: (f) => filter.brightness,
+        setter: (f, v) => {
+            f.brightness = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: -0.5,
+        maxValue: 0.5
+    });
+    attributes.set("Contrast", {
+        getter: (f) => filter.contrast,
+        setter: (f, v) => {
+            f.contrast = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: 0.1,
+        maxValue: 2.5
+    });
+    attributes.set("Saturation", {
+        getter: (f) => filter.saturation,
+        setter: (f, v) => {
+            f.saturation = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: -2.1,
+        maxValue: 2.5
+    });
+    return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
+}
+
 export function PaintingAttribsCreator(filter: PaintingFilter): JSX.Element {
     let attributes = new Map<string, FilterAttributeBinding<PaintingFilter>>();
     attributes.set("Intensity", {
