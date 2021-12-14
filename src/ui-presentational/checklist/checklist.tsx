@@ -1,6 +1,7 @@
 import "./checklist.css";
 
 import * as React from "react";
+import {useState} from "react";
 
 export interface ChecklistElement {
     name: string;
@@ -19,7 +20,9 @@ export interface ChecklistProps {
 /**
  * A checklist with elements that can be re-ordered.
  */
-export class Checklist extends React.Component<ChecklistProps> {
+export class Checklist extends React.Component<ChecklistProps, undefined> {
+    draggedId: number | undefined;
+    
     render() {
         let items = this.props.elements.map((element, i) => {
             let background = "transparent";
@@ -27,21 +30,28 @@ export class Checklist extends React.Component<ChecklistProps> {
                 background = "#52abff";
             }
             return (
-                <li key={i}>
+                <li 
+                    className="dragable-item"
+                    key={i} 
+                    draggable={true} 
+                    onDragStart={this.dragStartHandler.bind(this, i)}
+                    onDragOver={this.dragOverHandler.bind(this)}         
+                    onDrop={this.dropHandler.bind(this, i)} 
+                    >
                     <label>
                         <input
                             type="checkbox"
                             checked={element.checked}
                             onChange={this.elementToggled.bind(this, i)}
                         ></input>
-                        <button
-                            className="movebtn"
-                            onClick={this.elementMoved.bind(this, i, true)}
-                        >⇧</button>
-                        <button
+                        {/* <button
                             className="movebtn"
                             onClick={this.elementMoved.bind(this, i, false)}     
                         >⇩</button>
+                        <button
+                            className="movebtn"
+                            onClick={this.elementMoved.bind(this, i, true)}
+                        >⇧</button> */}
                     </label>
                     <span
                         className="checklist-item-name"
@@ -56,7 +66,67 @@ export class Checklist extends React.Component<ChecklistProps> {
         return <ol className="checklist-root">{items}</ol>;
     }
 
+
+    protected dragOverHandler(event: React.DragEvent<HTMLLIElement>) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
     
+
+    //when an element is being dragged over a drop target
+    protected dragStartHandler(id: number) { 
+        console.log("Dragging: " + id);
+        if(id != 0) {
+            this.draggedId = id;
+        }
+    }  
+
+
+    //When element is dropped
+    protected dropHandler(droppedOnId: number) { 
+        console.log("Dropping on: " + droppedOnId);
+        let elements = this.props.elements;
+        
+        if (droppedOnId == 0) {
+            console.log("Cannot drag 3d filter");
+            return;
+        }
+        console.log("dragging: " + this.draggedId + " dropping on: " + droppedOnId);
+        if(this.draggedId) {
+            if (droppedOnId == this.draggedId) {
+                this.draggedId = undefined;
+                return;
+            }
+            else if (droppedOnId > this.draggedId) { 
+                let dragged = elements[this.draggedId];
+                for (let i = this.draggedId; i < droppedOnId; i++) {
+                    elements[i] = elements[i+1];
+                }
+                    elements[droppedOnId] = dragged;
+            }
+            else if (droppedOnId < this.draggedId) { 
+                let dragged = elements[this.draggedId];
+                for (let i = this.draggedId; i > droppedOnId; i--) { 
+                    elements[i] = elements[i-1];
+                }
+                    elements[droppedOnId] = dragged;
+            }            
+            this.draggedId = undefined;
+            this.props.onChanged(elements);
+        }
+    }  
+    
+
+
+
+
+
+
+
+
+
+
+
 
     protected elementToggled(index: number) {
         let elements = this.props.elements.slice();
