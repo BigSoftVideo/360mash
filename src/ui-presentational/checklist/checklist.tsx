@@ -57,14 +57,6 @@ export class Checklist extends React.Component<ChecklistProps, ChecklistState> {
                             checked={element.checked}
                             onChange={this.elementToggled.bind(this, i)}
                         ></input>
-                        {/* <button
-                            className="movebtn"
-                            onClick={this.elementMoved.bind(this, i, false)}     
-                        >⇩</button>
-                        <button
-                            className="movebtn"
-                            onClick={this.elementMoved.bind(this, i, true)}
-                        >⇧</button> */}
                     </label>
                     <span
                         className="checklist-item-name"
@@ -122,6 +114,9 @@ export class Checklist extends React.Component<ChecklistProps, ChecklistState> {
     //when an element is being dragged over a drop target
     protected dragStartHandler(id: number) {
         console.log("Dragging: " + id);
+        /*  We prevent the first item from being dragged because we assume that the checklist
+            is only used for the video filters, and we also assume that the first item is the
+            "360 to 2D" filter, which should always be the first, therefore it cannot be dragged. */
         if (id != 0) {
             this.draggedId = id;
         }
@@ -178,19 +173,6 @@ export class Checklist extends React.Component<ChecklistProps, ChecklistState> {
             element.selected = false;
         }
         elements[index].selected = true;
-        this.props.onChanged(elements);
-    }
-
-    protected elementMoved(index: number, movedUp: boolean) {
-        let elements = this.props.elements.slice();
-        let placeholder = elements[index];
-        if (movedUp && index > 1) {
-            elements[index] = elements[index - 1];
-            elements[index - 1] = placeholder;
-        } else if (!movedUp && index < elements.length - 1 && index != 0) {
-            elements[index] = elements[index + 1];
-            elements[index + 1] = placeholder;
-        }
         this.props.onChanged(elements);
     }
 }
