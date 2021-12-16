@@ -12,7 +12,7 @@ import { CartoonFilter } from "../../filters/cartoon";
 import { NewsPrintFilter } from "../../filters/newsprint";
 import { CharcoalFilter } from "../../filters/charcoal";
 import { PaintingFilter } from "../../filters/painting";
-import { BAndCFilter } from "../../filters/bandc"
+import { BAndCFilter } from "../../filters/bandc";
 
 export function GrayscaleAttribsCreator(filter: GrayscaleFilter): JSX.Element {
     let attributes = new Map<string, FilterAttributeBinding<GrayscaleFilter>>();
@@ -28,7 +28,7 @@ export function BAndCAttribsCreator(filter: BAndCFilter): JSX.Element {
         },
         kind: FilterAttributeKind.Number,
         minValue: -0.5,
-        maxValue: 0.5
+        maxValue: 0.5,
     });
     attributes.set("Contrast", {
         getter: (f) => filter.contrast,
@@ -37,7 +37,7 @@ export function BAndCAttribsCreator(filter: BAndCFilter): JSX.Element {
         },
         kind: FilterAttributeKind.Number,
         minValue: 0.1,
-        maxValue: 2.5
+        maxValue: 2.5,
     });
     attributes.set("Saturation", {
         getter: (f) => filter.saturation,
@@ -45,8 +45,26 @@ export function BAndCAttribsCreator(filter: BAndCFilter): JSX.Element {
             f.saturation = v;
         },
         kind: FilterAttributeKind.Number,
-        minValue: -2.1,
-        maxValue: 2.5
+        minValue: 0,
+        maxValue: 2.5,
+    });
+    attributes.set("Temperature", {
+        getter: (f) => filter.temperature,
+        setter: (f, v) => {
+            f.temperature = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: -1,
+        maxValue: 1,
+    });
+    attributes.set("Tint", {
+        getter: (f) => filter.tint,
+        setter: (f, v) => {
+            f.tint = v;
+        },
+        kind: FilterAttributeKind.Number,
+        minValue: -1,
+        maxValue: 1,
     });
     return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
 }
@@ -60,7 +78,7 @@ export function PaintingAttribsCreator(filter: PaintingFilter): JSX.Element {
         },
         kind: FilterAttributeKind.Number,
         minValue: 1,
-        maxValue: 4
+        maxValue: 4,
     });
     attributes.set("Radius", {
         getter: (f) => filter.radius,
@@ -69,7 +87,7 @@ export function PaintingAttribsCreator(filter: PaintingFilter): JSX.Element {
         },
         kind: FilterAttributeKind.Number,
         minValue: 0.1,
-        maxValue: 5
+        maxValue: 5,
     });
     return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
 }
@@ -83,7 +101,7 @@ export function CartoonAttribsCreator(filter: CartoonFilter): JSX.Element {
         },
         kind: FilterAttributeKind.Number,
         minValue: 0,
-        maxValue: 1
+        maxValue: 1,
     });
     attributes.set("Color Count", {
         getter: (f) => filter.colorCount,
@@ -92,7 +110,7 @@ export function CartoonAttribsCreator(filter: CartoonFilter): JSX.Element {
         },
         kind: FilterAttributeKind.Number,
         minValue: 0.1,
-        maxValue: 17
+        maxValue: 17,
     });
     attributes.set("Brightness Count", {
         getter: (f) => filter.brightCount,
@@ -101,7 +119,7 @@ export function CartoonAttribsCreator(filter: CartoonFilter): JSX.Element {
         },
         kind: FilterAttributeKind.Number,
         minValue: 2,
-        maxValue: 15
+        maxValue: 15,
     });
     return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
 }
@@ -115,7 +133,7 @@ export function NewsPrintAttribsCreator(filter: NewsPrintFilter): JSX.Element {
         },
         kind: FilterAttributeKind.Number,
         minValue: 0,
-        maxValue: 1.5
+        maxValue: 1.5,
     });
     attributes.set("Angle", {
         getter: (f) => filter.angle,
@@ -124,7 +142,7 @@ export function NewsPrintAttribsCreator(filter: NewsPrintFilter): JSX.Element {
         },
         kind: FilterAttributeKind.Number,
         minValue: 0.1,
-        maxValue: 3.5
+        maxValue: 3.5,
     });
     attributes.set("Brightness", {
         getter: (f) => filter.brightness,
@@ -133,7 +151,7 @@ export function NewsPrintAttribsCreator(filter: NewsPrintFilter): JSX.Element {
         },
         kind: FilterAttributeKind.Number,
         minValue: 8.0,
-        maxValue: 12.0
+        maxValue: 12.0,
     });
     return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
 }
@@ -147,14 +165,14 @@ export function CharcoalAttribsCreator(filter: CharcoalFilter): JSX.Element {
         },
         kind: FilterAttributeKind.Number,
         minValue: 0.1,
-        maxValue: 10.0
+        maxValue: 10.0,
     });
     attributes.set("Inverse", {
         getter: (f) => filter.inverse,
         setter: (f, v) => {
             f.inverse = v;
         },
-        kind: FilterAttributeKind.Bool
+        kind: FilterAttributeKind.Bool,
     });
     return <FilterAttributes filter={filter} attributes={attributes}></FilterAttributes>;
 }

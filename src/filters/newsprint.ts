@@ -61,8 +61,8 @@ export class NewsPrintShader extends FilterShader {
 
         this.width = 1280.0;
         this.height = 720.0;
-        this.scale = 0.3;
-        this.angle = 2.0;
+        this.scale = 0.43;
+        this.angle = 2.5;
         this.brightness = 9.5;
 
         if (this.shaderProgram) {
@@ -88,7 +88,7 @@ export class NewsPrintShader extends FilterShader {
         gl.uniform1f(this.uBrightness, this.brightness);
     }
 
-    degToRad(deg: number){
+    degToRad(deg: number) {
         return deg * (Math.PI / 180.0);
     }
 }
