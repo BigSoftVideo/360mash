@@ -8,93 +8,60 @@ export class BAndCShader extends FilterShader {
     bright: number;
     contrast: number;
     saturation: number;
+    temp: number;
+    tint: number;
 
     protected uBright: WebGLUniformLocation | null;
     protected uContrast: WebGLUniformLocation | null;
     protected uSaturation: WebGLUniformLocation | null;
+    protected uTemp: WebGLUniformLocation | null;
+    protected uTint: WebGLUniformLocation | null;
 
     constructor(gl: WebGL2RenderingContext) {
         let fragmentSrc = `
             precision mediump float;
             varying vec2 vTexCoord;
             uniform sampler2D uSampler;
+
             uniform float uBright;
             uniform float uContrast;
             uniform float uSaturation;
-
-            mat4 brightMat(float brightness) {
-                return mat4( 1, 0, 0, 0,
-                                0, 1, 0, 0,
-                                0, 0, 1, 0,
-                                brightness, brightness, brightness, 1 );
-            }
-
-            mat4 contMat(float contrast) {
-                float t = (1.0 - contrast) / 2.0;
-
-                return mat4(contrast, 0, 0, 0,
-                            0, contrast, 0, 0,
-                            0, 0, contrast, 0,
-                            t, t, t, 1 );
-
-            }
-
-            mat4 satuMat(float saturation) {
-                vec3 luminance = vec3(0.3086, 0.6094, 0.0820);
-
-                float oneMinusSat = 1.0 - saturation;
-
-                vec3 red = vec3(luminance.x * oneMinusSat);
-                red+= vec3( saturation, 0, 0 );
-
-                vec3 green = vec3(luminance.y * oneMinusSat);
-                green += vec3(0, saturation, 0);
-
-                vec3 blue = vec3(luminance.z * oneMinusSat);
-                blue += vec3(0, 0, saturation);
-
-                return mat4(red,     0,
-                            green,   0,
-                            blue,    0,
-                            0, 0, 0, 1 );
-            }
+            uniform float uTemp;
+            uniform float uTint;
 
             void main() {
                 vec4 tex = texture2D(uSampler, vTexCoord);
-                /*outRgb.rgb /= outRgb.a;
+                tex.r = (pow(tex.r, uSaturation) - 0.5)*uContrast + uBright + 0.5 + (uTemp*0.1);
+                tex.g = (pow(tex.g, uSaturation) - 0.5)*uContrast + uBright + 0.5 + (uTint*0.1);
+                tex.b = (pow(tex.b, uSaturation) - 0.5)*uContrast + uBright + 0.5 - (uTemp*0.1);  
                 
-                //Apply contrast
-                outRgb.rgb = (outRgb.rgb - 0.5) * uC + 0.5;
+                // tex.r += uTemp;
+                // tex.       
+                // tex.b -= uTemp;
 
-                //Apply brightness
-                outRgb.rgb += uB;
-
-                // Return final pixel color.
-                outRgb.rgb *= outRgb.a;*/
-
-                //outRgb *= brightMat(uBright) * contMat(uContrast) * satuMat(uSaturation);
-                vec3 col = vec3(0);
-                col.r = (pow(tex.r, uSaturation) - 0.5)*uContrast + uBright + 0.5;
-                col.g = (pow(tex.g, uSaturation) - 0.5)*uContrast + uBright + 0.5;
-                col.b = (pow(tex.b, uSaturation) - 0.5)*uContrast + uBright + 0.5;
-                
-                gl_FragColor = vec4(col.rgb, 1);
+                gl_FragColor = vec4(tex.rgb, 1);
             }`;
         let fragmentShader = FilterShader.createShader(gl, gl.FRAGMENT_SHADER, fragmentSrc);
         super(gl, fragmentShader);
 
-        this.bright = -0.1;
-        this.contrast = 1.9;
-        this.saturation = 1.4;
+        this.bright = 0.15;
+        this.contrast = 1.3;
+        this.saturation = 0.95;
+        this.temp = 0;
+        this.tint = 0;
 
         if (this.shaderProgram) {
             this.uBright = gl.getUniformLocation(this.shaderProgram, "uBright");
             this.uContrast = gl.getUniformLocation(this.shaderProgram, "uContrast");
             this.uSaturation = gl.getUniformLocation(this.shaderProgram, "uSaturation");
+            this.uTemp = gl.getUniformLocation(this.shaderProgram, "uTemp");
+            this.uTint = gl.getUniformLocation(this.shaderProgram, "uTint");
         } else {
             this.uBright = null;
             this.uContrast = null;
             this.uSaturation = null;
+            this.uTemp = null;
+            this.uTint = null;
         }
     }
 
@@ -102,6 +69,8 @@ export class BAndCShader extends FilterShader {
         gl.uniform1f(this.uBright, this.bright);
         gl.uniform1f(this.uContrast, this.contrast);
         gl.uniform1f(this.uSaturation, this.saturation);
+        gl.uniform1f(this.uTemp, this.temp);
+        gl.uniform1f(this.uTint, this.tint);
     }
 }
 
@@ -142,7 +111,7 @@ export class BAndCFilter extends FilterBase {
         this.shader.draw(gl);
         return this.rt;
     }
-    
+
     get brightness(): number {
         return this.shader.bright;
     }
@@ -160,5 +129,17 @@ export class BAndCFilter extends FilterBase {
     }
     set saturation(value: number) {
         this.shader.saturation = value;
+    }
+    get temperature(): number {
+        return this.shader.temp;
+    }
+    set temperature(value: number) {
+        this.shader.temp = value;
+    }
+    get tint(): number {
+        return this.shader.tint;
+    }
+    set tint(value: number) {
+        this.shader.tint = value;
     }
 }

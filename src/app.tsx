@@ -279,7 +279,7 @@ export class App extends React.Component<{}, AppState> {
                     NEWSPRINT_FILTER_NAME,
                     GRAYSCALE_FILTER_NAME,
                     CHARCOAL_FILTER_NAME,
-                    PAINTING_FILTER_NAME
+                    PAINTING_FILTER_NAME,
                 ]);
 
                 this.videoManager.pipeline.addDimensionChangeListener(
