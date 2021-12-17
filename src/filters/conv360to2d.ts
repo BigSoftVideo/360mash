@@ -108,6 +108,10 @@ export class MashProjectionShader extends FilterShader {
     }
 
     protected updateUniforms(gl: WebGL2RenderingContext): void {
+        // Apply constraints on zoom and rotation
+        this.fovY = Math.min(Math.max(this.fovY, 0), Math.PI);
+        this.rotRight = Math.min(Math.max(this.rotRight, -Math.PI * 0.5), Math.PI * 0.5);
+
         let rotRightMat = glm.mat4.create();
         glm.mat4.fromRotation(
             rotRightMat,
