@@ -10,3 +10,16 @@
 .checklist-item-name {
     flex-grow: 1;
 }
+
+.movebtn {
+    height: 85%;
+    margin-right: 2px;
+}
+
+.below-dragged {
+    border-bottom: 3px solid rgb(59, 67, 70);
+}
+
+.above-dragged {
+    border-top: 3px solid rgb(59, 67, 70);
+}
