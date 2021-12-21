@@ -1,10 +1,23 @@
 .conv360-to-2d-attribs-root {
     position: absolute;
+    display: flex;
+    flex-direction: column;
     top: 0;
     bottom: 0;
     width: 100%;
+    height: 100%;
 }
 
 .conv360-to-2d-attrib-video-prev {
+    height: 100%;
     width: 100%;
+    padding: 0;
+}
+
+.preview-attrib-3d-container {
+    flex-grow: 1;
+    position: relative;
+    margin-left: 2px;
+    margin-right: 2px;
+    margin-bottom: 2px;
 }

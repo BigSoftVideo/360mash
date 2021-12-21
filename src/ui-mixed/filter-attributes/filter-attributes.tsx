@@ -116,7 +116,6 @@ export class FilterAttributes<FilterT extends FilterBase> extends React.Componen
                 </div>
             );
         });
-        ///////////////////////////////////////////////////////////////////FIX SCROLL + RESIZE AF 3d FILTER
         return <div 
             id="attribs-container" 
             style={{height: this.hasParent3D(document.getElementById("attribs-container")) ? "auto" : "100%"}}

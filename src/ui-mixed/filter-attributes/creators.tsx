@@ -185,13 +185,11 @@ export function Conv360To2DAttribsCreator(filter: Conv360To2DFilter): JSX.Elemen
 
 class Conv360To2DAttributes extends React.Component<{ filter: Conv360To2DFilter}> {
     readonly attributes: Map<string, FilterAttributeBinding<Conv360To2DFilter>>;
-
+    protected canvasRefSet: (canvas: HTMLCanvasElement) => void;
     rootDiv: React.RefObject<HTMLDivElement>;
     canvas: React.RefObject<HTMLCanvasElement>;
-    canvasHeight: number;
-    protected canvasElement: HTMLCanvasElement | null;
+    canvasElement: HTMLCanvasElement | null;
     
-    videoAspectRatio: number;
     dragging: boolean;
     mouseDown: (event: MouseEvent) => void;
     mouseUp: (event: MouseEvent) => void;
@@ -202,13 +200,21 @@ class Conv360To2DAttributes extends React.Component<{ filter: Conv360To2DFilter}
     constructor(props: any) {
         super(props);
 
-        this.canvasHeight = 0;
         this.aspectFitterRef = React.createRef();
         this.rootDiv = React.createRef();
         this.canvas = React.createRef();
         this.dragging = false;
         this.canvasElement = null;
-        this.videoAspectRatio = 0;
+
+        this.canvasRefSet = (canvas: HTMLCanvasElement) => {
+            if (this.canvasElement !== canvas) {
+                if (this.canvasElement !== null) {
+                    console.error("FATAL: The canvas must not change.");
+                    throw new Error("FATAL: The canvas must not change.");
+                }
+                this.canvasElement = canvas;
+            }
+        };
 
         this.mouseUp = (event) => {
             if (event.button === 0) {
@@ -280,14 +286,16 @@ class Conv360To2DAttributes extends React.Component<{ filter: Conv360To2DFilter}
     }
 
     componentDidMount() {
-        if (this.canvas.current) {
-            this.props.filter.previewCanvas = this.canvas.current;
+        this.resized();
+        if (this.canvasElement) {
+            this.props.filter.previewCanvas = this.canvasElement;
         }
         window.addEventListener("mouseup", this.mouseUp);
         window.addEventListener("mousemove", this.mouseMove);
     }
 
     componentDidUpdate() {
+        this.resized();
     }
 
     componentWillUnmount() {}
@@ -299,25 +307,37 @@ class Conv360To2DAttributes extends React.Component<{ filter: Conv360To2DFilter}
                     filter={this.props.filter}
                     attributes={this.attributes}
                 ></FilterAttributes>
-                <canvas
-                    className="conv360-to-2d-attrib-video-prev"
-                    ref={this.canvas}
-                    onMouseDown={(ev) => this.mouseDown(ev.nativeEvent)}
-                    onWheel={(ev) => this.mouseWheel(ev.nativeEvent)}
-                ></canvas>
+                <div className="preview-attrib-3d-container">
+                    <AspectRatioFitter
+                        ref={this.aspectFitterRef}
+                        aspectRatio={this.getAspectRatio()}>
+                        <canvas
+                            className="conv360-to-2d-attrib-video-prev"
+                            ref={this.canvasRefSet}
+                            onMouseDown={(ev) => this.mouseDown(ev.nativeEvent)}
+                            onWheel={(ev) => this.mouseWheel(ev.nativeEvent)}
+                        ></canvas>
+                    </AspectRatioFitter>
+                </div>
             </div>
         );
+    }
+
+    getAspectRatio() {
+        if (this.canvasElement) {
+            return this.canvas.current.width / this.canvas.current.height;
+        }       
+        return 1;
     }
     
     resized() {
         if (this.aspectFitterRef.current) {
             this.aspectFitterRef.current.resized();
         }
-        if (this.canvas.current && this.props.filter.previewCanvas) {
-            //let aspectRatio = this.props.filter.previewCanvas?.width * this.props.filter.previewCanvas?.height;
-            let canvas = this.canvas.current;
-            canvas.width = canvas.width;
-            canvas.height = canvas.width / this.videoAspectRatio;
+        if (this.canvasElement) {
+            let canvas = this.canvasElement;
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.width / this.getAspectRatio();
         }
     }
 
