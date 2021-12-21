@@ -2,5 +2,9 @@
     position: absolute;
     top: 0;
     bottom: 0;
-    overflow-y: hidden;
+    width: 100%;
+}
+
+.conv360-to-2d-attrib-video-prev {
+    width: 100%;
 }

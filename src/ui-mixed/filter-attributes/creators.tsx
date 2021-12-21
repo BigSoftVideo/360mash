@@ -13,6 +13,8 @@ import { NewsPrintFilter } from "../../filters/newsprint";
 import { CharcoalFilter } from "../../filters/charcoal";
 import { PaintingFilter } from "../../filters/painting";
 import { BAndCFilter } from "../../filters/bandc";
+import { AspectRatioFitter } from "../../ui-presentational/aspect-ratio-fitter/aspect-ratio-fitter";
+import { PreviewPanelProps } from "../preview-panel/preview-panel";
 
 export function GrayscaleAttribsCreator(filter: GrayscaleFilter): JSX.Element {
     let attributes = new Map<string, FilterAttributeBinding<GrayscaleFilter>>();
@@ -181,24 +183,32 @@ export function Conv360To2DAttribsCreator(filter: Conv360To2DFilter): JSX.Elemen
     return <Conv360To2DAttributes filter={filter}></Conv360To2DAttributes>;
 }
 
-class Conv360To2DAttributes extends React.Component<{ filter: Conv360To2DFilter }> {
+class Conv360To2DAttributes extends React.Component<{ filter: Conv360To2DFilter}> {
     readonly attributes: Map<string, FilterAttributeBinding<Conv360To2DFilter>>;
 
     rootDiv: React.RefObject<HTMLDivElement>;
     canvas: React.RefObject<HTMLCanvasElement>;
-
+    canvasHeight: number;
+    protected canvasElement: HTMLCanvasElement | null;
+    
+    videoAspectRatio: number;
     dragging: boolean;
     mouseDown: (event: MouseEvent) => void;
     mouseUp: (event: MouseEvent) => void;
     mouseMove: (event: MouseEvent) => void;
     mouseWheel: (event: WheelEvent) => void;
+    aspectFitterRef: React.RefObject<AspectRatioFitter>;
 
     constructor(props: any) {
         super(props);
 
+        this.canvasHeight = 0;
+        this.aspectFitterRef = React.createRef();
         this.rootDiv = React.createRef();
         this.canvas = React.createRef();
         this.dragging = false;
+        this.canvasElement = null;
+        this.videoAspectRatio = 0;
 
         this.mouseUp = (event) => {
             if (event.button === 0) {
@@ -277,6 +287,9 @@ class Conv360To2DAttributes extends React.Component<{ filter: Conv360To2DFilter 
         window.addEventListener("mousemove", this.mouseMove);
     }
 
+    componentDidUpdate() {
+    }
+
     componentWillUnmount() {}
 
     render() {
@@ -287,12 +300,25 @@ class Conv360To2DAttributes extends React.Component<{ filter: Conv360To2DFilter 
                     attributes={this.attributes}
                 ></FilterAttributes>
                 <canvas
+                    className="conv360-to-2d-attrib-video-prev"
                     ref={this.canvas}
                     onMouseDown={(ev) => this.mouseDown(ev.nativeEvent)}
                     onWheel={(ev) => this.mouseWheel(ev.nativeEvent)}
                 ></canvas>
             </div>
         );
+    }
+    
+    resized() {
+        if (this.aspectFitterRef.current) {
+            this.aspectFitterRef.current.resized();
+        }
+        if (this.canvas.current && this.props.filter.previewCanvas) {
+            //let aspectRatio = this.props.filter.previewCanvas?.width * this.props.filter.previewCanvas?.height;
+            let canvas = this.canvas.current;
+            canvas.width = canvas.width;
+            canvas.height = canvas.width / this.videoAspectRatio;
+        }
     }
 
     protected setRotUp(v: number) {

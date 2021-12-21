@@ -105,16 +105,8 @@ export class FilterAttributes<FilterT extends FilterBase> extends React.Componen
                     onChange={(event, val) => onChange(val ? 1 : 0)}
                     />
                 );
-            }// else if (bindings.kind === FilterAttributeKind.Number || bindings.maxValue == undefined || bindings.minValue == undefined) {
-            //     input = (
-            //         <NumberInput
-            //             onChanged={(val) => onChange(val)}
-            //             value={currValue}
-            //             minValue={bindings.minValue}
-            //             maxValue={bindings.maxValue}
-            //         ></NumberInput>
-            //     );
-            // }
+            }
+
             return (
                 <div key={i}>
                     <label className="filter-attributes">
@@ -124,7 +116,20 @@ export class FilterAttributes<FilterT extends FilterBase> extends React.Componen
                 </div>
             );
         });
-
-        return <div>{attributes}</div>;
+        ///////////////////////////////////////////////////////////////////FIX SCROLL + RESIZE AF 3d FILTER
+        return <div 
+            id="attribs-container" 
+            style={{height: this.hasParent3D(document.getElementById("attribs-container")) ? "auto" : "100%"}}
+            >{attributes}</div>;
+    }
+    
+    protected hasParent3D(element: HTMLElement | null) {
+        if(element == null) {
+            return false;
+        }
+        else if (element.parentElement?.className == "conv360-to-2d-attribs-root") {
+            return true;
+        }
+        return false;
     }
 }

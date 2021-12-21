@@ -1,3 +1,8 @@
 .filter-attributes {
     margin-left: 10px;
+    width: 100%;
+
+}
+#attribs-container {
+    overflow-y: auto;
 }
