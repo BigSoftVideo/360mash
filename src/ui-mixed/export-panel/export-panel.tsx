@@ -176,7 +176,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                             }
                         }}
                     >
-                        Set start: {secsToTimeString(this.props.startSec)}
+                        Set start frame: {secsToTimeString(this.props.startSec)}
                     </button>
                     <button
                         onClick={() => {
@@ -188,7 +188,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                             }
                         }}
                     >
-                        Set end: {secsToTimeString(this.props.endSec)}
+                        Set end frame: {secsToTimeString(this.props.endSec)}
                     </button>
                     <select
                         name="resolutions"
@@ -206,7 +206,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                             console.log("Selected resolution is", this.selectedOutputDim);
                         }}
                     >
-                        <option value={MATCH_INPUT_RESOLUTION}>Match Input</option>
+                        <option value={MATCH_INPUT_RESOLUTION}>Match Source Resolution</option>
                         <option value="3840*2160">4K (3840 × 2160)</option>
                         <option value="1920*1080">Full HD (1920 × 1080)</option>
                         <option value="1280*720">HD (1280 × 720)</option>

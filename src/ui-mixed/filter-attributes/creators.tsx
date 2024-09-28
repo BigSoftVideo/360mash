@@ -179,7 +179,7 @@ class Conv360To2DAttributes extends React.Component<{ filter: Conv360To2DFilter 
         };
 
         this.attributes = new Map<string, FilterAttributeBinding<Conv360To2DFilter>>();
-        this.attributes.set("Input", {
+        this.attributes.set("360 Source projection", {
             getter: (f) => f.selectedShader,
             setter: (f, v) => {
                 f.selectedShader = v;

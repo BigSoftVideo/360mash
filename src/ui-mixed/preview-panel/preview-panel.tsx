@@ -95,7 +95,7 @@ export class PreviewPanel extends React.Component<PreviewPanelProps, PreviewPane
                         className="preview-playback-controls-play"
                         onClick={this.togglePlay.bind(this)}
                     >
-                        Toggle Play
+                        Play/Pause
                     </button>
                     {secsToTimeString(this.props.video?.currentTime || 0)}
                     <button

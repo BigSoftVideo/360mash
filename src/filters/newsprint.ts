@@ -1,7 +1,7 @@
 import { FilterShader, fitToAspect, RenderTexture, TargetDimensions } from "../video/core";
 import { FilterBase } from "../video/filter-base";
 
-export const NEWSPRINT_FILTER_NAME = "News Print";
+export const NEWSPRINT_FILTER_NAME = "Newsprint";
 
 //Could be used with the cartoon shader to get interesting result
 export class NewsPrintShader extends FilterShader {
