@@ -87,7 +87,7 @@ export class FilterList extends React.Component<FilterListProps, FilterListState
         for (const desc of filterDescs) {
             thisFilters.push({
                 id: desc.id,
-                inUse: true,
+                inUse: false,
             });
         }
         this.setState({ filters: thisFilters });

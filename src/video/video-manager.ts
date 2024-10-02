@@ -173,7 +173,7 @@ export class Video {
         this.url = pathToFileURL(filePath);
         this._filePath = filePath;
         this.video = document.createElement("video");
-        this.video.autoplay = true;
+        this.video.autoplay = false;
         this.video.muted = true;
         this.video.addEventListener(
             "playing",
