@@ -9,7 +9,7 @@ import {
 } from "../video/core";
 import { FilterBase } from "../video/filter-base";
 
-export const CONV360T02D_FILTER_NAME = "360 to 2D";
+export const CONV360T02D_FILTER_NAME = "Convert 360 to 2D";
 
 // TODO: make this so that it dynamically adjusts to fill the most space
 const PREVIEW_CANVAS_WIDTH = 600;
