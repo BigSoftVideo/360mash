@@ -368,7 +368,7 @@ export class App extends React.Component<{}, AppState> {
         const mainWindow = getCurrentWindow();
         dialog
             .showOpenDialog(mainWindow, {
-                title: "Open Video",
+                title: "Import Video",
                 filters: [
                     {
                         name: "Media Files",
