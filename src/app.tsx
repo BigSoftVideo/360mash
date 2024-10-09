@@ -322,7 +322,7 @@ export class App extends React.Component<{}, AppState> {
             click: () => {
                 this.openVideo();
             },
-            label: "Open Video",
+            label: "Import Video",
         });
         fileMenu.append(openMenuItem);
         //fileMenu.append(new MenuItem({ type: "separator" }));
