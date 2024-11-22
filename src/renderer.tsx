@@ -33,4 +33,13 @@ import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 import { App } from "./app";
 
-ReactDOM.render(<App />, document.getElementById('app'));
+// React 17:
+ReactDOM.render(
+    <React.StrictMode>
+        {/* <Provider store={store}> */}
+            <App/>
+        {/* </Provider> */}
+    </React.StrictMode>,
+    document.getElementById("app")
+);
+// ReactDOM.render(<App />, document.getElementById('app'));

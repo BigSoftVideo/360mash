@@ -3,7 +3,8 @@ import "./app.css";
 
 const packageJson = require("../package.json");
 
-const { Menu, MenuItem, dialog, getCurrentWindow, app } = require("electron").remote;
+// const { Menu, MenuItem, dialog, getCurrentWindow, app } = require("electron").remote;
+import { Menu, MenuItem, dialog, getCurrentWindow, app, shell } from '@electron/remote';
 
 import * as React from "react";
 
