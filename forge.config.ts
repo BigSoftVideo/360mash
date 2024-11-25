@@ -82,10 +82,10 @@ const config:ForgeConfig = {
   rebuildConfig: {},
   makers: [
     new MakerSquirrel({
-        name: 'DOTEbase',
+        name: '360mash',
         authors: 'BigSoftVideo',
-        exe: 'DOTEbase.exe',
-        setupExe: `DOTEbase-win-x64-${version}.exe`,
+        exe: '360mash.exe',
+        setupExe: `360mash-win-x64-${version}.exe`,
         setupIcon: __dirname + "/appicons/360mash.ico",
         iconUrl: __dirname + "/appicons/360mash.ico",
         skipUpdateIcon: true,
