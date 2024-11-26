@@ -30,16 +30,27 @@
 import './index.css';
 
 import * as React from 'react';
-import * as ReactDOM from 'react-dom';
+// React 17:
+// import * as ReactDOM from 'react-dom';
+// React 18:
+import { createRoot } from "react-dom/client";
+
 import { App } from "./app";
 
 // React 17:
-ReactDOM.render(
-    <React.StrictMode>
-        {/* <Provider store={store}> */}
-            <App/>
-        {/* </Provider> */}
-    </React.StrictMode>,
-    document.getElementById("app")
-);
+// ReactDOM.render(
+//     <React.StrictMode>
+//         {/* <Provider store={store}> */}
+//             <App/>
+//         {/* </Provider> */}
+//     </React.StrictMode>,
+//     document.getElementById("app")
+// );
 // ReactDOM.render(<App />, document.getElementById('app'));
+
+//React 18:
+/* Render out React component to HTML template */
+const container = document.getElementById("app");
+const root = createRoot(container!);
+root.render(<App />);
+/* */
