@@ -5,13 +5,15 @@ import { spawn } from "child_process";
 import * as React from "react";
 import * as path from "path";
 import * as util from "util";
+import { dialog, getCurrentWindow } from '@electron/remote';
 import { Decoder, DecoderDesc, Encoder, EncoderDesc, MediaMetadata } from "../../video/codec";
 import { VideoManager } from "../../video/video-manager";
 import { AlignedPixelData, ImageFormat, PackedPixelData } from "../../video/filter-pipeline";
 import { ExportInfoProvider, MiscExportInfo } from "../export-overlay/export-overlay";
 import { secsToTimeString } from "../../util";
+import { FFmpegExists, settings } from "../../app";
 
-const settings = require("settings-store");
+// const settings = require("settings-store");
 
 const MATCH_INPUT_RESOLUTION = "MATCH_INPUT";
 
@@ -48,8 +50,8 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
 
     canvasRef: React.RefObject<HTMLCanvasElement>;
 
-    pathRef: React.RefObject<HTMLInputElement>;
-    ffmpegFolderRef: React.RefObject<HTMLInputElement>;
+    // pathRef: React.RefObject<HTMLInputElement>;
+    // ffmpegFolderRef: React.RefObject<HTMLInputElement>;
 
     // selectedOutputHeight: number;
     // selectedOutputWidth: number;
@@ -68,8 +70,8 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
     constructor(params: any) {
         super(params);
         this.canvasRef = React.createRef();
-        this.pathRef = React.createRef();
-        this.ffmpegFolderRef = React.createRef();
+        // this.pathRef = React.createRef();
+        // this.ffmpegFolderRef = React.createRef();
         this.sumInputFrameWaitMs = 0;
         this.sumInputWaitIterations = 0;
         this.sumRenderTimeCpu = 0;
@@ -89,26 +91,26 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
     }
 
     componentDidMount() {
-        if (!settingsInitialized) {
-            settingsInitialized = true;
-            settings.init({
-                appName: "360mash", //required,
-                reverseDNS: "com.BigVideo.360mash", //required for macOS
-            });
-        }
+        // if (!settingsInitialized) {
+        //     settingsInitialized = true;
+        //     settings.init({
+        //         appName: "360mash", //required,
+        //         reverseDNS: "com.BigVideo.360mash", //required for macOS
+        //     });
+        // }
 
-        if (this.ffmpegFolderRef.current) {
-            let saved = settings.value("ffmpegFolderPath");
-            if (saved) {
-                this.ffmpegFolderRef.current.value = saved;
-            }
-        }
-        if (this.pathRef.current) {
-            let saved = settings.value("outputPath");
-            if (saved) {
-                this.pathRef.current.value = saved;
-            }
-        }
+        // if (this.ffmpegFolderRef.current) {
+        //     let saved = settings.value("ffmpegFolderPath");
+        //     if (saved) {
+        //         this.ffmpegFolderRef.current.value = saved;
+        //     }
+        // }
+        // if (this.pathRef.current) {
+        //     let saved = settings.value("outputPath");
+        //     if (saved) {
+        //         this.pathRef.current.value = saved;
+        //     }
+        // }
     }
 
     render() {
@@ -148,7 +150,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         return (
             <div className="export-panel-root">
                 <div className="export-panel-flex-section">
-                    <div className="export-panel-text-line">
+                    {/* <div className="export-panel-text-line">
                         <input
                             ref={this.ffmpegFolderRef}
                             placeholder="ffmpeg.exe folder path"
@@ -165,7 +167,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                                 settings.setValue("outputPath", event.target.value);
                             }}
                         ></input>
-                    </div>
+                    </div> */}
                     <button
                         onClick={() => {
                             let video = this.props.videoManager.video;
@@ -221,7 +223,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                         {encoderKinds}
                     </select>
                     <div>
-                        <button onClick={this.startFFmpegExport.bind(this)}>Export</button>
+                        <button disabled={!settings.ffMpegPath || !settings.outputPath} onClick={this.startFFmpegExport.bind(this)}>Export</button>
                     </div>
                     {statusMessage}
                     {/* <button onClick={this.fetchFrame.bind(this)}>Get current frame</button> */}
@@ -231,17 +233,18 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         );
     }
 
+    // NOT USED
     protected startExport() {
         if (!this.props.videoManager.video) {
             throw new Error("There must be an initialized video");
         }
-        if (!this.ffmpegFolderRef.current) {
+        if (!settings.ffMpegExecutablePath || !settings.ffProbeExecutablePath) {
             throw new Error("There must be an initialized ffmpegFolderRef");
         }
 
         this.props.exportStateChange(true);
 
-        let ffmpegParentPath = this.ffmpegFolderRef.current.value;
+        // let ffmpegParentPath = this.ffmpegFolderRef.current.value;
         let video = this.props.videoManager.video.htmlVideo;
         this.sumInputFrameWaitMs = 0;
         video.pause();
@@ -261,6 +264,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         }
         pipeline.setTargetDimensions(selectedW, selectedH);
         const [width, height] = pipeline.getRealOutputDimensions(video);
+        //Todo: Take a look if this is applied anywhere
         const outFps = 29.97;
 
         let nextFrameId = 0;
@@ -302,8 +306,32 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             return 0;
         };
 
-        let filename = this.dateToFilename(new Date()) + ".mp4";
-        let fullpath = path.join(this.pathRef.current!.value, filename);
+        let targetFilename = this.dateToFilename(new Date()) + ".mp4";
+        // Ask user for filename
+        try {
+            let mp4Filter: Electron.FileFilter = {
+                extensions: ["mp4"],
+                name: "mp4 video file",
+            };
+            let options: Electron.SaveDialogOptions = {
+                filters: [mp4Filter],
+                properties: [
+                    "createDirectory",  //MacOS only
+                ]
+            };
+
+            dialog.showSaveDialog(getCurrentWindow(), options).then((dialogResult: any) => {
+                if (dialogResult.canceled) {
+                    return;
+                }
+                targetFilename = dialogResult.filePath as string;
+                targetFilename = path.resolve(targetFilename);
+            });
+        } finally {
+
+        }
+
+        // let fullpath = path.join(this.pathRef.current!.value, filename);
         let encoderDesc: EncoderDesc = {
             width,
             height,
@@ -313,25 +341,55 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             audioEndSec: this.props.videoManager.endSec,
         };
         this.props.encoder.startEncoding(
-            ffmpegParentPath,
-            fullpath,
+            targetFilename,
             encoderDesc,
             getImage,
             this.encodingExitHandler.bind(this)
         );
     }
 
-    protected startFFmpegExport() {
-        if (!this.ffmpegFolderRef.current) {
+    protected async startFFmpegExport() {
+        if (!settings.ffMpegExecutablePath || !settings.ffProbeExecutablePath) {
             throw new Error("There must be an initialized ffmpegFolderRef");
         }
-        let ffmpegParentPath = this.ffmpegFolderRef.current.value;
+        if (!FFmpegExists()) {
+            console.warn('FFmpeg not available');
+            dialog.showErrorBox("FFmpeg missing!", "FFmpeg is not installed. Please use the built-in downloader via the cog button in the upper right corner.");
+            return false;
+        }
         console.log("Starting ffmpeg export");
         if (!this.props.videoManager.video) {
             throw new Error("There must be an initialized video");
         }
 
         this.setState({ statusMessage: "Exporting" });
+
+        let targetFilename = this.dateToFilename(new Date()) + ".mp4";
+        // Ask user for filename
+        try {
+            let mp4Filter: Electron.FileFilter = {
+                extensions: ["mp4"],
+                name: "mp4 video file",
+            };
+            let options: Electron.SaveDialogOptions = {
+                filters: [mp4Filter],
+                properties: [
+                    "createDirectory",  //MacOS only
+                ],
+                defaultPath: settings.outputPath
+            };
+
+            const dialogResult = await dialog.showSaveDialog(getCurrentWindow(), options);
+            if (dialogResult.canceled) {
+                return;
+            }
+            targetFilename = dialogResult.filePath as string;
+            settings.outputPath = path.basename(targetFilename);
+            targetFilename = path.resolve(targetFilename);
+        } finally {
+
+        }
+
         this.props.exportStateChange(true);
         this.props.infoProvider.reportProgress(0);
         this.sumRenderTimeCpu = 0;
@@ -447,8 +505,6 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                 this.props.infoProvider.reportProgress(this.progress);
             }, 250);
 
-            let filename = this.dateToFilename(new Date()) + ".mp4";
-            let fullpath = path.join(this.pathRef.current!.value, filename);
             let encoderDesc: EncoderDesc = {
                 width: outWidth,
                 height: outHeight,
@@ -459,8 +515,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                 audioEndSec: this.props.endSec,
             };
             this.props.encoder.startEncoding(
-                ffmpegParentPath,
-                fullpath,
+                targetFilename,
                 encoderDesc,
                 getOutputImage,
                 this.encodingExitHandler.bind(this)
@@ -526,7 +581,6 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             endSec,
         };
         this.props.decoder.startDecoding(
-            ffmpegParentPath,
             video.filePath,
             desc,
             receivedMetadata,

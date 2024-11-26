@@ -37,6 +37,11 @@ import {
 } from "./ui-mixed/filter-attributes/creators";
 import { ExportInfoProvider, ExportOverlay } from "./ui-mixed/export-overlay/export-overlay";
 import { DimensionChangeListener } from "./video/filter-pipeline";
+import { ffMpedInstalledStates, FFmpegInstalledListener, FFmpegInstaller, FFMpegInstallerDialogMethods } from "./ffmpeg-installer";
+import { SettingsBar, SettingsBarMethods } from "./ui-settings-bar/settings-bar";
+import { Settings } from "./settings";
+import { Pane } from "evergreen-ui";
+import { existsSync } from "fs";
 
 // TODO: move this to a redux store maybe
 export interface AppState {
@@ -44,9 +49,15 @@ export interface AppState {
     outputAspectRatio: number;
     exportInProgress: boolean;
     selectedFilterId: FilterId | null;
+    FFmpegInstalledState: ffMpedInstalledStates;
 }
 
-export class App extends React.Component<{}, AppState> {
+export const settings = new Settings();
+export function FFmpegExists():boolean {
+    return existsSync(settings.ffMpegExecutablePath) && existsSync(settings.ffProbeExecutablePath);
+}
+
+export class App extends React.Component<{}, AppState> implements FFmpegInstalledListener {
     previewPanelRef: React.RefObject<PreviewPanel>;
     filterManager: FilterManager;
     videoManager: VideoManager | null;
@@ -62,12 +73,16 @@ export class App extends React.Component<{}, AppState> {
 
     filterAttribs: Map<string, (f: FilterBase) => JSX.Element>;
 
+    protected ffMpegInstaller = React.createRef<FFMpegInstallerDialogMethods>();
+    protected settingsBar = React.createRef<SettingsBarMethods>();
+
     constructor(params: any) {
         super(params);
         this.state = {
             outputAspectRatio: 16 / 9,
             exportInProgress: false,
             selectedFilterId: CONV360T02D_FILTER_NAME,
+            FFmpegInstalledState: "Checking",
         };
         this.encoder = new Encoder();
         this.decoder = new Decoder();
@@ -95,7 +110,10 @@ export class App extends React.Component<{}, AppState> {
                     htmlVideo.videoHeight
                 );
             }
-            video.htmlVideo.play();
+            // video.htmlVideo.play();
+            video.htmlVideo.currentTime = 0;
+            console.log('Video ready. Requesting...');
+            this.videoManager?.requestRender();
         };
         this.filterManager = new FilterManager();
         this.filterAttribs = new Map();
@@ -154,6 +172,7 @@ export class App extends React.Component<{}, AppState> {
     componentDidMount() {
         this.createMenu();
         window.addEventListener("resize", this.onResized);
+        this.ffMpegInstaller.current?.subscribe(this);
 
         this.initializeVideoManager();
     }
@@ -163,6 +182,7 @@ export class App extends React.Component<{}, AppState> {
     }
 
     componentWillUnmount() {
+        this.ffMpegInstaller.current?.unsubscribe(this);
         window.removeEventListener("resize", this.onResized);
 
         if (this.videoManager) {
@@ -171,6 +191,10 @@ export class App extends React.Component<{}, AppState> {
                 this.outputDimensionChangeListener
             );
         }
+    }
+
+    installedStateChanged(ffmpegInstalled: boolean, ffprobeInstalled: boolean) {
+
     }
 
     render() {
@@ -234,7 +258,20 @@ export class App extends React.Component<{}, AppState> {
         }
 
         return (
-            <div className="app-contents">
+            <Pane position="relative" width="100%" height="100%" overflow="hidden"
+                display="flex" flexDirection="column"
+            >
+                <FFmpegInstaller
+                    ref={this.ffMpegInstaller}
+                />
+                <SettingsBar
+                    ref={this.settingsBar}
+                    ffMpegInstalledState={this.state.FFmpegInstalledState}
+                    showFFmpegInstallerDialog={() => {
+                        this.ffMpegInstaller.current?.showDialog();
+                    }}
+                    videoManager={this.videoManager}
+                />
                 <SplitPanelVer defaultPercentage={40} onResize={this.onResized}>
                     <SplitPanelHor defaultPercentage={25} onResize={this.onResized}>
                         <div>{filterList}</div>
@@ -252,7 +289,7 @@ export class App extends React.Component<{}, AppState> {
                     </SplitPanelHor>
                 </SplitPanelVer>
                 {exportOverlay}
-            </div>
+            </Pane>
         );
     }
 

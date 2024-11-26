@@ -4,19 +4,23 @@ import { spawn } from "child_process";
 import * as util from "util";
 import * as path from "path";
 
-import { VideoManager } from "./video/video-manager";
-import { FilterManager } from "./video/filter-manager";
-import { CONV360T02D_FILTER_NAME, Conv360To2DFilter } from "./filters/conv360to2d";
-import { FilterBase } from "./video/filter-base";
-import { CartoonFilter, CARTOON_FILTER_NAME } from "./filters/cartoon";
-import { NewsPrintFilter, NEWSPRINT_FILTER_NAME } from "./filters/newsprint";
-import { GrayscaleFilter, GRAYSCALE_FILTER_NAME } from "./filters/grayscale";
-import { CharcoalFilter, CHARCOAL_FILTER_NAME } from "./filters/charcoal";
-import { ImageFormat, PackedPixelData } from "./video/filter-pipeline";
-import { Decoder, Encoder, EncoderDesc, MediaMetadata } from "./video/codec";
+import Store from 'electron-store';
+// import { VideoManager } from "./video/video-manager";
+// import { FilterManager } from "./video/filter-manager";
+// import { CONV360T02D_FILTER_NAME, Conv360To2DFilter } from "./filters/conv360to2d";
+// import { FilterBase } from "./video/filter-base";
+// import { CartoonFilter, CARTOON_FILTER_NAME } from "./filters/cartoon";
+// import { NewsPrintFilter, NEWSPRINT_FILTER_NAME } from "./filters/newsprint";
+// import { GrayscaleFilter, GRAYSCALE_FILTER_NAME } from "./filters/grayscale";
+// import { CharcoalFilter, CHARCOAL_FILTER_NAME } from "./filters/charcoal";
+// import { ImageFormat, PackedPixelData } from "./video/filter-pipeline";
+// import { Decoder, Encoder, EncoderDesc, MediaMetadata } from "./video/codec";
 
 const remote = require('@electron/remote/main');
 remote.initialize();
+
+// Initialize Settings Storage
+Store.initRenderer();
 
 /** Wait for the next event loop iteration */
 const setImmedateAsync = util.promisify(setImmediate);
