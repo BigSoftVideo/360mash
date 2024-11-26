@@ -182,7 +182,7 @@ export class FilterPipeline {
             this.filters.push({
                 id: id,
                 filter: filterManager.createFilter(id, this.gl),
-                active: true,
+                active: false,
             });
         }
     }
@@ -310,7 +310,7 @@ export class FilterPipeline {
                 filterDesc = {
                     id: id,
                     filter: f,
-                    active: true,
+                    active: false,
                 };
             }
             newFilters.push(filterDesc);
