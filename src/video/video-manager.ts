@@ -69,6 +69,8 @@ export class VideoManager {
             }
             if (outputFrame) {
                 this.drawToCanvas(targetCanvas, outputFrame);
+            } else {
+                console.warn('No output frame to draw to.');
             }
             if (this.keepRendering) {
                 this.requestRender();
@@ -127,7 +129,7 @@ export class VideoManager {
         return this._video;
     }
 
-    protected requestRender() {
+    public requestRender() {
         this.requestedAnimId = window.requestAnimationFrame(() => this.renderVideo());
     }
 }
@@ -145,61 +147,75 @@ export class Video {
     protected video: HTMLVideoElement;
     protected url: URL;
     protected _filePath: string; // the path to the video represented as a file system path
-    protected ready: boolean;
+    protected initialized: boolean;
 
     constructor(filePath: string, onReady: (self: Video) => void) {
-        let videoTextureReady = false;
-        let playing = false;
-        let timeupdate = false;
-        let checkReady = () => {
-            if (playing && timeupdate) {
-                if (!videoTextureReady) {
-                    this.video.pause();
-                    this.video.muted = false;
-                    videoTextureReady = true;
-                    // We use setImmediate to guarantee that the callback only gets
-                    // executed after this constructor has returned
-                    setImmediate(() => {
-                        this.ready = true;
-                        onReady(this);
-                    });
-                }
-                return true;
-            }
-            return false;
-        };
+        // let videoTextureReady = false;
+        // let playing = false;
+        // let timeupdate = false;
+        // let checkReady = () => {
+        //     if (playing && timeupdate) {
+        //         if (!videoTextureReady) {
+        //             this.video.pause();
+        //             this.video.muted = false;
+        //             videoTextureReady = true;
+        //             // We use setImmediate to guarantee that the callback only gets
+        //             // executed after this constructor has returned
+        //             setImmediate(() => {
+        //                 this.initialized = true;
+        //                 onReady(this);
+        //             });
+        //         }
+        //         return true;
+        //     }
+        //     return false;
+        // };
 
-        this.ready = false;
+        this.initialized = false;
+        console.log('Opening video: ', filePath);
         this.url = pathToFileURL(filePath);
+        console.log('Converted to Url: ', this.url);
         this._filePath = filePath;
         this.video = document.createElement("video");
-        this.video.autoplay = true;
+        this.video.autoplay = false;
         this.video.muted = true;
-        this.video.addEventListener(
-            "playing",
-            () => {
-                playing = true;
-                checkReady();
-            },
-            true
-        );
-        this.video.addEventListener(
-            "timeupdate",
-            (event: MediaStreamEvent) => {
-                timeupdate = true;
-                checkReady();
-                //onTimeUpdate(event);
-            },
-            true
-        );
+        this.video.loop = false;
+        // this.video.addEventListener(
+        //     "playing",
+        //     () => {
+        //         playing = true;
+        //         checkReady();
+        //     },
+        //     true
+        // );
+        // this.video.addEventListener(
+        //     "timeupdate",
+        //     (event: MediaStreamEvent) => {
+        //         timeupdate = true;
+        //         checkReady();
+        //         //onTimeUpdate(event);
+        //     },
+        //     true
+        // );
+        this.video.addEventListener("loadeddata", () => {
+            console.log('Video data loaded');
+            this.initialized = true;
+            onReady(this);
+        });
+        this.video.addEventListener("canplay", () => {
+            console.log('Video data can play');
+            // onReady(this);
+        });
+
         this.video.src = this.url.href;
+        this.video.load();
     }
 
-    toInterface(): IVideo {
-        return {
-            videoUrl: this.url,
-        };
-    }
+    // toInterface(): IVideo {
+    //     return {
+    //         videoUrl: this.url,
+    //     };
+    // }
 
     get filePath(): string {
         return this._filePath;
@@ -210,6 +226,10 @@ export class Video {
     }
 
     isReady(): boolean {
-        return this.ready;
+        return this.initialized;
+    }
+
+    public getReadyState():number {
+        return this.video.readyState;
     }
 }
