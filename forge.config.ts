@@ -12,7 +12,8 @@ import  WebpackPlugin  from '@electron-forge/plugin-webpack';
 import { mainConfig } from './webpack.main.config';
 import { rendererConfig } from './webpack.renderer.config';
 
-const dotenv = require('dotenv');
+// const dotenv = require('dotenv');
+import dotenv from 'dotenv';
 dotenv.config();
 
 import packageJson from './package.json';
