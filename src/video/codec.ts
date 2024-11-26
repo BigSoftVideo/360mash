@@ -4,6 +4,7 @@ import * as path from "path";
 import { Server } from "net";
 import { spawn, ChildProcess, ChildProcessWithoutNullStreams } from "child_process";
 import { secsToTimeString } from "../util";
+import { FFmpegExists, settings } from "../app";
 
 // const ffmpegBin =
 //     "C:\\Users\\Dighumlab2\\Desktop\\Media Tools\\ffmpeg-4.4-full_build\\bin\\ffmpeg";
@@ -232,13 +233,17 @@ export class Encoder {
      * The bitrate is specified in kbps
      */
     startEncoding(
-        ffmpegBinParentPath: string,
+        // ffmpegBinParentPath: string,
         outFileName: string,
         encoderDesc: EncoderDesc,
         getImage: GetImageCallback,
         onExit: (code: number | null, stderr: string) => void
     ): boolean {
-        const ffmpegBin = path.join(ffmpegBinParentPath, "ffmpeg");
+        if (!FFmpegExists()) {
+            console.warn('FFmpeg not available');
+            return false;
+        }
+        const ffmpegBin = settings.ffMpegExecutablePath; //path.join(ffmpegBinParentPath, "ffmpeg");
 
         this.sumWriteMs = 0;
         this.sumDrainWaitMs = 0;
@@ -725,16 +730,20 @@ export class Decoder {
         this.ffmpegStderr = "";
     }
 
-    startDecoding(
-        ffmpegBinParentPath: string,
+    async startDecoding(
+        // ffmpegBinParentPath: string,
         inFilePath: string,
         desc: DecoderDesc,
         receivedMetadata: ReceivedMetadataCallback,
         receivedImage: ReceivedImageCallback,
         done: (success: boolean) => void
-    ): void {
-        const ffmpegBin = path.join(ffmpegBinParentPath, "ffmpeg");
-        const ffprobeBin = path.join(ffmpegBinParentPath, "ffprobe");
+    ): Promise<void> {
+        if (!FFmpegExists()) {
+            console.warn('FFmpeg not available');
+            return;
+        }
+        const ffmpegBin = settings.ffMpegExecutablePath; //path.join(ffmpegBinParentPath, "ffmpeg");
+        const ffprobeBin = settings.ffProbeExecutablePath //path.join(ffmpegBinParentPath, "ffprobe");
 
         this.decStartTime = new Date();
         this.sumInterframeSec = 0;
