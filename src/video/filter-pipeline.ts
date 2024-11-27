@@ -643,6 +643,7 @@ export class FilterPipeline {
         let halfH = h / 2;
 
         let targetByteCount = w * h + 2 * (halfW * halfH);
+        console.log(`Filter pipline. targetByteCount: ${targetByteCount}. Buffer length: ${buffer.data.byteLength}`);
         if (targetByteCount !== buffer.data.byteLength) {
             // TODO: Should this be an exception? If the readPixels function allocates the buffer
             // than we don't even need to warn about it. But if the buffer must be already allocated

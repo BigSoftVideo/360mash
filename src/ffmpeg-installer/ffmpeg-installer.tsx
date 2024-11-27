@@ -93,12 +93,10 @@ export const FFmpegInstaller = React.forwardRef<FFMpegInstallerDialogMethods, In
     }, []);
 
     useEffect( () =>  {
-        console.log('State updated to: ' + ffmpegState);
         update();
     }, [ffmpegState]);
 
     useEffect( () => {
-        console.log('ffmpeginstalled updated to : ' + ffmpegInstalled);
         if (ffmpegState === 'Downloading') {
             return;
         }
@@ -156,9 +154,7 @@ export const FFmpegInstaller = React.forwardRef<FFMpegInstallerDialogMethods, In
             fs.accessSync(settings.ffProbeExecutablePath, X_OK);
             ffprobeAvailable = true;
         } catch {}
-        console.log(`Checking for installed. MPEG: ${ffmpegAvailable}, PROBE: ${ffprobeAvailable}`);
         if (ffmpegAvailable !== ffmpegInstalled || ffprobeAvailable !== ffprobeInstalled || ffmpegState === "Checking") {
-            console.log('Updating installed status...');
             setFFmpegInstalled(ffmpegAvailable);
             setFFprobeInstalled(ffprobeAvailable);
             if (ffmpegState === "Checking") {

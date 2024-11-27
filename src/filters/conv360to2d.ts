@@ -46,7 +46,7 @@ export class MashProjectionShader extends FilterShader {
                 const float PI = 3.1415926535;
                 vec4 red = vec4(1.0, 0.1, 0.1, 1.0);
                 vec4 purple = vec4(0.8, 0.1, 1.0, 1.0);
-                
+
                 float fov = uFov / PI;
                 vec2 offsetPos = vec2(vTexCoord.x - 0.5, vTexCoord.y - 0.5);
 
@@ -75,7 +75,7 @@ export class MashProjectionShader extends FilterShader {
                 float atan_yx = atan(direction.y / direction.x);
                 float azimuth = direction.x > 0.0 ? atan_yx : PI + atan_yx;
                 float elevation = asin(direction.z);
-                
+
                 float outU = azimuth / (2.0*PI);
                 float outV = elevation / PI + 0.5;
                 gl_FragColor = texture2D(uSampler, vec2(outU, outV));
@@ -161,7 +161,7 @@ export class Project180FisheyeShader extends FilterShader {
                 const float PI = 3.1415926535;
                 vec4 red = vec4(1.0, 0.1, 0.1, 1.0);
                 vec4 purple = vec4(0.8, 0.1, 1.0, 1.0);
-                
+
                 float fov = uFov / PI;
                 vec2 offsetPos = vec2(vTexCoord.x - 0.5, vTexCoord.y - 0.5);
 
@@ -193,7 +193,7 @@ export class Project180FisheyeShader extends FilterShader {
                 // For example if the camera was looking along the Z axis then we simply ignore the
                 // Z coordinate of our 3D vector and use the X coordinate to determine the horizontal
                 // pixel position and use the Y coordinate to determine the vertical pixel position
-                
+
                 vec2 outUV = direction.xy * vec2(0.5) + vec2(0.5);
 
                 // Make everything black that's towards the other direction
@@ -249,7 +249,82 @@ export class Project180FisheyeShader extends FilterShader {
     }
 }
 
+export class Flat2DShader extends FilterShader {
+    protected uYaw: WebGLUniformLocation | null;
+    protected uPitch: WebGLUniformLocation | null;
+    protected uFov: WebGLUniformLocation | null;
+
+    public fovY: number;
+    public rotRight: number;
+    public rotUp: number;
+    // public inAspect: number;
+    public outAspect: number;
+
+    // protected uRotate: WebGLUniformLocation | null;
+    // protected uFov: WebGLUniformLocation | null;
+    // // protected uInAspect: WebGLUniformLocation | null;
+    // // protected uOutOverInAspect: WebGLUniformLocation | null;
+    // protected uOutAspect: WebGLUniformLocation | null;
+    // protected rotationMat: glm.mat4;
+    constructor(gl: WebGL2RenderingContext) {
+        let fragmentSrc = `
+            precision mediump float;
+            varying vec2 vTexCoord;
+            uniform sampler2D uSampler;
+            uniform float uYaw;
+            uniform float uPitch;
+            uniform float uFov;
+            void main() {
+                const float PI = 3.1415926535;
+                float scaling = uFov / PI;
+                vec2 center = vec2(uYaw / (PI*2.0) + 0.5, uPitch / PI + 0.5);
+                gl_FragColor = texture2D(uSampler, center + (vTexCoord - vec2(0.5)) * scaling);
+            }`;
+        let fragmentShader = FilterShader.createShader(gl, gl.FRAGMENT_SHADER, fragmentSrc);
+
+        super(gl, fragmentShader);
+
+        this.fovY = Math.PI;
+        this.rotRight = 0;
+        this.rotUp = 0;
+        // // this.inAspect = 0;
+        this.outAspect = 1;
+        if (this.shaderProgram) {
+            this.uYaw = gl.getUniformLocation(this.shaderProgram, "uYaw");
+            this.uPitch = gl.getUniformLocation(this.shaderProgram, "uPitch");
+            this.uFov = gl.getUniformLocation(this.shaderProgram, "uFov");
+        } else {
+            this.uYaw = null;
+            this.uPitch = null;
+            this.uFov = null;
+        }
+    }
+
+    protected updateUniforms(gl: WebGLRenderingContext) {
+        //mapping
+        const [fov, rRight, rUp] = this.mapParameters(this.fovY, this.rotRight, this.rotUp);
+        this.fovY = fov;
+        this.rotRight = rRight;
+        this.rotUp = rUp;
+        gl.uniform1f(this.uYaw, this.rotUp);
+        gl.uniform1f(this.uPitch, this.rotRight);
+        gl.uniform1f(this.uFov, this.fovY);
+    }
+
+    mapParameters(fovY: number, rotRight: number, rotUp: number): [number, number, number] {
+        let yaw = rotUp;
+        let pitch = rotRight;
+        let scaling = fovY / Math.PI;
+        let x = yaw / (Math.PI * 2.0) + 0.5;
+        x = Math.max(scaling * 0.5, Math.min(1.0 - scaling * 0.5, x));
+        let y = pitch / Math.PI + 0.5;
+        y = Math.max(scaling * 0.5, Math.min(1.0 - scaling * 0.5, y));
+        return [fovY, (y - 0.5) * Math.PI, (x - 0.5) * (Math.PI * 2.0)];
+    }
+}
+
 export enum Conv360ShaderKind {
+    Flat2DShader,
     Equirect360,
     Fisheye180,
 }
@@ -257,6 +332,7 @@ export enum Conv360ShaderKind {
 export class Conv360To2DFilter extends FilterBase {
     protected shaderEquirect: MashProjectionShader;
     protected shader180: Project180FisheyeShader;
+    protected shader2DVideo: Flat2DShader;
     protected rt: RenderTexture;
 
     protected inputAspect: number;
@@ -274,7 +350,8 @@ export class Conv360To2DFilter extends FilterBase {
         this.gl = gl;
         this.shaderEquirect = new MashProjectionShader(gl);
         this.shader180 = new Project180FisheyeShader(gl);
-        this.selectedShader = Conv360ShaderKind.Equirect360;
+        this.shader2DVideo = new Flat2DShader(gl);
+        this.selectedShader = Conv360ShaderKind.Flat2DShader;
         this.rt = new RenderTexture(gl, gl.RGBA);
         this.previewPixelArray = new Uint8Array();
         this.targetAspect = 1;
@@ -296,9 +373,11 @@ export class Conv360To2DFilter extends FilterBase {
             outputAspect = this.targetAspect;
             this.shaderEquirect.outAspect = this.targetAspect;
             this.shader180.outAspect = this.targetAspect;
+            this.shader2DVideo.outAspect = this.targetAspect;
         } else {
             this.shaderEquirect.outAspect = this.inputAspect;
             this.shader180.outAspect = this.inputAspect;
+            this.shader2DVideo.outAspect = this.inputAspect;
             outputAspect = this.shaderEquirect.outAspect;
         }
         let [outW, outH] = fitToAspect(targetDimensions, outputAspect);
@@ -311,6 +390,7 @@ export class Conv360To2DFilter extends FilterBase {
         this.rt.dispose();
         this.shaderEquirect.dispose();
         this.shader180.dispose();
+        this.shader2DVideo.dispose();
     }
     execute(source: WebGLTexture): RenderTexture {
         let gl = this.gl;
@@ -325,6 +405,9 @@ export class Conv360To2DFilter extends FilterBase {
                 break;
             case Conv360ShaderKind.Fisheye180:
                 this.shader180.draw(gl);
+                break;
+            case Conv360ShaderKind.Flat2DShader:
+                this.shader2DVideo.draw(gl);
                 break;
             default:
                 console.error(
@@ -342,6 +425,7 @@ export class Conv360To2DFilter extends FilterBase {
     public set fovY(val: number) {
         this.shaderEquirect.fovY = val;
         this.shader180.fovY = val;
+        this.shader2DVideo.fovY = Math.min(Math.PI, Math.max(0.2, val));
     }
     public get rotRight(): number {
         return this.shaderEquirect.rotRight;
@@ -349,6 +433,7 @@ export class Conv360To2DFilter extends FilterBase {
     public set rotRight(val: number) {
         this.shaderEquirect.rotRight = val;
         this.shader180.rotRight = val;
+        this.shader2DVideo.rotRight = val;
     }
     public get rotUp(): number {
         return this.shaderEquirect.rotUp;
@@ -356,6 +441,7 @@ export class Conv360To2DFilter extends FilterBase {
     public set rotUp(val: number) {
         this.shaderEquirect.rotUp = val;
         this.shader180.rotUp = val;
+        this.shader2DVideo.rotUp = val;
     }
     public get useTargetAspect(): boolean {
         return this._useTargetAspect;
@@ -365,9 +451,11 @@ export class Conv360To2DFilter extends FilterBase {
         if (val) {
             this.shaderEquirect.outAspect = this.targetAspect;
             this.shader180.outAspect = this.targetAspect;
+            this.shader2DVideo.outAspect = this.targetAspect;
         } else {
             this.shaderEquirect.outAspect = this.inputAspect;
             this.shader180.outAspect = this.inputAspect;
+            this.shader2DVideo.outAspect = this.inputAspect;
         }
     }
 

@@ -240,6 +240,7 @@ class Conv360To2DAttributes extends React.Component<{ filter: Conv360To2DFilter 
             optionValues: [
                 [Conv360ShaderKind.Equirect360, "360 - Equirectangular"],
                 [Conv360ShaderKind.Fisheye180, "180 - Fisheye"],
+                [Conv360ShaderKind.Flat2DShader, "2D Video Pan & Zoom"]
             ],
         });
         // this.attributes.set("Vertical Field of View (radians)", {
