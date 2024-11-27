@@ -295,11 +295,6 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
             >
                 <FFmpegInstaller
                     ref={this.ffMpegInstaller}
-                    // changeFFmpegInstalledState={ (newState) => {
-                    //     this.setState({
-                    //         FFmpegInstalledState: newState
-                    //     });
-                    // }}
                 />
                 <SettingsBar
                     ref={this.settingsBar}

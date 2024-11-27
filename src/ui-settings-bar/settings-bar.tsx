@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, RefObject, MutableRefObject, ForwardedRef, Ref } from 'react';
-import { ArrowRightIcon, Badge, Button, Dialog, majorScale, minorScale, Pane, Text, TextInput, TextInputField } from "evergreen-ui";
+import { ArrowRightIcon, Badge, Button, CogIcon, Dialog, DownloadIcon, IconButton, majorScale, minorScale, Pane, Text, TextInput, TextInputField } from "evergreen-ui";
 import { Settings } from '../settings';
 import { Menu, MenuItem, dialog, getCurrentWindow, app, shell } from '@electron/remote';
 import path from 'path';
@@ -45,6 +45,14 @@ export const SettingsBar = React.forwardRef<SettingsBarMethods, TitleBarProps>( 
         ffmpegStatus = <Badge color="teal">Downloading FFmpeg...</Badge>
     }
 
+    let ffmpegIcon = CogIcon;
+    if (props.ffMpegInstalledState === "Installed") {
+        ffmpegIcon = CogIcon;
+    } else
+    if (props.ffMpegInstalledState === "Missing") {
+        ffmpegIcon = DownloadIcon;
+    }
+
     return (
         <Pane display="flex" flexDirection="row"
             alignItems="center"
@@ -52,15 +60,29 @@ export const SettingsBar = React.forwardRef<SettingsBarMethods, TitleBarProps>( 
             borderBottom="solid 1px"
             backgroundColor="#AAAAAA33"
         >
-            <Button
+            <Pane display="flex" flexDirection="column" alignItems="center" justifyContent="center"
                 marginX={majorScale(1)}
                 marginRight={majorScale(2)}
-                onClick={() => {
-
-                }}
             >
-                App Settings
-            </Button>
+                <Button
+                    marginY={minorScale(1)}
+                    onClick={() => {
+
+                    }}
+                >
+                    Application Settings
+                </Button>
+                <Pane display="flex" flexDirection="row" alignItems="center" justifyContent="center">
+                    <Pane display="flex" flexDirection="row">
+                        {   ffmpegStatus    }
+                    </Pane>
+                    <IconButton width={26} height={26} marginX={4} icon={ffmpegIcon}
+                        onClick={() => {
+                            props.showFFmpegInstallerDialog();
+                        }}
+                    />
+                </Pane>
+            </Pane>
             <Pane display="flex" flexDirection="row"
                 flexGrow={1}
                 alignItems="center"
@@ -156,14 +178,6 @@ export const SettingsBar = React.forwardRef<SettingsBarMethods, TitleBarProps>( 
                     }}
                 >Browse</Button>
             </Pane> */}
-            <Pane display="flex" flexDirection="row">
-                {   ffmpegStatus    }
-            </Pane>
-            <Button
-                onClick={() => {
-                    props.showFFmpegInstallerDialog();
-                }}
-            >FFmpeg Gear Icon</Button>
         </Pane>
     )
 
