@@ -397,14 +397,14 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
             menu.append(appMenuItem);
         }
         const fileMenu = new Menu();
-        const openMenuItem = new MenuItem({
-            accelerator: "CommandOrControl+O",
-            click: () => {
-                this.openVideo();
-            },
-            label: "Import Video",
-        });
-        fileMenu.append(openMenuItem);
+        // const openMenuItem = new MenuItem({
+        //     accelerator: "CommandOrControl+O",
+        //     click: () => {
+        //         this.openVideo();
+        //     },
+        //     label: "Import Video",
+        // });
+        // fileMenu.append(openMenuItem);
         //fileMenu.append(new MenuItem({ type: "separator" }));
         const fileMenuItem = new MenuItem({
             label: "File",
@@ -413,24 +413,24 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
         });
         menu.append(fileMenuItem);
 
-        const editMenu = new Menu();
-        const copyMenuItem = new MenuItem({
-            role: "copy",
-        });
-        editMenu.append(copyMenuItem);
-        const cutMenuItem = new MenuItem({
-            role: "cut",
-        });
-        editMenu.append(cutMenuItem);
-        const pasetMenuItem = new MenuItem({
-            role: "paste",
-        });
-        editMenu.append(pasetMenuItem);
-        const editMenuItem = new MenuItem({
-            role: "editMenu",
-            //submenu: editMenu,
-        });
-        menu.append(editMenuItem);
+        // const editMenu = new Menu();
+        // const copyMenuItem = new MenuItem({
+        //     role: "copy",
+        // });
+        // editMenu.append(copyMenuItem);
+        // const cutMenuItem = new MenuItem({
+        //     role: "cut",
+        // });
+        // editMenu.append(cutMenuItem);
+        // const pasetMenuItem = new MenuItem({
+        //     role: "paste",
+        // });
+        // editMenu.append(pasetMenuItem);
+        // const editMenuItem = new MenuItem({
+        //     role: "editMenu",
+        //     //submenu: editMenu,
+        // });
+        // menu.append(editMenuItem);
         const helpMenu = new Menu();
         if (process.platform !== "darwin") {
             helpMenu.append(aboutMenuItem);
