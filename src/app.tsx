@@ -34,6 +34,7 @@ import {
     CharcoalAttribsCreator,
     PaintingAttribsCreator,
     BAndCAttribsCreator,
+    Flat2DPositionerCreater,
 } from "./ui-mixed/filter-attributes/creators";
 import { ExportInfoProvider, ExportOverlay } from "./ui-mixed/export-overlay/export-overlay";
 import { DimensionChangeListener } from "./video/filter-pipeline";
@@ -43,6 +44,7 @@ import { Settings } from "./settings";
 import { Pane } from "evergreen-ui";
 import { existsSync } from "fs";
 import "./img/icofont/icofont.css";
+import { Flat2DPositionerFilter, POSITION_2D_FILTER_NAME } from "./filters/2dVideoPositioning";
 
 // TODO: move this to a redux store maybe
 export interface AppState {
@@ -119,11 +121,19 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
         };
         this.filterManager = new FilterManager();
         this.filterAttribs = new Map();
+
         this.filterAttribs.set(CONV360T02D_FILTER_NAME, Conv360To2DAttribsCreator);
         this.filterManager.registerFilter({
             id: CONV360T02D_FILTER_NAME,
             creator: (gl): FilterBase => {
                 return new Conv360To2DFilter(gl);
+            },
+        });
+        this.filterAttribs.set(POSITION_2D_FILTER_NAME, Flat2DPositionerCreater);
+        this.filterManager.registerFilter({
+            id: POSITION_2D_FILTER_NAME,
+            creator: (gl): FilterBase => {
+                return new Flat2DPositionerFilter(gl);
             },
         });
         this.filterAttribs.set(BANDC_FILTER_NAME, BAndCAttribsCreator);
@@ -343,6 +353,7 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
                 // Add all filters here.
                 this.videoManager.pipeline.setFilters([
                     CONV360T02D_FILTER_NAME,
+                    POSITION_2D_FILTER_NAME,
                     BANDC_FILTER_NAME,
                     CARTOON_FILTER_NAME,
                     NEWSPRINT_FILTER_NAME,

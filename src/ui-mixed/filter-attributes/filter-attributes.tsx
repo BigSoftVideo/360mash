@@ -79,7 +79,7 @@ export class FilterAttributes<FilterT extends FilterBase> extends React.Componen
                         <Grid item>
                             <Slider
                             sx={{width: 200}}
-                            onChange={(event, val) => onChange(val) }
+                            onChange={(event, val) => onChange(val as number) }
                             value={typeof currValue === 'number' ? currValue : 0}
                             valueLabelDisplay="off"
                             min={bindings.minValue}

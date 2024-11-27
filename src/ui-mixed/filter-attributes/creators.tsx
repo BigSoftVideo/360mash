@@ -13,6 +13,7 @@ import { NewsPrintFilter } from "../../filters/newsprint";
 import { CharcoalFilter } from "../../filters/charcoal";
 import { PaintingFilter } from "../../filters/painting";
 import { BAndCFilter } from "../../filters/bandc";
+import { Flat2DPositionerFilter } from "../../filters/2dVideoPositioning";
 
 export function GrayscaleAttribsCreator(filter: GrayscaleFilter): JSX.Element {
     let attributes = new Map<string, FilterAttributeBinding<GrayscaleFilter>>();
@@ -239,8 +240,7 @@ class Conv360To2DAttributes extends React.Component<{ filter: Conv360To2DFilter 
             kind: FilterAttributeKind.Option,
             optionValues: [
                 [Conv360ShaderKind.Equirect360, "360 - Equirectangular"],
-                [Conv360ShaderKind.Fisheye180, "180 - Fisheye"],
-                [Conv360ShaderKind.Flat2DShader, "2D Video Pan & Zoom"]
+                [Conv360ShaderKind.Fisheye180, "180 - Fisheye"]
             ],
         });
         // this.attributes.set("Vertical Field of View (radians)", {
@@ -287,6 +287,92 @@ class Conv360To2DAttributes extends React.Component<{ filter: Conv360To2DFilter 
                     filter={this.props.filter}
                     attributes={this.attributes}
                 ></FilterAttributes>
+                <canvas
+                    ref={this.canvas}
+                    onMouseDown={(ev) => this.mouseDown(ev.nativeEvent)}
+                    onWheel={(ev) => this.mouseWheel(ev.nativeEvent)}
+                ></canvas>
+            </div>
+        );
+    }
+
+    protected setRotUp(v: number) {
+        // This mess below ensures that the value wraps around when it reaches -PI or PI
+        let sign = Math.sign(v);
+        v = Math.abs(v);
+        v += Math.PI;
+        v = v % (Math.PI * 2);
+        v -= Math.PI;
+        v *= sign;
+        this.props.filter.rotUp = v;
+    }
+}
+
+export function Flat2DPositionerCreater(filter: Flat2DPositionerFilter): JSX.Element {
+    return <Flat2DPositionerAttributes filter={filter}></Flat2DPositionerAttributes>;
+}
+
+class Flat2DPositionerAttributes extends React.Component<{ filter: Flat2DPositionerFilter }> {
+    rootDiv: React.RefObject<HTMLDivElement>;
+    canvas: React.RefObject<HTMLCanvasElement>;
+
+    dragging: boolean;
+    mouseDown: (event: MouseEvent) => void;
+    mouseUp: (event: MouseEvent) => void;
+    mouseMove: (event: MouseEvent) => void;
+    mouseWheel: (event: WheelEvent) => void;
+
+    constructor(props: any) {
+        super(props);
+
+        this.rootDiv = React.createRef();
+        this.canvas = React.createRef();
+        this.dragging = false;
+
+        this.mouseUp = (event) => {
+            if (event.button === 0) {
+                this.dragging = false;
+            }
+        };
+        this.mouseDown = (event) => {
+            if (event.button === 0) {
+                this.dragging = true;
+            }
+        };
+        this.mouseMove = (event) => {
+            if (this.dragging) {
+                let speed = 0.005 * this.props.filter.fovY;
+
+                let rotUp = this.props.filter.rotUp - event.movementX * speed;
+                this.setRotUp(rotUp);
+
+                this.props.filter.rotRight -= event.movementY * speed;
+                this.forceUpdate();
+            }
+        };
+        this.mouseWheel = (event) => {
+            if (event.deltaY > 0) {
+                this.props.filter.fovY *= 1 + event.deltaY * 0.002;
+            } else {
+                this.props.filter.fovY /= 1 + Math.abs(event.deltaY) * 0.002;
+            }
+            this.forceUpdate();
+        };
+    }
+
+    componentDidMount() {
+        if (this.canvas.current) {
+            this.props.filter.previewCanvas = this.canvas.current;
+        }
+        window.addEventListener("mouseup", this.mouseUp);
+        window.addEventListener("mousemove", this.mouseMove);
+    }
+
+    componentWillUnmount() {}
+
+    render() {
+        return (
+            <div ref={this.rootDiv} className="conv360-to-2d-attribs-root">
                 <canvas
                     ref={this.canvas}
                     onMouseDown={(ev) => this.mouseDown(ev.nativeEvent)}
