@@ -167,11 +167,29 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
             },
         });
         this.videoManager = null;
+
+        // Bind listeners
+        this.onWindowResize = this.onWindowResize.bind(this);
+        this.onWindowMoved = this.onWindowMoved.bind(this);
     }
 
     componentDidMount() {
         this.createMenu();
         window.addEventListener("resize", this.onResized);
+        window.addEventListener("resize", this.onWindowResize);
+        if (settings.WindowSize !== null && settings.WindowPosition !== null) {
+            if (settings.WindowSize[0] >= window.screen.availWidth ||
+                settings.WindowSize[1] >= window.screen.availHeight) {
+                    window.moveTo(0,0);
+                    window.resizeTo(window.screen.width, window.screen.height);
+            }
+            else {
+                window.resizeTo(settings.WindowSize[0], settings.WindowSize[1]);
+            }
+        }
+        if(settings.WindowPosition !== undefined) {
+            window.moveTo(settings.WindowPosition[0], settings.WindowPosition[1]);
+        }
         this.ffMpegInstaller.current?.subscribe(this);
 
         this.initializeVideoManager();
@@ -183,6 +201,7 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
 
     componentWillUnmount() {
         this.ffMpegInstaller.current?.unsubscribe(this);
+        window.removeEventListener("resize", this.onWindowResize);
         window.removeEventListener("resize", this.onResized);
 
         if (this.videoManager) {
@@ -193,7 +212,13 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
         }
     }
 
-    installedStateChanged(ffmpegInstalled: boolean, ffprobeInstalled: boolean) {
+    protected onWindowResize() {
+        settings.WindowSize = [window.outerWidth, window.outerHeight];
+        settings.WindowPosition = [window.screenX, window.screenY];
+    }
+
+    protected onWindowMoved() {
+        settings.WindowPosition = [window.screenX, window.screenY];
 
     }
 
@@ -263,6 +288,11 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
             >
                 <FFmpegInstaller
                     ref={this.ffMpegInstaller}
+                    // changeFFmpegInstalledState={ (newState) => {
+                    //     this.setState({
+                    //         FFmpegInstalledState: newState
+                    //     });
+                    // }}
                 />
                 <SettingsBar
                     ref={this.settingsBar}
