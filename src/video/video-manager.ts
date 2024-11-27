@@ -70,7 +70,7 @@ export class VideoManager {
             if (outputFrame) {
                 this.drawToCanvas(targetCanvas, outputFrame);
             } else {
-                console.warn('No output frame to draw to.');
+                // console.warn('No output frame to draw to.');
             }
             if (this.keepRendering) {
                 this.requestRender();

@@ -4,12 +4,12 @@ import { Settings } from '../settings';
 import { Menu, MenuItem, dialog, getCurrentWindow, app, shell } from '@electron/remote';
 import path from 'path';
 import { VideoManager } from '../video/video-manager';
-import { ffMpedInstalledStates, FFMpegInstallerDialogMethods } from '../ffmpeg-installer';
+import { ffMpedInstalledStates as ffMpegInstalledStates, FFMpegInstallerDialogMethods } from '../ffmpeg-installer/ffmpeg-installer';
 import { settings } from '../app';
 
 interface TitleBarProps {
     videoManager: VideoManager | null;
-    ffMpegInstalledState: ffMpedInstalledStates;
+    ffMpegInstalledState: ffMpegInstalledStates;
     showFFmpegInstallerDialog: () => void;
 }
 
@@ -44,7 +44,6 @@ export const SettingsBar = React.forwardRef<SettingsBarMethods, TitleBarProps>( 
     if (props.ffMpegInstalledState === "Downloading") {
         ffmpegStatus = <Badge color="teal">Downloading FFmpeg...</Badge>
     }
-
 
     return (
         <Pane display="flex" flexDirection="row"

@@ -6,14 +6,15 @@ import { Progress } from 'react-sweet-progress';
 import "react-sweet-progress/lib/style.css";
 // import { Settings } from "../settings";
 import { X_OK } from "constants";
-import { isMac } from "./os-specific-logic";
+import { isMac } from "../os-specific-logic";
 import { app, dialog, getCurrentWindow } from "@electron/remote";
 import { Button, Dialog, majorScale, minorScale, Pane, Text, TextInput } from "evergreen-ui";
 import { info } from 'console';
 // import { BasicDialog } from '@src/components/_dialogs/dialog-templates';
 import ffbinaries from 'ffbinaries';
-import { Settings } from './settings';
-import { settings } from './app';
+import { Settings } from '../settings';
+import { settings } from '../app';
+import "./ffmpeg-installer.css";
 
 
 const CheckTimerInterval = 2000; // ms
@@ -21,7 +22,7 @@ const CheckTimerInterval = 2000; // ms
 export type ffMpedInstalledStates = "Installed" | "Missing" | "Checking" | "Downloading";
 
 export interface FFmpegInstalledListener {
-    installedStateChanged: (ffmpegInstalled: boolean, ffprobeInstalled: boolean) => void;
+    installedStateChanged: (state:ffMpedInstalledStates) => void;
 }
 
 export interface FFMpegInstallerDialogMethods {
@@ -36,6 +37,7 @@ export interface FFMpegInstallerDialogMethods {
 
 interface InstallerDialogProps {
     // settings:Settings;
+    // changeFFmpegInstalledState: (newState:ffMpedInstalledStates) => void;
 }
 
 let fileCheckTimer: number | null = null;
@@ -45,6 +47,7 @@ export const FFmpegInstaller = React.forwardRef<FFMpegInstallerDialogMethods, In
 
     const [dialogVisible, setDialogVisible] = useState<boolean>(false);
     const [_redraw, _setDraw] = useState<number>(0);
+    const [ffmpegState, setffmpegState] = useState<ffMpedInstalledStates>("Checking");
     const [ffmpegInstalled, setFFmpegInstalled] = useState<boolean>(false);
     const [ffprobeInstalled, setFFprobeInstalled] = useState<boolean>(false);
     const [ffmpegDownloadProgressPercent, setFFmpegDownloadProgressPercent] = useState<number>(-1);
@@ -57,10 +60,10 @@ export const FFmpegInstaller = React.forwardRef<FFMpegInstallerDialogMethods, In
     React.useImperativeHandle(ref, () => ({
         showDialog: () => {
             setDialogVisible(true);
-            startTimer();
+            // startTimer();
         },
         hideDialog: () => {
-            stopTimer();
+            // stopTimer();
             setDialogVisible(false);
         },
         subscribe: (listener: FFmpegInstalledListener) => {
@@ -80,15 +83,52 @@ export const FFmpegInstaller = React.forwardRef<FFMpegInstallerDialogMethods, In
         }
     }));
 
+    //Constructor
+    useEffect( () => {
+        // update();
+        startTimer();
+        return () => {
+            stopTimer();
+        }
+    }, []);
+
+    useEffect( () =>  {
+        console.log('State updated to: ' + ffmpegState);
+        update();
+    }, [ffmpegState]);
+
+    useEffect( () => {
+        console.log('ffmpeginstalled updated to : ' + ffmpegInstalled);
+        if (ffmpegState === 'Downloading') {
+            return;
+        }
+        const installed = ffmpegInstalled && ffprobeInstalled;
+        if (ffmpegState === "Checking") {
+            setffmpegState(installed ? "Installed" : "Missing");
+        } else
+        if (installed && ffmpegState !== 'Installed') {
+            setffmpegState("Installed");
+        } else
+        if (!installed && ffmpegState !== "Missing") {
+            setffmpegState("Missing");
+        }
+    }, [ffmpegInstalled, ffprobeInstalled]);
+
+    useEffect( () => {
+        // Recreate the timer so that it has the current values
+        stopTimer();
+        startTimer();
+    }, [ffmpegInstalled, ffprobeInstalled, ffmpegState]);
+
     function update() {
         listeners.forEach( (listener) => {
-            listener.installedStateChanged(ffmpegInstalled, ffprobeInstalled);
+            listener.installedStateChanged(ffmpegState);
         });
     }
 
     function startTimer() {
         if (fileCheckTimer) {
-            return;
+            stopTimer();
         }
         fileCheckTimer = window.setInterval( () => {
             timerInterval();
@@ -103,6 +143,9 @@ export const FFmpegInstaller = React.forwardRef<FFMpegInstallerDialogMethods, In
     }
 
     function timerInterval() {
+        if (ffmpegState === "Downloading") {
+            return;
+        }
         let ffmpegAvailable = false;
         let ffprobeAvailable = false;
         try {
@@ -113,10 +156,14 @@ export const FFmpegInstaller = React.forwardRef<FFMpegInstallerDialogMethods, In
             fs.accessSync(settings.ffProbeExecutablePath, X_OK);
             ffprobeAvailable = true;
         } catch {}
-        if (ffmpegAvailable !== ffmpegInstalled || ffprobeAvailable !== ffprobeInstalled) {
+        console.log(`Checking for installed. MPEG: ${ffmpegAvailable}, PROBE: ${ffprobeAvailable}`);
+        if (ffmpegAvailable !== ffmpegInstalled || ffprobeAvailable !== ffprobeInstalled || ffmpegState === "Checking") {
+            console.log('Updating installed status...');
             setFFmpegInstalled(ffmpegAvailable);
-            setFFprobeInstalled(ffprobeAvailable)
-            update();
+            setFFprobeInstalled(ffprobeAvailable);
+            if (ffmpegState === "Checking") {
+                setffmpegState( ffmpegAvailable && ffprobeAvailable ? "Installed" : "Missing");
+            }
         }
     }
 
@@ -129,6 +176,7 @@ export const FFmpegInstaller = React.forwardRef<FFMpegInstallerDialogMethods, In
     function downloadFFmpeg() {
         info('Downloading FFmpeg')
         settings.userInstalledFFmpeg = true;
+        setffmpegState('Downloading');
 
         if (ffmpegDownloadProgressPercent >= 0 || ffprobeDownloadProgressPercent >= 0) {
             // There is already a download in progress. Abort
@@ -158,6 +206,7 @@ export const FFmpegInstaller = React.forwardRef<FFMpegInstallerDialogMethods, In
             for (let fileResult of data) {
                 info(`${fileResult.filename} downloaded to: ${fileResult.path} with status: ${fileResult.status}`);
             }
+            setffmpegState("Checking");
             // Clear the progress bars
             // We do this as a timeout just in case there is still an update pending (it occationally happened in testing)
             const d = setTimeout( () => {
@@ -181,6 +230,7 @@ export const FFmpegInstaller = React.forwardRef<FFMpegInstallerDialogMethods, In
             fs.rmSync(settings.ffProbeExecutablePath, { force: true });
             info('FFprobe deleted.');
         } catch {}
+        setffmpegState("Checking");
     }
 
     function ffmpegDownloadUpdate(data:any) {
@@ -221,7 +271,7 @@ export const FFmpegInstaller = React.forwardRef<FFMpegInstallerDialogMethods, In
 
             }}
             onCloseComplete={ () => {
-                stopTimer();
+                // stopTimer();
                 setDialogVisible(false);
             }}
             onConfirm={ (close: () => void) => {
@@ -253,7 +303,9 @@ export const FFmpegInstaller = React.forwardRef<FFMpegInstallerDialogMethods, In
                 <Pane display="flex" flexDirection="column">
                     {
                         ffmpegDownloadProgressPercent < 0
-                        ?   null
+                        ?   ffmpegInstalled
+                                ?   <Pane display="flex" flexDirection="row" alignItems="center" justifyContent="flex-start" whiteSpace="nowrap"><i className="icon icon-green icofont-check-circled"></i><span>FFmpeg Available</span></Pane>
+                                :   <Pane display="flex" flexDirection="row" alignItems="center" justifyContent="flex-start" whiteSpace="nowrap"><i className="icon icon-red icofont-exclamation-tringle"></i><span>FFmpeg Missing</span></Pane>
                         :   <Pane display="flex" flexDirection="row">
                                 <span>Downloading FFmpeg... </span>
                                 <Progress percent={ffmpegDownloadProgressPercent} status={"active"}/>
@@ -261,7 +313,9 @@ export const FFmpegInstaller = React.forwardRef<FFMpegInstallerDialogMethods, In
                     }
                     {
                         ffprobeDownloadProgressPercent < 0
-                        ?   null
+                        ?   ffprobeInstalled
+                            ?   <Pane display="flex" flexDirection="row" alignItems="center" justifyContent="flex-start" whiteSpace="nowrap"><i className="icon icon-green icofont-check-circled"></i><span>FFprobe Available</span></Pane>
+                            :   <Pane display="flex" flexDirection="row" alignItems="center" justifyContent="flex-start" whiteSpace="nowrap"><i className="icon icon-red icofont-exclamation-tringle"></i><span>FFprobe Missing</span></Pane>
                         :   <Pane display="flex" flexDirection="row">
                                 <span>Downloading FFmpeg... </span>
                                 <Progress percent={ffmpegDownloadProgressPercent} status={"active"}/>

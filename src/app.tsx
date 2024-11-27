@@ -37,11 +37,12 @@ import {
 } from "./ui-mixed/filter-attributes/creators";
 import { ExportInfoProvider, ExportOverlay } from "./ui-mixed/export-overlay/export-overlay";
 import { DimensionChangeListener } from "./video/filter-pipeline";
-import { ffMpedInstalledStates, FFmpegInstalledListener, FFmpegInstaller, FFMpegInstallerDialogMethods } from "./ffmpeg-installer";
+import { ffMpedInstalledStates, FFmpegInstalledListener, FFmpegInstaller, FFMpegInstallerDialogMethods } from "./ffmpeg-installer/ffmpeg-installer";
 import { SettingsBar, SettingsBarMethods } from "./ui-settings-bar/settings-bar";
 import { Settings } from "./settings";
 import { Pane } from "evergreen-ui";
 import { existsSync } from "fs";
+import "./img/icofont/icofont.css";
 
 // TODO: move this to a redux store maybe
 export interface AppState {
@@ -98,6 +99,7 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
             this.setState({ outputAspectRatio: aspectRatio });
         };
         this.onResized = () => {
+
             if (this.previewPanelRef.current) {
                 this.previewPanelRef.current.resized();
             }
@@ -219,7 +221,12 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
 
     protected onWindowMoved() {
         settings.WindowPosition = [window.screenX, window.screenY];
+    }
 
+    installedStateChanged(installedState:ffMpedInstalledStates) {
+        this.setState({
+            FFmpegInstalledState: installedState
+        });
     }
 
     render() {
