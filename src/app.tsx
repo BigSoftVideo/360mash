@@ -10,7 +10,6 @@ import * as React from "react";
 
 import { SplitPanelHor } from "./ui-presentational/split-panel/split-panel-hor";
 import { SplitPanelVer } from "./ui-presentational/split-panel/split-panel-ver";
-import { VideoPanel } from "./ui-presentational/video-panel/video-panel";
 import { PreviewPanel } from "./ui-mixed/preview-panel/preview-panel";
 import { VideoManager, Video } from "./video/video-manager";
 import { FilterManager } from "./video/filter-manager";
@@ -45,6 +44,7 @@ import { Pane } from "evergreen-ui";
 import { existsSync } from "fs";
 import "./img/icofont/icofont.css";
 import { Flat2DPositionerFilter, POSITION_2D_FILTER_NAME } from "./filters/2dVideoPositioning";
+import { UserInputManager } from "./userinput";
 
 // TODO: move this to a redux store maybe
 export interface AppState {
@@ -59,6 +59,9 @@ export const settings = new Settings();
 export function FFmpegExists():boolean {
     return existsSync(settings.ffMpegExecutablePath) && existsSync(settings.ffProbeExecutablePath);
 }
+
+export const InputManager = new UserInputManager();
+InputManager.init();
 
 export class App extends React.Component<{}, AppState> implements FFmpegInstalledListener {
     previewPanelRef: React.RefObject<PreviewPanel>;
@@ -263,13 +266,6 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
                     exportStateChange={(inProgress) => {
                         this.setState({ exportInProgress: inProgress });
                     }}
-                    clipRangeChange={(start, end) => {
-                        if (this.videoManager) {
-                            this.videoManager.startSec = start;
-                            this.videoManager.endSec = end;
-                            this.forceUpdate();
-                        }
-                    }}
                     infoProvider={this.exportInfoProvider}
                 ></ExportPanel>
             );
@@ -321,11 +317,18 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
                     </SplitPanelHor>
                     <SplitPanelHor defaultPercentage={75} onResize={this.onResized}>
                         <PreviewPanel
-                            startSec={this.videoManager?.startSec || 0}
-                            endSec={this.videoManager?.endSec || 0}
+                            selectionStartSec={this.videoManager?.startSec || 0}
+                            selectionEndSec={this.videoManager?.endSec || Infinity}
                             ref={this.previewPanelRef}
                             videoAspectRatio={this.state.outputAspectRatio}
-                            video={this.videoManager?.video?.htmlVideo}
+                            video={this.videoManager?.video || null}
+                            updateSelection={(newStart, newEnd) => {
+                                if (this.videoManager) {
+                                    this.videoManager.startSec = newStart;
+                                    this.videoManager.endSec = newEnd;
+                                    this.forceUpdate();
+                                }
+                            }}
                         ></PreviewPanel>
                         {exportPanel}
                     </SplitPanelHor>

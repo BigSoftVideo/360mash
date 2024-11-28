@@ -47,7 +47,8 @@ import { App } from "./app";
 //     document.getElementById("app")
 // );
 // ReactDOM.render(<App />, document.getElementById('app'));
-
+import { initializeIcons } from '@fluentui/react/lib/Icons';
+initializeIcons();
 //React 18:
 /* Render out React component to HTML template */
 const container = document.getElementById("app");

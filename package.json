@@ -78,6 +78,8 @@
         "@electron/remote": "^2.0.4",
         "@emotion/react": "^11.5.0",
         "@emotion/styled": "^11.3.0",
+        "@fluentui/react": "^8.55.3",
+        "@fluentui/react-icons-mdl2": "^1.2.16",
         "@mui/material": "^5.1.0",
         "debounce": "^2.2.0",
         "dotenv": "^16.0.3",
@@ -88,8 +90,11 @@
         "gl-matrix": "^3.4.3",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
+        "react-icons": "^5.3.0",
+        "react-range": "^1.10.0",
         "react-sweet-progress": "^1.1.2",
-        "settings-store": "^1.4.1"
+        "settings-store": "^1.4.1",
+        "throttleit": "^2.1.0"
     },
     "packageManager": "yarn@3.1.1"
 }

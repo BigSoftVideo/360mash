@@ -37,7 +37,7 @@ export interface ExportPanelProps {
 
     startSec: number;
     endSec: number;
-    clipRangeChange: (startSec: number, endSec: number) => void;
+    // clipRangeChange: (startSec: number, endSec: number) => void;
 }
 
 interface ExportPanelState {
@@ -168,7 +168,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                             }}
                         ></input>
                     </div> */}
-                    <button
+                    {/* <button
                         onClick={() => {
                             let video = this.props.videoManager.video;
                             if (video) {
@@ -191,7 +191,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                         }}
                     >
                         Set end frame: {secsToTimeString(this.props.endSec)}
-                    </button>
+                    </button> */}
                     <select
                         name="resolutions"
                         onChange={(event) => {

@@ -2,25 +2,32 @@ import "./preview-panel.css";
 
 import * as React from "react";
 
-import { VideoPanel } from "../../ui-presentational/video-panel/video-panel";
 import { AspectRatioFitter } from "../../ui-presentational/aspect-ratio-fitter/aspect-ratio-fitter";
-import { VideoManager } from "../../video/video-manager";
+import { Video, VideoListener, VideoManager } from "../../video/video-manager";
 import { Regular2DProjectionShader } from "./preview-render";
 import { secsToTimeString } from "../../util";
+import { Range } from "react-range";
+import { TimelineSelector } from "../../timeline-selector/timeline-selector";
+import throttle from "throttleit";
+import { Pane } from "evergreen-ui";
+import { TransportControls } from "../../transport-controls/transport-controls";
 
 export interface PreviewPanelProps {
     //videoManager: VideoManager | null;
-    startSec: number;
-    endSec: number;
+    selectionStartSec: number;
+    selectionEndSec: number;
+    updateSelection: (start:number, end:number) => void;
     videoAspectRatio: number;
-    video: HTMLVideoElement | undefined;
+    video: Video | null;
 }
 
 interface PreviewPanelState {
     videoTime: number;
 }
 
-export class PreviewPanel extends React.Component<PreviewPanelProps, PreviewPanelState> {
+export class PreviewPanel extends React.Component<PreviewPanelProps, PreviewPanelState>
+    implements VideoListener
+{
     protected aspectFitterRef: React.RefObject<AspectRatioFitter>;
     //protected canvasRef: React.RefObject<HTMLCanvasElement>;
     protected shader: Regular2DProjectionShader | null;
@@ -64,41 +71,82 @@ export class PreviewPanel extends React.Component<PreviewPanelProps, PreviewPane
 
     componentDidMount() {
         this.resized();
+        this.props.video?.addListener(this);
     }
 
-    componentDidUpdate(prevProps: PreviewPanelProps) {
+    componentWillUnmount(): void {
+        this.props.video?.removeListener(this);
+    }
+
+    componentDidUpdate(prevProps: Readonly<PreviewPanelProps>, prevState: Readonly<PreviewPanelState>, snapshot?: any): void {
         this.resized();
 
         if (prevProps.video !== this.props.video) {
-            if (prevProps.video) {
-                prevProps.video.removeEventListener("timeupdate", this.videoTimeUpdate);
+            if (prevProps.video !== this.props.video) {
+                prevProps.video?.removeListener(this);
+                this.props.video?.addListener(this);
             }
 
             if (this.props.video) {
                 this.setState({ videoTime: this.props.video.currentTime });
-                this.props.video.addEventListener("timeupdate", this.videoTimeUpdate);
             }
         }
     }
 
+    onTimeUpdate(currentTime: number) {
+        this.setState({ videoTime: currentTime });
+    }
+
     render() {
         let videoLen = this.props.video?.duration || 0;
-        let videoEnd = this.props.endSec;
+        let videoEnd = this.props.selectionEndSec;
         if (videoEnd === Infinity) {
             videoEnd = videoLen;
         }
 
         return (
             <div className="preview-root">
-                <div className="preview-playback-controls">
-                    <button
+                <Pane display="flex" flexDirection="column">
+                    <TransportControls
+                        video={this.props.video}
+                        selectionStartSec={this.props.selectionStartSec}
+                        selectionEndSec={this.props.selectionEndSec}
+                        updateSelection={this.props.updateSelection}
+                    />
+                    {/* <button
                         className="preview-playback-controls-play"
                         onClick={this.togglePlay.bind(this)}
                     >
                         Play/Pause
-                    </button>
-                    {secsToTimeString(this.props.video?.currentTime || 0)}
-                    <button
+                    </button> */}
+                    <Pane display="flex" flexDirection="row" justifyContent="center" alignContent="center">
+                        {secsToTimeString(this.state.videoTime)}
+                        {/* <button
+                            onClick={() => {
+                                let video = this.props.video;
+                                if (video) {
+                                    let start = video.htmlVideo.currentTime;
+                                    let end = Math.max(this.props.selectionEndSec, start);
+                                    this.props.updateSelection(start, end);
+                                }
+                            }}
+                        >
+                            Set start frame: {secsToTimeString(this.props.selectionStartSec)}
+                        </button>
+                        <button
+                            onClick={() => {
+                                let video = this.props.video;
+                                if (video) {
+                                    let end = video.htmlVideo.currentTime;
+                                    let start = Math.min(this.props.selectionStartSec, end);
+                                    this.props.updateSelection(start, end);
+                                }
+                            }}
+                        >
+                            Set end frame: {secsToTimeString(this.props.selectionEndSec)}
+                        </button> */}
+                    </Pane>
+                    {/* <button
                         className="preview-playback-controls-frameshifter"
                         onClick={this.addAndDecreaseTime.bind(this, -0.05)}
                     >
@@ -109,8 +157,8 @@ export class PreviewPanel extends React.Component<PreviewPanelProps, PreviewPane
                         onClick={this.addAndDecreaseTime.bind(this, 0.05)}
                     >
                         +
-                    </button>
-                    <input
+                    </button> */}
+                    {/* <input
                         className="preview-timeline"
                         type="range"
                         min={0}
@@ -118,8 +166,22 @@ export class PreviewPanel extends React.Component<PreviewPanelProps, PreviewPane
                         step={0.01}
                         onChange={this.videoTimeSet.bind(this)}
                         value={this.state.videoTime}
-                    ></input>
-                </div>
+                    ></input> */}
+
+                    <TimelineSelector
+                        videoLength={videoLen}
+                        currentTime={this.state.videoTime}
+                        setTime={ (newTime) => {
+                            this.setState({ videoTime: newTime });
+                            this.setVideoTime(newTime);
+                        }}
+                        selectionStart={this.props.selectionStartSec}
+                        selectionEnd={this.props.selectionEndSec}
+                        setSelection={(start, end) => {
+                            this.props.updateSelection(start, end);
+                        }}
+                    />
+                </Pane>
                 <div className="preview-video-container">
                     <AspectRatioFitter
                         ref={this.aspectFitterRef}
@@ -137,6 +199,13 @@ export class PreviewPanel extends React.Component<PreviewPanelProps, PreviewPane
                 </div>
             </div>
         );
+    }
+
+    protected setVideoTime = throttle(this._setVideoTime, 30);
+    protected _setVideoTime(newTime:number) {
+        if (this.props.video) {
+            this.props.video.directSeekToTime(newTime);
+        }
     }
 
     resized() {
@@ -176,31 +245,31 @@ export class PreviewPanel extends React.Component<PreviewPanelProps, PreviewPane
         this.shader.draw(gl);
     }
 
-    protected togglePlay() {
-        if (this.props.video) {
-            if (this.props.video.paused) {
-                this.props.video.play();
-            } else {
-                this.props.video.pause();
-            }
-        }
-    }
+    // protected togglePlay() {
+    //     if (this.props.video) {
+    //         if (this.props.video.paused) {
+    //             this.props.video.play();
+    //         } else {
+    //             this.props.video.pause();
+    //         }
+    //     }
+    // }
 
-    protected videoTimeSet(event: React.ChangeEvent<HTMLInputElement>) {
-        if (this.props.video) {
-            this.props.video.currentTime = event.target.valueAsNumber;
-        }
-    }
+    // protected videoTimeSet(event: React.ChangeEvent<HTMLInputElement>) {
+    //     if (this.props.video) {
+    //         this.props.video.currentTime = event.target.valueAsNumber;
+    //     }
+    // }
 
-    protected addAndDecreaseTime(time: number) {
-        if (this.props.video) {
-            if (this.props.video.currentTime + time >= 0) {
-                this.props.video.currentTime = this.props.video.currentTime + time;
-            } else if (this.props.video.currentTime + time > this.props.video.duration) {
-                this.props.video.currentTime = this.props.video.duration;
-            } else {
-                this.props.video.currentTime = 0;
-            }
-        }
-    }
+    // protected addAndDecreaseTime(time: number) {
+    //     if (this.props.video) {
+    //         if (this.props.video.currentTime + time >= 0) {
+    //             this.props.video.currentTime = this.props.video.currentTime + time;
+    //         } else if (this.props.video.currentTime + time > this.props.video.duration) {
+    //             this.props.video.currentTime = this.props.video.duration;
+    //         } else {
+    //             this.props.video.currentTime = 0;
+    //         }
+    //     }
+    // }
 }

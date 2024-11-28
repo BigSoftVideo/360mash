@@ -16,33 +16,33 @@ export interface VideoPanelProps {
     isPlaying: boolean;
 }
 
-export class VideoPanel extends React.Component<VideoPanelProps> {
-    video: React.RefObject<HTMLVideoElement>;
+// export class VideoPanel extends React.Component<VideoPanelProps> {
+//     video: React.RefObject<HTMLVideoElement>;
 
-    constructor(params: any) {
-        super(params);
+//     constructor(params: any) {
+//         super(params);
 
-        this.video = React.createRef();
-    }
+//         this.video = React.createRef();
+//     }
 
-    componentDidUpdate(prevProps: VideoPanelProps) {
-        if (this.video.current) {
-            if (prevProps.videoUrl !== this.props.videoUrl) {
-                this.video.current.src = this.props.videoUrl;
-            }
-            if (this.props.isPlaying) {
-                this.video.current.play();
-            } else {
-                this.video.current.pause();
-            }
-            let timeDiff = Math.abs(prevProps.requestedTime - this.props.requestedTime);
-            if (timeDiff > 0.01) {
-                this.video.current.currentTime = this.props.requestedTime;
-            }
-        }
-    }
+//     componentDidUpdate(prevProps: VideoPanelProps) {
+//         if (this.video.current) {
+//             if (prevProps.videoUrl !== this.props.videoUrl) {
+//                 this.video.current.src = this.props.videoUrl;
+//             }
+//             if (this.props.isPlaying) {
+//                 this.video.current.play();
+//             } else {
+//                 this.video.current.pause();
+//             }
+//             let timeDiff = Math.abs(prevProps.requestedTime - this.props.requestedTime);
+//             if (timeDiff > 0.01) {
+//                 this.video.current.currentTime = this.props.requestedTime;
+//             }
+//         }
+//     }
 
-    render() {
-        return <video ref={this.video} className={this.props.className}></video>;
-    }
-}
+//     render() {
+//         return <video ref={this.video} className={this.props.className}></video>;
+//     }
+// }

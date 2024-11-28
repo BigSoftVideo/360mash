@@ -34,7 +34,7 @@ export function OSTextChoice(windowsText:string, macText:string, linuxText:strin
 
 // ⌘ ⇧ ⌥ ⌃
 export function OSShortcutChoice(win:string, mac:string, linux:string):string {
-    return " (" + OSTextChoice(win, mac, linux) + ")";
+    return " -- " + OSTextChoice(win, mac, linux) + " ";
 }
 
 export function isMac():boolean {

@@ -14,6 +14,7 @@ import { CharcoalFilter } from "../../filters/charcoal";
 import { PaintingFilter } from "../../filters/painting";
 import { BAndCFilter } from "../../filters/bandc";
 import { Flat2DPositionerFilter } from "../../filters/2dVideoPositioning";
+import { AspectRatioFitter } from "../../ui-presentational/aspect-ratio-fitter/aspect-ratio-fitter";
 
 export function GrayscaleAttribsCreator(filter: GrayscaleFilter): JSX.Element {
     let attributes = new Map<string, FilterAttributeBinding<GrayscaleFilter>>();
@@ -373,11 +374,15 @@ class Flat2DPositionerAttributes extends React.Component<{ filter: Flat2DPositio
     render() {
         return (
             <div ref={this.rootDiv} className="conv360-to-2d-attribs-root">
-                <canvas
-                    ref={this.canvas}
-                    onMouseDown={(ev) => this.mouseDown(ev.nativeEvent)}
-                    onWheel={(ev) => this.mouseWheel(ev.nativeEvent)}
-                ></canvas>
+                {/* <AspectRatioFitter
+                    aspectRatio={}
+                > */}
+                    <canvas
+                        ref={this.canvas}
+                        onMouseDown={(ev) => this.mouseDown(ev.nativeEvent)}
+                        onWheel={(ev) => this.mouseWheel(ev.nativeEvent)}
+                    />
+                {/* </AspectRatioFitter> */}
             </div>
         );
     }
