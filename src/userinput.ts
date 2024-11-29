@@ -593,7 +593,11 @@ export const ActionsUiOrder = [
     ActionKind.ZoomUiOut,
     ActionKind.Deselect,
     ActionKind.CreateSelection,
-    ActionKind.EnterPressed
+    ActionKind.EnterPressed,
+    ActionKind.MoveSelectionStartToPlayhead,
+    ActionKind.MoveSelectionEndToPlayhead,
+    ActionKind.JumpToSelectionStart,
+    ActionKind.JumpToSelectionEnd
 ];
 // Dividing by two because for each variant there are two keys: the ID and the NAME of the variant.
 // Subtracting one, because the `None` value doesnt need to be displayed on the ui.

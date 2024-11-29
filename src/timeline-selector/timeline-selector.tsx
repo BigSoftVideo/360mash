@@ -5,8 +5,11 @@ import { useThumbOverlap } from 'react-range';
 
 // const COLORS = ["#0C2960", "#276EF1", "#9CBCF8", "#ccc"];
 const COLORS = ["#ccc", "#ccc", "#ccc", "#ccc"];
-const THUMB_SIZE = 20;
+const COLOURS_Playhead_In_Selection = ["#ccc", "#276EF1", "#276EF1", "#ccc"];
+const COLOURS_Playhead_Before_Selection = ["#ccc", "#ccc", "#276EF1", "#ccc"];
+const COLOURS_Playhead_After_Selection = ["#ccc", "#276EF1", "#ccc", "#ccc"];
 
+const THUMB_SIZE = 20;
 interface Props {
     videoLength: number;
     currentTime: number;
@@ -37,6 +40,16 @@ export const TimelineSelector = React.forwardRef<TimelineSelectorMethods, Props>
         return Math.max(0, Math.min(MAX, value));
     }
 
+    let colours = COLORS;
+    if (currentTime < selectionStart) {
+        colours = COLOURS_Playhead_Before_Selection;
+    } else
+    if (currentTime > selectionEnd) {
+        colours = COLOURS_Playhead_After_Selection;
+    } else {
+        colours = COLOURS_Playhead_In_Selection;
+    }
+
     return (
         <Pane margin={minorScale(1)} paddingTop={24} paddingX={30} border="inset" width="100%" backgroundColor="#AAAAAA33">
             <Range
@@ -62,37 +75,39 @@ export const TimelineSelector = React.forwardRef<TimelineSelectorMethods, Props>
                 min={0}
                 max={MAX}
                 step={0.03}
-                renderTrack={({ props, children }) => (
-                    <div
-                    onMouseDown={props.onMouseDown}
-                    onTouchStart={props.onTouchStart}
-                    style={{
-                        ...props.style,
-                        height: "36px",
-                        display: "flex",
-                        width: "100%",
-                    }}
-                    >
-                    <div
-                        ref={props.ref}
+                renderTrack={({ props, children }) => {
+                    return(
+                        <div
+                        onMouseDown={props.onMouseDown}
+                        onTouchStart={props.onTouchStart}
                         style={{
-                        height: "5px",
-                        width: "100%",
-                        borderRadius: "4px",
-                        background: getTrackBackground({
-                            values: [currentTime, selectionStart, selectionEnd],
-                            colors: COLORS,
-                            min: 0,
-                            max: videoLength || 1,
-                            // rtl,
-                        }),
-                        alignSelf: "center",
+                            ...props.style,
+                            height: "36px",
+                            display: "flex",
+                            width: "100%",
                         }}
-                    >
-                        {children}
-                    </div>
-                    </div>
-                )}
+                        >
+                        <div
+                            ref={props.ref}
+                            style={{
+                            height: "5px",
+                            width: "100%",
+                            borderRadius: "4px",
+                            background: getTrackBackground({
+                                values: [currentTime, selectionStart, selectionEnd],
+                                colors: colours,
+                                min: 0,
+                                max: videoLength || 1,
+                                // rtl,
+                            }),
+                            alignSelf: "center",
+                            }}
+                        >
+                            {children}
+                        </div>
+                        </div>
+                    )
+                }}
                 renderThumb={({ props, index, isDragged }) => {
                     // Index 0 should be 'currentTime' slider
                     return (
