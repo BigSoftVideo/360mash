@@ -190,7 +190,7 @@ export class Video {
         this._filePath = filePath;
         this.video = document.createElement("video");
         this.video.autoplay = false;
-        this.video.muted = true;
+        this.video.muted = false;
         this.video.loop = false;
         // this.video.addEventListener(
         //     "playing",
