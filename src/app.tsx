@@ -323,11 +323,10 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
                         <div>{filterList}</div>
                         <div className="filter-attribs-parent">{filterAttributes}</div>
                     </SplitPanelHor>
-                    <SplitPanelHor defaultPercentage={75} onResize={this.onResized}>
-                        <PreviewPanel
+                    <PreviewPanel
+                            ref={this.previewPanelRef}
                             selectionStartSec={this.videoManager?.startSec || 0}
                             selectionEndSec={this.videoManager?.endSec || Infinity}
-                            ref={this.previewPanelRef}
                             videoAspectRatio={this.state.outputAspectRatio}
                             video={this.videoManager?.video || null}
                             updateSelection={(newStart, newEnd) => {
@@ -337,9 +336,11 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
                                     this.forceUpdate();
                                 }
                             }}
-                        ></PreviewPanel>
-                        {/* {exportPanel} */}
-                    </SplitPanelHor>
+                    />
+                    {/* <SplitPanelHor defaultPercentage={75} onResize={this.onResized}>
+
+                        {exportPanel}
+                    </SplitPanelHor> */}
                 </SplitPanelVer>
                 {exportOverlay}
             </Pane>
@@ -352,6 +353,7 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
         }
         let previewPanel = this.previewPanelRef.current;
         if (previewPanel) {
+            console.log("Init Video Manager");
             let canvas = previewPanel.getCanvas();
             if (canvas) {
                 this.videoManager = new VideoManager(
