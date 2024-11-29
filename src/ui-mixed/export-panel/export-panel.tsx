@@ -233,7 +233,9 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                         </select>
                     </Pane>
                     <Pane marginX={minorScale(1)} marginLeft="auto">
-                        <button disabled={!settings.ffMpegPath || !settings.outputPath} onClick={this.startFFmpegExport.bind(this)}>Export</button>
+                        <button
+                            disabled={!settings.ffMpegPath || !settings.outputPath || !this.props.videoManager || !this.props.videoManager.video}
+                            onClick={this.startFFmpegExport.bind(this)}>Export</button>
                     </Pane>
                     {/* {statusMessage} */}
                     {/* <button onClick={this.fetchFrame.bind(this)}>Get current frame</button> */}
