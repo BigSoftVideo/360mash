@@ -387,7 +387,7 @@ export class Encoder {
         let writeFrame = async (buffer: Uint8Array) => {
             let frameId = this.frameId;
             // console.log(
-            //     "Writing frame",
+            //     "Getting User Frame",
             //     frameId,
             //     "written buffer count:",
             //     this.frameFifo.writtenBufferCount()
@@ -409,6 +409,7 @@ export class Encoder {
                 return;
             }
             if (isLastFrame) {
+                // console.log('Last frame found to be: ' + frameId);
                 this.lastFrameId = frameId;
             } else {
                 this.frameFifo.write(writeFrame);
@@ -420,7 +421,9 @@ export class Encoder {
     async writePreparedFrames(): Promise<void> {
         let finishedWriting = -1;
         let outFrameId = -1;
-        while (true) {
+        // console.log('Starting to write Prepared Frames...');
+        let writingFrameDone = false;
+        while (!writingFrameDone) {
             if (outFrameId > this.lastFrameId) {
                 return;
             }
@@ -450,7 +453,7 @@ export class Encoder {
                 let writeIsDone = false;
                 let callNextWriteOnWriteDone = false;
                 let onWriteDone = (err: Error | null | undefined) => {
-                    // console.log("ENCODER Finished writing frame", frameId);
+                    // console.log("ENCODER Finished writing frame", outFrameId);
                     writeIsDone = true;
                     this.sumWriteMs += new Date().getTime() - writeStart.getTime();
                     // console.log("Write done - " + frameId);
@@ -464,6 +467,8 @@ export class Encoder {
                         return;
                     }
                     if (isLastFrame) {
+                        // console.log('Last Frame reached. Ending encoding...');
+                        writingFrameDone = true;
                         // This was the last frame
                         this.endEncoding();
                         return;
@@ -480,7 +485,7 @@ export class Encoder {
                 }
 
                 let writeStart = new Date();
-                // console.log("ENCODER Starting to write frame", frameId);
+                // console.log("ENCODER Starting to write frame", outFrameId);
                 canWriteMore = this.ffmpegProc.stdin.write(buffer, onWriteDone);
                 if (!isLastFrame) {
                     if (canWriteMore) {
@@ -488,6 +493,7 @@ export class Encoder {
                     } else {
                         // The pipe is full, we need to wait a while before we can push more data
                         // into it.
+                        // console.log('Pipe is full. Draining...');
                         let drainWaitStart = new Date();
                         this.ffmpegProc.stdin.once("drain", () => {
                             this.sumDrainWaitMs +=
