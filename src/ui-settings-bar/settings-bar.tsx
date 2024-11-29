@@ -6,11 +6,18 @@ import path from 'path';
 import { VideoManager } from '../video/video-manager';
 import { ffMpedInstalledStates as ffMpegInstalledStates, FFMpegInstallerDialogMethods } from '../ffmpeg-installer/ffmpeg-installer';
 import { settings } from '../app';
+import { AvailableEncoders, ExportPanel } from '../ui-mixed/export-panel/export-panel';
+import { Decoder, Encoder } from '../video/codec';
+import { ExportInfoProvider } from '../ui-mixed/export-overlay/export-overlay';
 
 interface TitleBarProps {
     videoManager: VideoManager | null;
     ffMpegInstalledState: ffMpegInstalledStates;
     showFFmpegInstallerDialog: () => void;
+    encoder: Encoder;
+    decoder: Decoder;
+    exportStateChange: (inProgress: boolean) => void;
+    infoProvider: ExportInfoProvider;
 }
 
 export interface SettingsBarMethods {
@@ -83,59 +90,75 @@ export const SettingsBar = React.forwardRef<SettingsBarMethods, TitleBarProps>( 
                     />
                 </Pane>
             </Pane>
-            <Pane display="flex" flexDirection="row"
-                flexGrow={1}
-                alignItems="center"
-                border="inset"
-                padding={minorScale(1)}
-                backgroundColor="#ffffff"
-            >
-                <TextInputField
-                    marginX={minorScale(1)}
-                    marginBottom={0}
+            <Pane display="flex" flexDirection="column" flexGrow={1}>
+                <Pane display="flex" flexDirection="row" flexGrow={1}
+                    alignItems="center"
+                    border="inset"
+                    padding={minorScale(1)}
+                    backgroundColor="#ffffff"
+                >
+                    <TextInputField
+                        marginX={minorScale(1)}
+                        marginBottom={0}
+                        flexGrow={1}
+                        readOnly
+                        label="Source video file location"
+                        placeholder="click 'Browse' to locate"
+                        value={ sourcePath }
+                    />
+                    <Button
+                        marginX={minorScale(1)}
+                        onClick={ () => {
+                            const mainWindow = getCurrentWindow();
+                            dialog
+                                .showOpenDialog(mainWindow, {
+                                    title: "Import Video",
+                                    buttonLabel: "Open",
+                                    properties: ["openFile"],
+                                    filters: [
+                                        {
+                                            name: "Media Files",
+                                            extensions: ["mp4", "webm", "mov", "avi", "mkv", "flv", "wmv"],
+                                        },
+                                        {   name: 'All Files',
+                                            extensions: ['*']}
+                                    ],
+                                    defaultPath: settings.lastUsedInputPath,
+                                })
+                                .then((value: any) => {
+                                    if (value.canceled || value.filePaths.length === 0) {
+                                        return;
+                                    }
+                                    if (!props.videoManager) {
+                                        console.error('Video Manager not defined.');
+                                        return;
+                                    }
+                                    //console.log("File path is " + value.filePaths[0]);
+                                    //this.setState({ videoUrl: fileURL });
+                                    setSourcePath(value.filePaths[0]);
+                                    settings.lastUsedInputPath = path.dirname(value.filePaths[0]);
+                                    props.videoManager.openVideo(value.filePaths[0]);
+                                    //TODO wait until the first frame is available and only then set the aspect ratio.
+                                    // Otherwise the videoWidth and height won't yet be available.
+                                });
+                        }}
+                    >Browse</Button>
+                </Pane>
+                <Pane display="flex" flexDirection="row"
                     flexGrow={1}
-                    readOnly
-                    label="Source video file location"
-                    placeholder="click 'Browse' to locate"
-                    value={ sourcePath }
-                />
-                <Button
-                    marginX={minorScale(1)}
-                    onClick={ () => {
-                        const mainWindow = getCurrentWindow();
-                        dialog
-                            .showOpenDialog(mainWindow, {
-                                title: "Import Video",
-                                buttonLabel: "Open",
-                                properties: ["openFile"],
-                                filters: [
-                                    {
-                                        name: "Media Files",
-                                        extensions: ["mp4", "webm", "mov", "avi", "mkv", "flv", "wmv"],
-                                    },
-                                    {   name: 'All Files',
-                                        extensions: ['*']}
-                                ],
-                                defaultPath: settings.lastUsedInputPath,
-                            })
-                            .then((value: any) => {
-                                if (value.canceled || value.filePaths.length === 0) {
-                                    return;
-                                }
-                                if (!props.videoManager) {
-                                    console.error('Video Manager not defined.');
-                                    return;
-                                }
-                                //console.log("File path is " + value.filePaths[0]);
-                                //this.setState({ videoUrl: fileURL });
-                                setSourcePath(value.filePaths[0]);
-                                settings.lastUsedInputPath = path.dirname(value.filePaths[0]);
-                                props.videoManager.openVideo(value.filePaths[0]);
-                                //TODO wait until the first frame is available and only then set the aspect ratio.
-                                // Otherwise the videoWidth and height won't yet be available.
-                            });
-                    }}
-                >Browse</Button>
+                    alignItems="center"
+                    border="inset"
+                    padding={minorScale(1)}
+                    backgroundColor="#ffffff"
+                >
+                    <ExportPanel
+                        videoManager={props.videoManager}
+                        encoder={props.encoder}
+                        decoder={props.decoder}
+                        exportStateChange={props.exportStateChange}
+                        infoProvider={props.infoProvider}
+                    />
+                </Pane>
             </Pane>
             {/* <ArrowRightIcon marginX={majorScale(1)}/>
             <Pane display="flex" flexDirection="row"

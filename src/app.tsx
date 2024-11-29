@@ -24,7 +24,7 @@ import { NewsPrintFilter, NEWSPRINT_FILTER_NAME } from "./filters/newsprint";
 import { FilterBase, FilterId } from "./video/filter-base";
 import { FilterList } from "./ui-mixed/filter-list/filter-list";
 import { Decoder, Encoder } from "./video/codec";
-import { ExportPanel } from "./ui-mixed/export-panel/export-panel";
+import { AvailableEncoders, ExportPanel } from "./ui-mixed/export-panel/export-panel";
 import {
     Conv360To2DAttribsCreator,
     GrayscaleAttribsCreator,
@@ -53,6 +53,8 @@ export interface AppState {
     exportInProgress: boolean;
     selectedFilterId: FilterId | null;
     FFmpegInstalledState: ffMpedInstalledStates;
+    selectedOutputDimentions: [number, number] | "MATCH_INPUT";
+    selectedEncoder: AvailableEncoders;
 }
 
 export const settings = new Settings();
@@ -89,6 +91,8 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
             exportInProgress: false,
             selectedFilterId: CONV360T02D_FILTER_NAME,
             FFmpegInstalledState: "Checking",
+            selectedOutputDimentions: "MATCH_INPUT",
+            selectedEncoder: "h264",
         };
         this.encoder = new Encoder();
         this.decoder = new Decoder();
@@ -244,7 +248,7 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
 
     render() {
         let filterList;
-        let exportPanel;
+        // let exportPanel;
         let filterAttributes = undefined;
         if (this.videoManager && this.videoManager.video) {
             filterList = (
@@ -256,19 +260,17 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
                     }}
                 ></FilterList>
             );
-            exportPanel = (
-                <ExportPanel
-                    startSec={this.videoManager.startSec}
-                    endSec={this.videoManager.endSec}
-                    encoder={this.encoder}
-                    decoder={this.decoder}
-                    videoManager={this.videoManager}
-                    exportStateChange={(inProgress) => {
-                        this.setState({ exportInProgress: inProgress });
-                    }}
-                    infoProvider={this.exportInfoProvider}
-                ></ExportPanel>
-            );
+            // exportPanel = (
+            //     <ExportPanel
+            //         encoder={this.encoder}
+            //         decoder={this.decoder}
+            //         videoManager={this.videoManager}
+            //         exportStateChange={(inProgress) => {
+            //             this.setState({ exportInProgress: inProgress });
+            //         }}
+            //         infoProvider={this.exportInfoProvider}
+            //     />
+            // );
             if (this.state.selectedFilterId) {
                 let creator = this.filterAttribs.get(this.state.selectedFilterId);
                 if (creator) {
@@ -284,8 +286,8 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
                 }
             }
         } else {
-            filterList = "- Import a video from the File menu -";
-            exportPanel = <div> -- </div>;
+            filterList = "- Import a video above -";
+            // exportPanel = <div> -- </div>;
         }
 
         let exportOverlay = undefined;
@@ -309,6 +311,12 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
                         this.ffMpegInstaller.current?.showDialog();
                     }}
                     videoManager={this.videoManager}
+                    encoder={this.encoder}
+                    decoder={this.decoder}
+                    exportStateChange={(inProgress) => {
+                        this.setState({ exportInProgress: inProgress });
+                    }}
+                    infoProvider={this.exportInfoProvider}
                 />
                 <SplitPanelVer defaultPercentage={40} onResize={this.onResized}>
                     <SplitPanelHor defaultPercentage={25} onResize={this.onResized}>
@@ -330,7 +338,7 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
                                 }
                             }}
                         ></PreviewPanel>
-                        {exportPanel}
+                        {/* {exportPanel} */}
                     </SplitPanelHor>
                 </SplitPanelVer>
                 {exportOverlay}
