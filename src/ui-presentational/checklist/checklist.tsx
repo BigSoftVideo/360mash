@@ -34,7 +34,7 @@ export class Checklist extends React.Component<ChecklistProps, ChecklistState> {
     }
 
     render() {
-        console.log("running render");
+        // console.log("running render");
         let items = this.props.elements.map((element, i) => {
             let background = "transparent";
             if (element.selected) {
@@ -116,8 +116,9 @@ export class Checklist extends React.Component<ChecklistProps, ChecklistState> {
         console.log("Dragging: " + id);
         /*  We prevent the first item from being dragged because we assume that the checklist
             is only used for the video filters, and we also assume that the first item is the
-            "360 to 2D" filter, which should always be the first, therefore it cannot be dragged. */
-        if (id != 0) {
+            "360 to 2D" filter, which should always be the first, therefore it cannot be dragged.
+            Also don't drag the 2D reframer. */
+        if (id != 0 && id != 1) {
             this.draggedId = id;
         }
     }
@@ -130,7 +131,11 @@ export class Checklist extends React.Component<ChecklistProps, ChecklistState> {
             is only used for the video filters, and we also assume that the first item is the
             "360 to 2D" filter, which should always be the first, therefore it cannot be dragged. */
         if (droppedOnId == 0) {
-            console.log("Cannot drag 3d filter");
+            // console.log("Cannot drag 3d filter");
+            return;
+        }
+        if (droppedOnId == 1) {
+            // console.log("Cannot drag 2d repositioner filter");
             return;
         }
         console.log("dragging: " + this.draggedId + " dropping on: " + droppedOnId);
