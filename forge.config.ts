@@ -37,7 +37,7 @@ const config:ForgeConfig = {
         // Set application copyright
         // appCopyright: 'Copyright (C) BigSoftVideo 2024',
 
-        icon: "/appicons/360mash",
+        icon: "appicons/360mash",
 
         // Create asar archive for main, renderer process files
         // asar: true,
