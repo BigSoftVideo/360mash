@@ -426,20 +426,6 @@ export class Encoder {
             }
         });
 
-        // chunkyBoy._encode_video_from_callback(
-        //     this.chunkyCtx,
-        //     width,
-        //     height,
-        //     fps,
-        //     5_000_000,
-        //     44100,
-        //     192_000,
-        //     this.writeCbPtr,
-        //     this.getImageCbPtr,
-        //     -1,
-        //     this.finishedEncodeCbPtr
-        // );
-
         return true;
     }
 
