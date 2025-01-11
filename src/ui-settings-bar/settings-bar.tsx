@@ -74,7 +74,7 @@ export const SettingsBar = React.forwardRef<SettingsBarMethods, TitleBarProps>( 
                 <Button
                     marginY={minorScale(1)}
                     onClick={() => {
-
+                        props.showFFmpegInstallerDialog();
                     }}
                 >
                     Application Settings
@@ -83,11 +83,11 @@ export const SettingsBar = React.forwardRef<SettingsBarMethods, TitleBarProps>( 
                     <Pane display="flex" flexDirection="row">
                         {   ffmpegStatus    }
                     </Pane>
-                    <IconButton width={26} height={26} marginX={4} icon={ffmpegIcon}
+                    {/* <IconButton width={26} height={26} marginX={4} icon={ffmpegIcon}
                         onClick={() => {
                             props.showFFmpegInstallerDialog();
                         }}
-                    />
+                    /> */}
                 </Pane>
             </Pane>
             <Pane display="flex" flexDirection="column" flexGrow={1}>
