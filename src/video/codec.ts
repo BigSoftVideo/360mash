@@ -5,6 +5,8 @@ import { Server } from "net";
 import { spawn, ChildProcess, ChildProcessWithoutNullStreams } from "child_process";
 import { secsToTimeString } from "../util";
 import { FFmpegExists, settings } from "../app";
+import { shell } from "@electron/remote";
+import { pathExists, unlink } from "fs-extra";
 
 // const ffmpegBin =
 //     "C:\\Users\\Dighumlab2\\Desktop\\Media Tools\\ffmpeg-4.4-full_build\\bin\\ffmpeg";
@@ -147,6 +149,8 @@ class FrameFifo {
  * A
  */
 export class Encoder {
+    outFilename: string;
+
     /** Measures the time in milliseconds between the start and completion of a pipeline write and the end of it. */
     sumWriteMs: number;
 
@@ -188,6 +192,7 @@ export class Encoder {
     currentEncoderIteration: number = 1;
 
     constructor() {
+        this.outFilename = "";
         this.runningEncoding = false;
         this.sumWriteMs = 0;
         this.sumDrainWaitMs = 0;
@@ -223,6 +228,14 @@ export class Encoder {
         }
         console.log('Cancelling FFMPEG encoding');
         this.resetEncodingSession();
+        if (this.outFilename) {
+            // Delete the incomplete file
+            pathExists(this.outFilename).then( (exists) => {
+                if (exists) {
+                    unlink(this.outFilename);
+                }
+            });
+        }
         // Give the process a chance to exit on it's own before calling the callback
         window.setTimeout(() => {
             if (this.onExitHandler) {
@@ -275,6 +288,8 @@ export class Encoder {
         }
         this.onExitHandler = onExit;
         const ffmpegBin = settings.ffMpegExecutablePath; //path.join(ffmpegBinParentPath, "ffmpeg");
+
+        this.outFilename = outFileName;
 
         this.sumWriteMs = 0;
         this.sumDrainWaitMs = 0;
