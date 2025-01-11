@@ -47,7 +47,8 @@ We particularly welcome contributions that build new and better shaders for anon
 
 ## Building from source
 
-It is important to initialise all submodules when cloning.
+There are no submodules in the current codebase, but if you checkout earlier commits before 10.1.2025 then you will need to download and initialise the submodule [`chunky-boy`](https://github.com/bigsoftvideo/chunky-boy).
+
 This can be done, for example, with the command:
 
 ```
