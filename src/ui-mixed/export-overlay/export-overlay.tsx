@@ -2,6 +2,7 @@ import "./export-overlay.css";
 
 import * as React from "react";
 import { secsToTimeString } from "../../util";
+import { Decoder, Encoder } from "../../video/codec";
 
 export interface MiscExportInfo {
     /** The number of exported video frames per second */
@@ -52,6 +53,8 @@ export class ExportInfoProvider {
 
 export interface ExportOverlayProps {
     infoProvider: ExportInfoProvider;
+    encoder: Encoder;
+    decoder: Decoder;
 }
 
 interface ExportOverlayState {
@@ -120,6 +123,12 @@ export class ExportOverlay extends React.Component<ExportOverlayProps, ExportOve
                                 style={{ width: this.state.progess * 100 + "%" }}
                             ></div>
                             <div className="export-overlay-progress-bar-outline"></div>
+                        </div>
+                        <div className="export-overlay-buttons-parent">
+                            <button className="export-overlay-cancel-button" onClick={ () => {
+                                this.props.decoder.stopDecoding();
+                                this.props.encoder.stopEncoding();
+                            }}>Cancel encoding</button>
                         </div>
                     </div>
                 </div>

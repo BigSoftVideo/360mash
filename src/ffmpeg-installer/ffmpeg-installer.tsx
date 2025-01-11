@@ -313,7 +313,7 @@ export const FFmpegInstaller = React.forwardRef<FFMpegInstallerDialogMethods, In
                             ?   <Pane display="flex" flexDirection="row" alignItems="center" justifyContent="flex-start" whiteSpace="nowrap"><i className="icon icon-green icofont-check-circled"></i><span>FFprobe Available</span></Pane>
                             :   <Pane display="flex" flexDirection="row" alignItems="center" justifyContent="flex-start" whiteSpace="nowrap"><i className="icon icon-red icofont-exclamation-tringle"></i><span>FFprobe Missing</span></Pane>
                         :   <Pane display="flex" flexDirection="row">
-                                <span>Downloading FFmpeg... </span>
+                                <span>Downloading FFprobe... </span>
                                 <Progress percent={ffmpegDownloadProgressPercent} status={"active"}/>
                             </Pane>
                     }

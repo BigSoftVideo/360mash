@@ -293,7 +293,11 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
         let exportOverlay = undefined;
         if (this.state.exportInProgress) {
             exportOverlay = (
-                <ExportOverlay infoProvider={this.exportInfoProvider}></ExportOverlay>
+                <ExportOverlay
+                    infoProvider={this.exportInfoProvider}
+                    encoder={this.encoder}
+                    decoder={this.decoder}
+                ></ExportOverlay>
             );
         }
 
