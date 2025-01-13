@@ -1,7 +1,7 @@
 import { FilterShader, fitToAspect, RenderTexture, TargetDimensions } from "../video/core";
 import { FilterBase } from "../video/filter-base";
 
-export const PAINTING_FILTER_NAME = "Painting";
+export const PAINTING_FILTER_NAME = "Blur";
 
 export class PaintingShaderEdge extends FilterShader {
 

@@ -6,9 +6,12 @@
     bottom: 0;
     left: 0;
     right: 0;
+    overflow: hidden;
 }
 
 .preview-playback-controls {
+    justify-content: center;
+    align-items: center;
     padding: 5px;
 }
 

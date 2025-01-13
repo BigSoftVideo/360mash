@@ -4,16 +4,23 @@ import { spawn } from "child_process";
 import * as util from "util";
 import * as path from "path";
 
-import { VideoManager } from "./video/video-manager";
-import { FilterManager } from "./video/filter-manager";
-import { CONV360T02D_FILTER_NAME, Conv360To2DFilter } from "./filters/conv360to2d";
-import { FilterBase } from "./video/filter-base";
-import { CartoonFilter, CARTOON_FILTER_NAME } from "./filters/cartoon";
-import { NewsPrintFilter, NEWSPRINT_FILTER_NAME } from "./filters/newsprint";
-import { GrayscaleFilter, GRAYSCALE_FILTER_NAME } from "./filters/grayscale";
-import { CharcoalFilter, CHARCOAL_FILTER_NAME } from "./filters/charcoal";
-import { ImageFormat, PackedPixelData } from "./video/filter-pipeline";
-import { Decoder, Encoder, EncoderDesc, MediaMetadata } from "./video/codec";
+import Store from 'electron-store';
+// import { VideoManager } from "./video/video-manager";
+// import { FilterManager } from "./video/filter-manager";
+// import { CONV360T02D_FILTER_NAME, Conv360To2DFilter } from "./filters/conv360to2d";
+// import { FilterBase } from "./video/filter-base";
+// import { CartoonFilter, CARTOON_FILTER_NAME } from "./filters/cartoon";
+// import { NewsPrintFilter, NEWSPRINT_FILTER_NAME } from "./filters/newsprint";
+// import { GrayscaleFilter, GRAYSCALE_FILTER_NAME } from "./filters/grayscale";
+// import { CharcoalFilter, CHARCOAL_FILTER_NAME } from "./filters/charcoal";
+// import { ImageFormat, PackedPixelData } from "./video/filter-pipeline";
+// import { Decoder, Encoder, EncoderDesc, MediaMetadata } from "./video/codec";
+
+const remote = require('@electron/remote/main');
+remote.initialize();
+
+// Initialize Settings Storage
+Store.initRenderer();
 
 /** Wait for the next event loop iteration */
 const setImmedateAsync = util.promisify(setImmediate);
@@ -30,20 +37,39 @@ Menu.setApplicationMenu(null);
 
 const isDevMode = process.env.NODE_ENV === "development";
 
+// Keep a global reference of the window object, if you don't, the window will
+// be closed automatically when the JavaScript object is garbage collected.
+let mainWindow: BrowserWindow;
+
 const createWindow = (): void => {
     // Create the browser window.
-    const mainWindow = new BrowserWindow({
-        height: 600,
-        width: 800,
+    mainWindow = new BrowserWindow({
+        width: 1024,
+        height: 768,
         webPreferences: {
-            enableRemoteModule: true,
+            webSecurity: false, //!isDevMode,
             nodeIntegration: true,
-            webSecurity: !isDevMode,
+            contextIsolation: false,
+            nodeIntegrationInWorker: true,
         },
     });
 
+    remote.enable(mainWindow.webContents);
+
+    // Suppress the default menu at least for as long as the custom menu is not loaded.
+    // The custom menu is loaded from within the render process. See app.tsx
+    Menu.setApplicationMenu(null);
+
     // and load the index.html of the app.
     mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
+
+    // Emitted when the window is closed.
+    mainWindow.on("closed", () => {
+        // Dereference the window object, usually you would store windows
+        // in an array if your app supports multi windows, this is the time
+        // when you should delete the corresponding element.
+        mainWindow = null as any;
+    });
 
     // Open the DevTools.
     if (isDevMode) {
@@ -145,290 +171,290 @@ function dateBenchmark() {
     console.log("Date elapsed sec", elapsed, "foo", foo);
 }
 
-function ffmpegNetworkTest() {
-    console.log("Starting networked decode test");
+// function ffmpegNetworkTest() {
+//     console.log("Starting networked decode test");
 
-    let packetCnt = 0;
+//     let packetCnt = 0;
 
-    // listen on a port
-    let server = new Server((socket) => {
-        console.log("Got connection!", socket.localPort);
-        socket.on("data", (data) => {
-            packetCnt += 1;
-            // console.log("Received from the connection:", data.toString("utf8"));
-        });
-        socket.on("close", (hadError) => {
-            console.log("Socket was closed. Had error:", hadError);
-        });
-    });
-    server.on("error", (e) => {
-        console.log("Error happened with the server: ", e);
-    });
-    server.on("listening", () => {
-        let address = server.address();
-        if (!address) {
-            console.error("Failed to get address even though already listening.");
-            return;
-        }
-        if (typeof address == "string") {
-            console.error("The address was a string but expected an object.");
-            return;
-        }
-        console.log("Server is now listening on port", address.port);
+//     // listen on a port
+//     let server = new Server((socket) => {
+//         console.log("Got connection!", socket.localPort);
+//         socket.on("data", (data) => {
+//             packetCnt += 1;
+//             // console.log("Received from the connection:", data.toString("utf8"));
+//         });
+//         socket.on("close", (hadError) => {
+//             console.log("Socket was closed. Had error:", hadError);
+//         });
+//     });
+//     server.on("error", (e) => {
+//         console.log("Error happened with the server: ", e);
+//     });
+//     server.on("listening", () => {
+//         let address = server.address();
+//         if (!address) {
+//             console.error("Failed to get address even though already listening.");
+//             return;
+//         }
+//         if (typeof address == "string") {
+//             console.error("The address was a string but expected an object.");
+//             return;
+//         }
+//         console.log("Server is now listening on port", address.port);
 
-        // --------------------------------------------------------
-        // Test the server by connecting to it and sending some data.
-        // --------------------------------------------------------
-        // let connection = createConnection(address.port, "127.0.0.1", () => {
-        //     connection.write("login", "utf8", (err) => {
-        //         if (err) {
-        //             console.log("Error occured while trying to send login message:", err);
-        //         }
-        //         connection.end();
-        //     });
-        // });
-        // --------------------------------------------------------
+//         // --------------------------------------------------------
+//         // Test the server by connecting to it and sending some data.
+//         // --------------------------------------------------------
+//         // let connection = createConnection(address.port, "127.0.0.1", () => {
+//         //     connection.write("login", "utf8", (err) => {
+//         //         if (err) {
+//         //             console.log("Error occured while trying to send login message:", err);
+//         //         }
+//         //         connection.end();
+//         //     });
+//         // });
+//         // --------------------------------------------------------
 
-        startFfmpeg(address.port);
-    });
-    // 0 as port means that the OS will give us an available port.
-    server.listen(0, "127.0.0.1");
+//         startFfmpeg(address.port);
+//     });
+//     // 0 as port means that the OS will give us an available port.
+//     server.listen(0, "127.0.0.1");
 
-    let startFfmpeg = (port: number) => {
-        let testProcStart = new Date();
-        let testProc = spawn(
-            "C:\\ffmpeg-4.4-full_build\\bin\\ffmpeg",
-            [
-                "-i",
-                "Y:\\Dote-Projects\\New Horizon\\GoPro Back.mp4",
-                "-f",
-                "rawvideo",
-                "-vcodec",
-                "rawvideo",
-                "-pix_fmt",
-                "yuv420p",
-                "-an",
-                `tcp://127.0.0.1:${port}`,
-            ],
-            {
-                stdio: ["pipe", "pipe", "pipe"],
-            }
-        );
-        let stderr = "";
-        testProc.stderr.on("data", (msg) => (stderr += msg));
-        testProc.stdout.pause();
-        testProc.stdout.on("readable", () => {
-            // pacekt size: 1024 * 16
-            while (null !== testProc.stdout.read(1024 * 1024)) {
-                // Make sure we read all available data
-                // packetCnt += 1;
-            }
-        });
-        // testProc.stdout.on("data", buff => {
-        //     packetCnt += 1;
-        // });
-        testProc.on("exit", (code) => {
-            let elapsedSec = (new Date().getTime() - testProcStart.getTime()) / 1000;
-            console.log(
-                "Test process exited with",
-                code,
-                "it took " + elapsedSec + " seconds. Packet count was " + packetCnt
-            );
-        });
-    };
+//     let startFfmpeg = (port: number) => {
+//         let testProcStart = new Date();
+//         let testProc = spawn(
+//             "C:\\ffmpeg-4.4-full_build\\bin\\ffmpeg",
+//             [
+//                 "-i",
+//                 "Y:\\Dote-Projects\\New Horizon\\GoPro Back.mp4",
+//                 "-f",
+//                 "rawvideo",
+//                 "-vcodec",
+//                 "rawvideo",
+//                 "-pix_fmt",
+//                 "yuv420p",
+//                 "-an",
+//                 `tcp://127.0.0.1:${port}`,
+//             ],
+//             {
+//                 stdio: ["pipe", "pipe", "pipe"],
+//             }
+//         );
+//         let stderr = "";
+//         testProc.stderr.on("data", (msg) => (stderr += msg));
+//         testProc.stdout.pause();
+//         testProc.stdout.on("readable", () => {
+//             // pacekt size: 1024 * 16
+//             while (null !== testProc.stdout.read(1024 * 1024)) {
+//                 // Make sure we read all available data
+//                 // packetCnt += 1;
+//             }
+//         });
+//         // testProc.stdout.on("data", buff => {
+//         //     packetCnt += 1;
+//         // });
+//         testProc.on("exit", (code) => {
+//             let elapsedSec = (new Date().getTime() - testProcStart.getTime()) / 1000;
+//             console.log(
+//                 "Test process exited with",
+//                 code,
+//                 "it took " + elapsedSec + " seconds. Packet count was " + packetCnt
+//             );
+//         });
+//     };
 
-    // DEBUG TEST
-}
+//     // DEBUG TEST
+// }
 
-function fullExportTest() {
-    console.log("Started full export test");
-    const INPUT_VIDEO_PATH = "Y:\\Dote-Projects\\New Horizon\\GoPro Back.mp4";
+// function fullExportTest() {
+//     console.log("Started full export test");
+//     const INPUT_VIDEO_PATH = "Y:\\Dote-Projects\\New Horizon\\GoPro Back.mp4";
 
-    let canvas = document.createElement("canvas");
+//     let canvas = document.createElement("canvas");
 
-    // let gl = canvas.getContext("webgl2");
-    // if (!gl) {
-    //     throw new Error("Could not get WebGL 2 context");
-    // }
+//     // let gl = canvas.getContext("webgl2");
+//     // if (!gl) {
+//     //     throw new Error("Could not get WebGL 2 context");
+//     // }
 
-    let filterManager = new FilterManager();
-    filterManager.registerFilter({
-        id: CONV360T02D_FILTER_NAME,
-        creator: (gl): FilterBase => {
-            return new Conv360To2DFilter(gl);
-        },
-    });
-    filterManager.registerFilter({
-        id: CARTOON_FILTER_NAME,
-        creator: (gl): FilterBase => {
-            return new CartoonFilter(gl);
-        },
-    });
-    filterManager.registerFilter({
-        id: NEWSPRINT_FILTER_NAME,
-        creator: (gl): FilterBase => {
-            return new NewsPrintFilter(gl);
-        },
-    });
-    filterManager.registerFilter({
-        id: GRAYSCALE_FILTER_NAME,
-        creator: (gl): FilterBase => {
-            return new GrayscaleFilter(gl);
-        },
-    });
-    filterManager.registerFilter({
-        id: CHARCOAL_FILTER_NAME,
-        creator: (gl): FilterBase => {
-            return new CharcoalFilter(gl);
-        },
-    });
-    let videoManager = new VideoManager(canvas, () => {}, filterManager);
-    videoManager.stopRendering();
+//     let filterManager = new FilterManager();
+//     filterManager.registerFilter({
+//         id: CONV360T02D_FILTER_NAME,
+//         creator: (gl): FilterBase => {
+//             return new Conv360To2DFilter(gl);
+//         },
+//     });
+//     filterManager.registerFilter({
+//         id: CARTOON_FILTER_NAME,
+//         creator: (gl): FilterBase => {
+//             return new CartoonFilter(gl);
+//         },
+//     });
+//     filterManager.registerFilter({
+//         id: NEWSPRINT_FILTER_NAME,
+//         creator: (gl): FilterBase => {
+//             return new NewsPrintFilter(gl);
+//         },
+//     });
+//     filterManager.registerFilter({
+//         id: GRAYSCALE_FILTER_NAME,
+//         creator: (gl): FilterBase => {
+//             return new GrayscaleFilter(gl);
+//         },
+//     });
+//     filterManager.registerFilter({
+//         id: CHARCOAL_FILTER_NAME,
+//         creator: (gl): FilterBase => {
+//             return new CharcoalFilter(gl);
+//         },
+//     });
+//     let videoManager = new VideoManager(canvas, () => {}, filterManager);
+//     videoManager.stopRendering();
 
-    videoManager.pipeline.setFilters([CARTOON_FILTER_NAME]);
+//     videoManager.pipeline.setFilters([CARTOON_FILTER_NAME]);
 
-    // The target is Full HD
-    videoManager.pipeline.setTargetDimensions(1920, 1080);
+//     // The target is Full HD
+//     videoManager.pipeline.setTargetDimensions(1920, 1080);
 
-    let encoder = new Encoder();
-    let decoder = new Decoder();
+//     let encoder = new Encoder();
+//     let decoder = new Decoder();
 
-    //////////////////////////////////////////////////////////////////////////////////////
+//     //////////////////////////////////////////////////////////////////////////////////////
 
-    // let video = videoManager.video;
-    // let duration = video.htmlVideo.duration;
+//     // let video = videoManager.video;
+//     // let duration = video.htmlVideo.duration;
 
-    videoManager.stopRendering();
+//     videoManager.stopRendering();
 
-    // const htmlVideo = props.videoManager.video.htmlVideo;
-    // htmlVideo.pause();
-    const pipeline = videoManager.pipeline;
+//     // const htmlVideo = props.videoManager.video.htmlVideo;
+//     // htmlVideo.pause();
+//     const pipeline = videoManager.pipeline;
 
-    // WARNING
-    // WARNING
-    // WARNING
-    // TODO: WARNING! Hardcoded for "GoPro Back.mp4"
-    // WARNING
-    // WARNING
-    // WARNING
-    // Video resolution: 3840x2160
-    // TODO: This function should probably just take a width and a height since that's all it needs
-    const [outWidth, outHeight] = pipeline.getRealOutputDimensions({
-        w: 3840,
-        h: 2160,
-        data: new Uint8Array(),
-        format: 0,
-    });
+//     // WARNING
+//     // WARNING
+//     // WARNING
+//     // TODO: WARNING! Hardcoded for "GoPro Back.mp4"
+//     // WARNING
+//     // WARNING
+//     // WARNING
+//     // Video resolution: 3840x2160
+//     // TODO: This function should probably just take a width and a height since that's all it needs
+//     const [outWidth, outHeight] = pipeline.getRealOutputDimensions({
+//         w: 3840,
+//         h: 2160,
+//         data: new Uint8Array(),
+//         format: 0,
+//     });
 
-    // This is just a default, but actually we will use the same framerate as the input
-    let outFps = 29.97;
+//     // This is just a default, but actually we will use the same framerate as the input
+//     let outFps = 29.97;
 
-    let nextOutFrameId = 0;
-    let readyOutFrameId = -1;
-    let isDone = false;
+//     let nextOutFrameId = 0;
+//     let readyOutFrameId = -1;
+//     let isDone = false;
 
-    let getImage = async (outFrameId: number, buffer: Uint8Array): Promise<number> => {
-        const waitStart = new Date();
-        // When this function gets called, the next frame may not yet be decoded. In this case
-        // we wait until it's ready.
-        while (readyOutFrameId < outFrameId) {
-            await setImmedateAsync();
-        }
-        let targetPixelBuffer: PackedPixelData = {
-            data: buffer,
-            w: outWidth,
-            h: outHeight,
-            format: ImageFormat.YUV420P,
-        };
-        videoManager.pipeline.fillYuv420pPixelData(targetPixelBuffer);
-        // let progress = outFrameId / outFps / duration;
-        nextOutFrameId = outFrameId + 1;
+//     let getImage = async (outFrameId: number, buffer: Uint8Array): Promise<number> => {
+//         const waitStart = new Date();
+//         // When this function gets called, the next frame may not yet be decoded. In this case
+//         // we wait until it's ready.
+//         while (readyOutFrameId < outFrameId) {
+//             await setImmedateAsync();
+//         }
+//         let targetPixelBuffer: PackedPixelData = {
+//             data: buffer,
+//             w: outWidth,
+//             h: outHeight,
+//             format: ImageFormat.YUV420P,
+//         };
+//         videoManager.pipeline.fillYuv420pPixelData(targetPixelBuffer);
+//         // let progress = outFrameId / outFps / duration;
+//         nextOutFrameId = outFrameId + 1;
 
-        if (isDone) {
-            console.log(
-                "Export panel done. Avg ms spent waiting on the input frame " // +
-                // sumInputFrameWaitMs / outFrameId
-            );
-            return 1;
-        }
+//         if (isDone) {
+//             console.log(
+//                 "Export panel done. Avg ms spent waiting on the input frame " // +
+//                 // sumInputFrameWaitMs / outFrameId
+//             );
+//             return 1;
+//         }
 
-        return 0;
-    };
+//         return 0;
+//     };
 
-    // Decoding portion
-    let inWidth = 0;
-    let inHeight = 0;
-    let inFrameIdx = -1;
+//     // Decoding portion
+//     let inWidth = 0;
+//     let inHeight = 0;
+//     let inFrameIdx = -1;
 
-    let receivedMetadata = (metadata: MediaMetadata) => {
-        console.log("Received metadata: " + JSON.stringify(metadata));
-        // A custom output framerate could be allowed later but having it identical to the input framerate,
-        // makes things easier for now.
-        outFps = metadata.framerate;
-        inWidth = metadata.width;
-        inHeight = metadata.height;
+//     let receivedMetadata = (metadata: MediaMetadata) => {
+//         console.log("Received metadata: " + JSON.stringify(metadata));
+//         // A custom output framerate could be allowed later but having it identical to the input framerate,
+//         // makes things easier for now.
+//         outFps = metadata.framerate;
+//         inWidth = metadata.width;
+//         inHeight = metadata.height;
 
-        let filename = dateToFilename(new Date()) + ".mp4";
-        let fullpath = path.join("C:\\Users\\Dighumlab2\\Videos\\360mash export", filename);
-        let encoderDesc: EncoderDesc = {
-            width: outWidth,
-            height: outHeight,
-            fps: outFps,
-            audioFilePath: INPUT_VIDEO_PATH,
-        };
-        encoder.startEncoding(
-            "C:\\ffmpeg-4.4-full_build\\bin",
-            fullpath,
-            encoderDesc,
-            getImage,
-            encodingExitHandler
-        );
-    };
-    let encodingExitHandler = (code: number | null, stderr: string) => {
-        if (code === null || code !== 0) {
-            console.log(`Encoder error. Output:\n${stderr}`);
-            decoder.stopDecoding();
-        } else {
-            console.log("Finished exporting");
-        }
-    };
+//         let filename = dateToFilename(new Date()) + ".mp4";
+//         let fullpath = path.join("C:\\Users\\Dighumlab2\\Videos\\360mash export", filename);
+//         let encoderDesc: EncoderDesc = {
+//             width: outWidth,
+//             height: outHeight,
+//             fps: outFps,
+//             audioFilePath: INPUT_VIDEO_PATH,
+//         };
+//         encoder.startEncoding(
+//             "C:\\ffmpeg-4.4-full_build\\bin",
+//             fullpath,
+//             encoderDesc,
+//             getImage,
+//             encodingExitHandler
+//         );
+//     };
+//     let encodingExitHandler = (code: number | null, stderr: string) => {
+//         if (code === null || code !== 0) {
+//             console.log(`Encoder error. Output:\n${stderr}`);
+//             decoder.stopDecoding();
+//         } else {
+//             console.log("Finished exporting");
+//         }
+//     };
 
-    let receivedImage = async (buffer: Uint8Array) => {
-        inFrameIdx += 1;
+//     let receivedImage = async (buffer: Uint8Array) => {
+//         inFrameIdx += 1;
 
-        // TODO if the input framerate is different from the output framerate
-        // we need to check if we even need to render this frame
+//         // TODO if the input framerate is different from the output framerate
+//         // we need to check if we even need to render this frame
 
-        // console.log("Video finished seeking. Time", video.currentTime);
-        let pixelData: PackedPixelData = {
-            data: buffer,
-            w: inWidth,
-            h: inHeight,
+//         // console.log("Video finished seeking. Time", video.currentTime);
+//         let pixelData: PackedPixelData = {
+//             data: buffer,
+//             w: inWidth,
+//             h: inHeight,
 
-            // TODO: change this if requesting the data from ffmpeg in another format
-            format: ImageFormat.YUV420P,
-        };
-        videoManager.renderOnce(pixelData);
-        readyOutFrameId = nextOutFrameId;
-    };
-    let inputDone = (success: boolean) => {
-        console.log("Called done, success was", success);
+//             // TODO: change this if requesting the data from ffmpeg in another format
+//             format: ImageFormat.YUV420P,
+//         };
+//         videoManager.renderOnce(pixelData);
+//         readyOutFrameId = nextOutFrameId;
+//     };
+//     let inputDone = (success: boolean) => {
+//         console.log("Called done, success was", success);
 
-        // TODO This is a bit of a hack, we are rendering the last frame one more time
-        // optimally the getImage function should be able to indicate when the current frame
-        // is PAST the end (not when the current frame is the last)
-        readyOutFrameId = nextOutFrameId;
-        isDone = true;
-    };
+//         // TODO This is a bit of a hack, we are rendering the last frame one more time
+//         // optimally the getImage function should be able to indicate when the current frame
+//         // is PAST the end (not when the current frame is the last)
+//         readyOutFrameId = nextOutFrameId;
+//         isDone = true;
+//     };
 
-    decoder.startDecoding(
-        "C:\\ffmpeg-4.4-full_build\\bin",
-        INPUT_VIDEO_PATH,
-        receivedMetadata,
-        receivedImage,
-        inputDone
-    );
-}
+//     decoder.startDecoding(
+//         "C:\\ffmpeg-4.4-full_build\\bin",
+//         INPUT_VIDEO_PATH,
+//         receivedMetadata,
+//         receivedImage,
+//         inputDone
+//     );
+// }
 
 function dateToFilename(date: Date): string {
     return (

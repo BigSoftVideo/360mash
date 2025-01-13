@@ -1,0 +1,11 @@
+.icon {
+    padding-left: 3px;
+    padding-right: 3px;
+}
+
+.icon-green {
+    color: rgb(27, 191, 84);
+}
+.icon-red {
+    color: rgb(194, 1, 1);
+}

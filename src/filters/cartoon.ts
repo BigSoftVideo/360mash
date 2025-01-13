@@ -1,7 +1,7 @@
 import { FilterShader, fitToAspect, RenderTexture, TargetDimensions } from "../video/core";
 import { FilterBase } from "../video/filter-base";
 
-export const CARTOON_FILTER_NAME = "Cartoon";
+export const CARTOON_FILTER_NAME = "Cartoonish";
 
 export class CartoonShader extends FilterShader {
     width: number;

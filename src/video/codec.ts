@@ -4,6 +4,9 @@ import * as path from "path";
 import { Server } from "net";
 import { spawn, ChildProcess, ChildProcessWithoutNullStreams } from "child_process";
 import { secsToTimeString } from "../util";
+import { FFmpegExists, settings } from "../app";
+import { shell } from "@electron/remote";
+import { pathExists, unlink } from "fs-extra";
 
 // const ffmpegBin =
 //     "C:\\Users\\Dighumlab2\\Desktop\\Media Tools\\ffmpeg-4.4-full_build\\bin\\ffmpeg";
@@ -123,14 +126,14 @@ class FrameFifo {
      * finished working with the buffer. The contents of the buffer might change after `read` has
      * returned.
      */
-    public read(read: (buffer: Uint8Array) => Promise<void>): boolean {
+    public read(readOp: (buffer: Uint8Array) => Promise<void>): boolean {
         let maybeOutput = this.writtenBuffers.shift();
         if (!maybeOutput) {
             return false;
         }
         let output = maybeOutput;
         setImmediate(async () => {
-            await read(output);
+            await readOp(output);
             let writeCb = this.writeCbWaiting.shift();
             if (writeCb) {
                 this.writeBuffer(output, writeCb);
@@ -146,6 +149,8 @@ class FrameFifo {
  * A
  */
 export class Encoder {
+    outFilename: string;
+
     /** Measures the time in milliseconds between the start and completion of a pipeline write and the end of it. */
     sumWriteMs: number;
 
@@ -182,7 +187,12 @@ export class Encoder {
     ffmpegStderr: string;
     sumGetImageMs: number;
 
+    onExitHandler: ((code: number | null, stderr: string) => void) | null;
+
+    currentEncoderIteration: number = 1;
+
     constructor() {
+        this.outFilename = "";
         this.runningEncoding = false;
         this.sumWriteMs = 0;
         this.sumDrainWaitMs = 0;
@@ -208,11 +218,44 @@ export class Encoder {
             );
             return 0;
         };
+        this.onExitHandler = null;
     }
 
-    resetEncodingSession() {
+    public stopEncoding() {
+        if (!this.ffmpegProc) {
+            console.warn('No FFMPEG process running');
+            return;
+        }
+        console.log('Cancelling FFMPEG encoding');
+        this.resetEncodingSession();
+        if (this.outFilename) {
+            // Delete the incomplete file
+            pathExists(this.outFilename).then( (exists) => {
+                if (exists) {
+                    unlink(this.outFilename);
+                }
+            });
+        }
+        // Give the process a chance to exit on it's own before calling the callback
+        window.setTimeout(() => {
+            if (this.onExitHandler) {
+                this.onExitHandler(1,"User Cancel");
+                this.onExitHandler = null;
+            }
+        }, 100);
+    }
+
+    private resetEncodingSession() {
         console.log("Resetting the encoding session");
-        this.ffmpegProc = null;
+        if (this.ffmpegProc && this.ffmpegProc.pid) {
+            console.log(`%cKilling process with PID: ${this.ffmpegProc.pid}`, 'color: red');
+            this.ffmpegProc.kill("SIGKILL");
+            this.ffmpegProc = null;
+        } else {
+            this.ffmpegProc = null;
+        }
+        // Increment check for the encoder so that previous processes stop running
+        this.currentEncoderIteration++;
         this.width = 0;
         this.height = 0;
         this.frameId = 0;
@@ -220,6 +263,7 @@ export class Encoder {
         this.ffmpegStdout = "";
         this.ffmpegStderr = "";
         this.frameFifo = new FrameFifo([new Uint8Array(), new Uint8Array(), new Uint8Array()]);
+        this.runningEncoding = false;
     }
 
     /**
@@ -232,13 +276,20 @@ export class Encoder {
      * The bitrate is specified in kbps
      */
     startEncoding(
-        ffmpegBinParentPath: string,
+        // ffmpegBinParentPath: string,
         outFileName: string,
         encoderDesc: EncoderDesc,
         getImage: GetImageCallback,
         onExit: (code: number | null, stderr: string) => void
     ): boolean {
-        const ffmpegBin = path.join(ffmpegBinParentPath, "ffmpeg");
+        if (!FFmpegExists()) {
+            console.warn('FFmpeg not available');
+            return false;
+        }
+        this.onExitHandler = onExit;
+        const ffmpegBin = settings.ffMpegExecutablePath; //path.join(ffmpegBinParentPath, "ffmpeg");
+
+        this.outFilename = outFileName;
 
         this.sumWriteMs = 0;
         this.sumDrainWaitMs = 0;
@@ -341,37 +392,39 @@ export class Encoder {
         this.ffmpegProc.stderr.on("data", (data) => {
             this.ffmpegStderr += data;
         });
+        this.ffmpegProc.on("error", (err) => {
+            console.log('%cFFmpeg encoder error: ' + err, 'color:red');
+        });
+        this.ffmpegProc.on("error", (err) => {
+            console.log('%cFFmpeg decoder error: ' + err, 'color:red');
+        });
+        this.ffmpegProc.stdin.on('error', (err) => {
+            console.log('%cEncoder Error on stdin: ' + err, 'color:red');
+        });
+        this.ffmpegProc.stdout.on('error', (err) => {
+            console.log('%cEncoder Error on stdout: ' + err, 'color:red');
+        });
 
         this.ffmpegProc.on("exit", (code) => {
             let msg = this.ffmpegStderr;
             console.log("Exiting the ffmpeg proc. The stderr was:", this.ffmpegStderr);
-            this.runningEncoding = false;
             this.resetEncodingSession();
             // It's important that we use a copy of the stderr, because that gets reset by the
             // resetEncodingSession
             onExit(code, msg);
+            this.onExitHandler = null;
         });
 
         // Make sure we return before calling the callback. This is just nice because this guarantees
         // for the caller that their callback is always only called after this function has returned
         setImmediate(() => {
-            this.getUserFrames();
-            this.writePreparedFrames();
+            try {
+                this.getUserFrames();
+                this.writePreparedFrames();
+            } catch (e) {
+                console.error("Unable to get or write Frames: " + e);
+            }
         });
-
-        // chunkyBoy._encode_video_from_callback(
-        //     this.chunkyCtx,
-        //     width,
-        //     height,
-        //     fps,
-        //     5_000_000,
-        //     44100,
-        //     192_000,
-        //     this.writeCbPtr,
-        //     this.getImageCbPtr,
-        //     -1,
-        //     this.finishedEncodeCbPtr
-        // );
 
         return true;
     }
@@ -379,10 +432,11 @@ export class Encoder {
     async dispose() {}
 
     getUserFrames() {
+        // console.log('%cCalling getUserFrames.', 'color: blue');
         let writeFrame = async (buffer: Uint8Array) => {
             let frameId = this.frameId;
             // console.log(
-            //     "Writing frame",
+            //     "Getting User Frame",
             //     frameId,
             //     "written buffer count:",
             //     this.frameFifo.writtenBufferCount()
@@ -403,7 +457,9 @@ export class Encoder {
                 this.endEncoding();
                 return;
             }
+            // console.log('%cWriting frame to Fifo: ' + this.frameId, 'color: blue');
             if (isLastFrame) {
+                // console.log('Last frame found to be: ' + frameId);
                 this.lastFrameId = frameId;
             } else {
                 this.frameFifo.write(writeFrame);
@@ -413,90 +469,107 @@ export class Encoder {
     }
 
     async writePreparedFrames(): Promise<void> {
+        // console.log('%cCalling writePreparedFrames.', 'color: blue');
+        let currentEncoderIteration = this.currentEncoderIteration;
         let finishedWriting = -1;
         let outFrameId = -1;
-        while (true) {
-            if (outFrameId > this.lastFrameId) {
-                return;
-            }
-            this.frameFifo.read(async (buffer) => {
-                outFrameId += 1;
-                // It's important that we copy the fame id because due to the async stuff
-                // it might change while the this function hasn't yet finished
-                const currFrameId = outFrameId;
-                const isLastFrame = currFrameId === this.lastFrameId;
-                const prevFrameId = currFrameId - 1;
-                while (finishedWriting < prevFrameId) {
-                    await setImmediateAsync();
-                }
-                if (!this.ffmpegProc) {
-                    console.error(
-                        "Expected to have a reference to ffmpegProc here but there wasn't any"
-                    );
+        // console.log('Starting to write Prepared Frames...');
+        let writingFrameDone = false;
+        try {
+            // Terminate the loop if we move on or reset the encoder
+            while (!writingFrameDone && currentEncoderIteration === this.currentEncoderIteration) {
+                if (outFrameId > this.lastFrameId) {
                     return;
                 }
-                if (!this.ffmpegProc.stdin) {
-                    console.error(
-                        "Expected that the ffmpeg process has an stdin but it didn't"
-                    );
-                    return;
-                }
-                let canWriteMore = false;
-                let writeIsDone = false;
-                let callNextWriteOnWriteDone = false;
-                let onWriteDone = (err: Error | null | undefined) => {
-                    // console.log("ENCODER Finished writing frame", frameId);
-                    writeIsDone = true;
-                    this.sumWriteMs += new Date().getTime() - writeStart.getTime();
-                    // console.log("Write done - " + frameId);
-                    if (err) {
+                this.frameFifo.read(async (buffer) => {
+                    outFrameId += 1;
+                    // It's important that we copy the fame id because due to the async stuff
+                    // it might change while the this function hasn't yet finished
+                    const currFrameId = outFrameId;
+                    const isLastFrame = currFrameId === this.lastFrameId;
+                    const prevFrameId = currFrameId - 1;
+                    // console.log('%c Finished writing: ' + finishedWriting, 'color: pink');
+                    // console.log('%c prevFrameId: ' + prevFrameId, 'color: pink');
+                    while (finishedWriting < prevFrameId) {
+                        await setImmediateAsync();
+                    }
+                    if (!this.ffmpegProc) {
                         console.error(
-                            "There was an error while writing to ffmpeg: " +
-                                err +
-                                "\nProc output: " +
-                                this.ffmpegStdout
+                            "Expected to have a reference to ffmpegProc here but there wasn't any"
                         );
                         return;
                     }
-                    if (isLastFrame) {
-                        // This was the last frame
-                        this.endEncoding();
+                    if (!this.ffmpegProc.stdin) {
+                        console.error(
+                            "Expected that the ffmpeg process has an stdin but it didn't"
+                        );
                         return;
                     }
-                    if (callNextWriteOnWriteDone) {
-                        finishedWriting = currFrameId;
+                    let canWriteMore = false;
+                    let writeIsDone = false;
+                    let callNextWriteOnWriteDone = false;
+                    let onWriteDone = (err: Error | null | undefined) => {
+                        // console.log("ENCODER Finished writing frame from Fifo", outFrameId);
+                        writeIsDone = true;
+                        this.sumWriteMs += new Date().getTime() - writeStart.getTime();
+                        // console.log("Write done - " + frameId);
+                        if (err) {
+                            console.error(
+                                "There was an error while writing to ffmpeg: " +
+                                    err +
+                                    "\nProc output: " +
+                                    this.ffmpegStdout
+                            );
+                            this.endEncoding();
+                            return;
+                        }
+                        if (isLastFrame) {
+                            // console.log('Last Frame reached. Ending encoding...');
+                            writingFrameDone = true;
+                            // This was the last frame
+                            this.endEncoding();
+                            return;
+                        }
+                        if (callNextWriteOnWriteDone) {
+                            finishedWriting = currFrameId;
+                        }
+                    };
+                    if (!this.ffmpegProc.stdin.writable) {
+                        console.log(
+                            "The stream was not writeable, this likely indicates that the process was prematurely terminated"
+                        );
+                        return;
                     }
-                };
-                if (!this.ffmpegProc.stdin.writable) {
-                    console.log(
-                        "The stream was not writeable, this likely indicates that the process was prematurely terminated"
-                    );
-                    return;
-                }
 
-                let writeStart = new Date();
-                // console.log("ENCODER Starting to write frame", frameId);
-                canWriteMore = this.ffmpegProc.stdin.write(buffer, onWriteDone);
-                if (!isLastFrame) {
-                    if (canWriteMore) {
-                        callNextWriteOnWriteDone = true;
-                    } else {
-                        // The pipe is full, we need to wait a while before we can push more data
-                        // into it.
-                        let drainWaitStart = new Date();
-                        this.ffmpegProc.stdin.once("drain", () => {
-                            this.sumDrainWaitMs +=
-                                new Date().getTime() - drainWaitStart.getTime();
-                            if (writeIsDone) {
-                                finishedWriting = currFrameId;
-                            } else {
-                                callNextWriteOnWriteDone = true;
-                            }
-                        });
+                    let writeStart = new Date();
+                    // console.log("ENCODER Starting to write frame", outFrameId);
+                    canWriteMore = this.ffmpegProc.stdin.write(buffer, onWriteDone);
+                    if (!isLastFrame) {
+                        if (canWriteMore) {
+                            callNextWriteOnWriteDone = true;
+                        } else {
+                            // The pipe is full, we need to wait a while before we can push more data
+                            // into it.
+                            // console.log('Pipe is full. Draining...');
+                            let drainWaitStart = new Date();
+                            this.ffmpegProc.stdin.once("drain", () => {
+                                this.sumDrainWaitMs +=
+                                    new Date().getTime() - drainWaitStart.getTime();
+                                if (writeIsDone) {
+                                    finishedWriting = currFrameId;
+                                } else {
+                                    callNextWriteOnWriteDone = true;
+                                }
+                            });
+                        }
                     }
-                }
-            });
-            await setImmediateAsync();
+                });
+                await setImmediateAsync();
+            }
+        } catch (e) {
+            console.error('Error when writing prepared frames: ' + e);
+            this.endEncoding();
+            return;
         }
     }
 
@@ -725,16 +798,20 @@ export class Decoder {
         this.ffmpegStderr = "";
     }
 
-    startDecoding(
-        ffmpegBinParentPath: string,
+    async startDecoding(
+        // ffmpegBinParentPath: string,
         inFilePath: string,
         desc: DecoderDesc,
         receivedMetadata: ReceivedMetadataCallback,
         receivedImage: ReceivedImageCallback,
         done: (success: boolean) => void
-    ): void {
-        const ffmpegBin = path.join(ffmpegBinParentPath, "ffmpeg");
-        const ffprobeBin = path.join(ffmpegBinParentPath, "ffprobe");
+    ): Promise<void> {
+        if (!FFmpegExists()) {
+            console.warn('FFmpeg not available');
+            return;
+        }
+        const ffmpegBin = settings.ffMpegExecutablePath; //path.join(ffmpegBinParentPath, "ffmpeg");
+        const ffprobeBin = settings.ffProbeExecutablePath //path.join(ffmpegBinParentPath, "ffprobe");
 
         this.decStartTime = new Date();
         this.sumInterframeSec = 0;
@@ -934,79 +1011,96 @@ export class Decoder {
             "pipe:1"
         );
 
-        this.frameReadStartTime = new Date();
-        this.ffmpegProc = spawn(`${ffmpegBin}`, ffmpegArgs, {
-            stdio: ["pipe", "pipe", "pipe"],
-        });
-        this.ffmpegProc.on("exit", (code) => {
-            // server.close();
-            if (code === 0) {
-                console.log("FFmpeg exited successfully");
-                this.finishedDecoding(true);
-                return;
-            }
-            if (code === null) {
-                console.warn("ffmpeg seems to have been terminated");
-            } else {
-                console.warn("ffmpeg returned with the exit code:", code);
-            }
-            console.warn("ffmpeg stderr was:\n" + this.ffmpegStderr);
-            this.finishedDecoding(false);
-        });
+        try {
 
-        console.log("Expecting ffmpeg frames of size", this.frameSize);
-
-        let ffmpegOut = this.ffmpegProc.stdout;
-        ffmpegOut.pause();
-        let tryReading = () => {
-            if (!ffmpegOut.readable) {
-                return;
-            }
-            this.sumReadAttempts += 1;
-            if (this.prevTryReadEnd > 0) {
-                this.sumInterTryRead += new Date().getTime() - this.prevTryReadEnd;
-            }
-            try {
-                while (frameQueue.length < MAX_FRAME_QUEUE_LEN) {
-                    let frame: Buffer | null = ffmpegOut.read(this.frameSize);
-                    if (frame === null) {
-                        // When the size is specified for the read function, this indicates that
-                        // there isn't enough data available.
-                        return;
-                    }
-                    let validReadTime = new Date().getTime();
-                    if (this.lastValidRead > 0) {
-                        this.sumInterValidRead += validReadTime - this.lastValidRead;
-                    }
-                    this.lastValidRead = validReadTime;
-                    if (frame.length === 0) {
-                        continue;
-                    }
-                    if (frame.length !== this.frameSize) {
-                        console.error(
-                            "Received a package from ffmpeg that was not the expected size"
-                        );
-                        return;
-                    }
-                    frameQueue.push(frame);
-                    processData();
+            this.frameReadStartTime = new Date();
+            this.ffmpegProc = spawn(`${ffmpegBin}`, ffmpegArgs, {
+                stdio: ["pipe", "pipe", "pipe"],
+            });
+            this.ffmpegProc.on("exit", (code) => {
+                // server.close();
+                if (code === 0) {
+                    console.log("FFmpeg exited successfully");
+                    this.finishedDecoding(true);
+                    return;
                 }
-            } finally {
-                this.prevTryReadEnd = new Date().getTime();
-                setTimeout(tryReading, 5);
-                // setImmediate(tryReading);
-            }
-        };
-        setImmediate(tryReading);
-        // ffmpegOut.on("readable", tryReading);
-        this.ffmpegProc.stderr.on("data", (data) => {
-            this.ffmpegStderr += data;
-        });
+                if (code === null) {
+                    console.warn("ffmpeg seems to have been terminated");
+                } else {
+                    console.warn("ffmpeg returned with the exit code:", code);
+                }
+                console.warn("ffmpeg stderr was:\n" + this.ffmpegStderr);
+                this.finishedDecoding(false);
+            });
+
+            this.ffmpegProc.on("error", (err) => {
+                console.log('%c FFmpeg decoder error: ' + err, 'color: red');
+            });
+            this.ffmpegProc.stdin.on('error', (err) => {
+                console.log('%cDecoder Error on stdin: ' + err, 'color:red');
+            });
+            this.ffmpegProc.stdout.on('error', (err) => {
+                console.log('%cDecoder Error on stdout: ' + err, 'color:red');
+            });
+
+            console.log("Expecting ffmpeg frames of size", this.frameSize);
+
+            let ffmpegOut = this.ffmpegProc.stdout;
+            ffmpegOut.pause();
+            let tryReading = () => {
+                if (!ffmpegOut.readable) {
+                    return;
+                }
+                this.sumReadAttempts += 1;
+                if (this.prevTryReadEnd > 0) {
+                    this.sumInterTryRead += new Date().getTime() - this.prevTryReadEnd;
+                }
+                try {
+                    while (frameQueue.length < MAX_FRAME_QUEUE_LEN) {
+                        let frame: Buffer | null = ffmpegOut.read(this.frameSize);
+                        if (frame === null) {
+                            // When the size is specified for the read function, this indicates that
+                            // there isn't enough data available.
+                            return;
+                        }
+                        let validReadTime = new Date().getTime();
+                        if (this.lastValidRead > 0) {
+                            this.sumInterValidRead += validReadTime - this.lastValidRead;
+                        }
+                        this.lastValidRead = validReadTime;
+                        if (frame.length === 0) {
+                            continue;
+                        }
+                        if (frame.length !== this.frameSize) {
+                            console.error(
+                                "Received a package from ffmpeg that was not the expected size"
+                            );
+                            return;
+                        }
+                        frameQueue.push(frame);
+                        processData();
+                    }
+                } finally {
+                    this.prevTryReadEnd = new Date().getTime();
+                    setTimeout(tryReading, 5);
+                    // setImmediate(tryReading);
+                }
+            };
+            setImmediate(tryReading);
+            // ffmpegOut.on("readable", tryReading);
+            this.ffmpegProc.stderr.on("data", (data) => {
+                this.ffmpegStderr += data;
+            });
+        } catch (e) {
+            console.error('Error while reading data to pipe: ' + e);
+        }
     }
 
     /**
      * Starts up an ffmpeg process and commands it to send the decoded frames through a TCP
      * connection to this process.
+     *
+     * * NOT CURRENTLY USED *
      */
     protected processPipeFrames2(inFilePath: string, ffmpegBin: string) {
         let processingData = false;
@@ -1309,9 +1403,16 @@ export class Decoder {
         this.doneCb(success);
     }
 
-    stopDecoding() {
-        if (this.ffmpegProc) {
-            this.ffmpegProc.kill();
+    public stopDecoding() {
+        console.log("Resetting the encoding session");
+        if (this.ffmpegProc && this.ffmpegProc.pid) {
+            console.log(`Killing process with PID: ${this.ffmpegProc.pid}`);
+            this.ffmpegProc.kill("SIGKILL");
+            this.ffmpegProc = null;
+        } else {
+            this.ffmpegProc = null;
         }
+
+        this.finishedDecoding(false);
     }
 }

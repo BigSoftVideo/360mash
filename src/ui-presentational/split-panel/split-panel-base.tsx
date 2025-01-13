@@ -1,6 +1,6 @@
 import * as React from "react";
 
-export interface SplitPanelProps {
+export interface SplitPanelProps extends React.PropsWithChildren{
     defaultPercentage?: number;
     onResize?: () => void;
 }

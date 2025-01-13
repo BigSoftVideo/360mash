@@ -2,7 +2,7 @@ import * as React from "react";
 
 import "./aspect-ratio-fitter.css";
 
-export interface AspectRatioFitterProps {
+export interface AspectRatioFitterProps extends React.PropsWithChildren {
     aspectRatio: number;
 }
 
