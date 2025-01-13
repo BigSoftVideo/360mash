@@ -3,7 +3,6 @@ import { FilterPipeline } from "../../video/filter-pipeline";
 import { ChecklistElement } from "../../ui-presentational/checklist/checklist";
 import { Checklist } from "../../ui-presentational/checklist/checklist";
 import { FilterId } from "../../video/filter-base";
-import { GRAYSCALE_FILTER_NAME } from "../../filters/grayscale";
 
 interface FilterDesc {
     id: string;
@@ -87,7 +86,7 @@ export class FilterList extends React.Component<FilterListProps, FilterListState
         for (const desc of filterDescs) {
             thisFilters.push({
                 id: desc.id,
-                inUse: true,
+                inUse: false,
             });
         }
         this.setState({ filters: thisFilters });

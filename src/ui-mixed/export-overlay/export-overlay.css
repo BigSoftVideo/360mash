@@ -28,6 +28,11 @@
     margin-top: 1em;
 }
 
+.export-overlay-buttons-parent {
+    position: relative;
+    margin-top: 2em;
+}
+
 .export-overlay-progress-bar-outline {
     position: absolute;
     width: 100%;
@@ -49,4 +54,9 @@
     width: 100%;
     color: gray;
     font-size: small;
+}
+
+.export-overlay-cancel-button {
+    margin-left: auto;
+    margin-right: auto;
 }

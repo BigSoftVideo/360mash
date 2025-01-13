@@ -1,13 +1,15 @@
 {
     "name": "360mash",
     "productName": "360mash",
-    "version": "1.0.0-alpha-2",
-    "description": "Easy to use video manipulation",
+    "version": "1.0.0-beta-1",
+    "description": "A tool for clipping, reframing and anonymising 2D, 180 and 360 video",
     "main": ".webpack/main",
     "scripts": {
         "start": "electron-forge start",
         "package": "electron-forge package",
         "make": "electron-forge make",
+        "make-mac-intel": "electron-forge make --platform=darwin --arch=x64 --target=dmg",
+        "make-mac-arm": "electron-forge make --platform=darwin --arch=arm64 --target=dmg",
         "publish": "electron-forge publish",
         "lint": "eslint --ext .ts ."
     },
@@ -15,94 +17,86 @@
         "video",
         "transformation",
         "effect",
-        "anonimize",
+        "anonymization",
         "panoramic"
     ],
     "author": {
-        "name": "Big Soft Video",
-        "url": "https://www.bigvideo.aau.dk/"
+        "name": "BigSoftVideo",
+        "url": "https://www.dote.aau.dk/"
     },
     "license": "UNLICENSED",
     "private": true,
-    "config": {
-        "forge": {
-            "packagerConfig": {},
-            "makers": [
-                {
-                    "name": "@electron-forge/maker-squirrel",
-                    "config": {
-                        "name": "360mash"
-                    }
-                },
-                {
-                    "name": "@electron-forge/maker-zip",
-                    "platforms": [
-                        "darwin"
-                    ]
-                },
-                {
-                    "name": "@electron-forge/maker-deb",
-                    "config": {}
-                },
-                {
-                    "name": "@electron-forge/maker-rpm",
-                    "config": {}
-                }
-            ],
-            "plugins": [
-                [
-                    "@electron-forge/plugin-webpack",
-                    {
-                        "mainConfig": "./webpack.main.config.js",
-                        "renderer": {
-                            "config": "./webpack.renderer.config.js",
-                            "entryPoints": [
-                                {
-                                    "html": "./src/index.html",
-                                    "js": "./src/renderer.tsx",
-                                    "name": "main_window"
-                                }
-                            ]
-                        }
-                    }
-                ]
-            ]
-        }
-    },
     "devDependencies": {
-        "@electron-forge/cli": "^6.0.0-beta.54",
-        "@electron-forge/maker-deb": "^6.0.0-beta.54",
-        "@electron-forge/maker-rpm": "^6.0.0-beta.54",
-        "@electron-forge/maker-squirrel": "^6.0.0-beta.54",
-        "@electron-forge/maker-zip": "^6.0.0-beta.54",
-        "@electron-forge/plugin-webpack": "6.0.0-beta.54",
-        "@marshallofsound/webpack-asset-relocator-loader": "^0.5.0",
-        "@typescript-eslint/eslint-plugin": "^4.0.1",
-        "@typescript-eslint/parser": "^4.0.1",
-        "copy-webpack-plugin": "^6.3.0",
-        "css-loader": "^4.2.1",
-        "electron": "^10.0.0",
-        "eslint": "^7.6.0",
-        "eslint-plugin-import": "^2.20.0",
-        "fork-ts-checker-webpack-plugin": "^5.0.14",
-        "node-loader": "^1.0.1",
-        "prettier": "^2.1.2",
-        "pretty-quick": "^3.1.0",
-        "style-loader": "^1.2.1",
-        "ts-loader": "^8.0.2",
-        "typescript": "^4.0.2"
+        "@babel/cli": "^7.17.3",
+        "@babel/core": "^7.17.2",
+        "@babel/plugin-transform-runtime": "^7.17.0",
+        "@electron-forge/cli": "^6.2.1",
+        "@electron-forge/maker-deb": "^6.2.1",
+        "@electron-forge/maker-dmg": "^6.2.1",
+        "@electron-forge/maker-rpm": "^6.2.1",
+        "@electron-forge/maker-squirrel": "^6.2.1",
+        "@electron-forge/maker-zip": "^6.2.1",
+        "@electron-forge/plugin-auto-unpack-natives": "^6.2.1",
+        "@electron-forge/plugin-webpack": "^6.2.1",
+        "@electron/universal": "^1.2.0",
+        "@timfish/webpack-asset-relocator-loader": "^0.1.0",
+        "@types/ffbinaries": "^1.1.5",
+        "@types/fs-extra": "^11.0.4",
+        "@types/node": "^17.0.8",
+        "@types/node-fetch": "^2.6.2",
+        "@types/react": "^18.2.0",
+        "@types/react-dom": "^18.2.0",
+        "@types/react-window": "^1.8.5",
+        "@types/webpack-env": "^1.16.3",
+        "@typescript-eslint/eslint-plugin": "^5.12.0",
+        "@typescript-eslint/parser": "^5.12.0",
+        "@vercel/webpack-asset-relocator-loader": "^1.7.0",
+        "babel-loader": "^8.2.3",
+        "copy-webpack-plugin": "^10.2.4",
+        "cross-env": "^7.0.3",
+        "css-loader": "^6.0.0",
+        "electron": "19.0.0",
+        "electron-rebuild": "^3.2.7",
+        "eslint": "^8.9.0",
+        "eslint-import-resolver-alias": "^1.1.2",
+        "eslint-plugin-import": "^2.25.0",
+        "eslint-plugin-react": "^7.28.0",
+        "eslint-webpack-plugin": "^3.1.1",
+        "file-loader": "^6.2.0",
+        "fork-ts-checker-webpack-plugin": "^7.2.13",
+        "node-gyp": "^8.4.1",
+        "node-loader": "^2.0.0",
+        "style-loader": "^3.0.0",
+        "ts-loader": "^9.2.6",
+        "ts-node": "^10.0.0",
+        "typescript": "~4.5.4",
+        "webpack": "5.90.3",
+        "worker-loader": "^3.0.8"
     },
     "dependencies": {
+        "@babel/preset-env": "^7.11.5",
+        "@babel/preset-react": "^7.16.7",
+        "@electron/remote": "^2.0.4",
         "@emotion/react": "^11.5.0",
         "@emotion/styled": "^11.3.0",
+        "@fluentui/react": "^8.55.3",
+        "@fluentui/react-icons-mdl2": "^1.2.16",
         "@mui/material": "^5.1.0",
-        "@types/electron": "^1.6.10",
-        "@types/react": "^16.9.55",
-        "@types/react-dom": "^16.9.9",
+        "debounce": "^2.2.0",
+        "dotenv": "^16.0.3",
         "electron-squirrel-startup": "^1.0.0",
-        "gl-matrix": "^3.3.0",
-        "react": "^17.0.1",
-        "react-dom": "^17.0.1",
-        "settings-store": "^1.4.1"
-    }
+        "electron-store": "^8.1.0",
+        "evergreen-ui": "^6.9.12",
+        "ffbinaries": "^1.1.6",
+        "fs-extra": "^11.2.0",
+        "gl-matrix": "^3.4.3",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "react-icons": "^5.3.0",
+        "react-range": "^1.10.0",
+        "react-sweet-progress": "^1.1.2",
+        "settings-store": "^1.4.1",
+        "throttleit": "^2.1.0"
+    },
+    "packageManager": "yarn@3.1.1"
 }

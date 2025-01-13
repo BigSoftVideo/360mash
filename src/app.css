@@ -1,3 +1,5 @@
+/* The 'c' prefix stands for common */
+
 .app-root {
     position: absolute;
     top: 0;
@@ -6,6 +8,7 @@
     right: 0;
 }
 
+/* Not used */
 .app-contents {
     position: relative;
     width: 100%;
@@ -29,4 +32,143 @@
     position: absolute;
     top: 0;
     bottom: 0;
+}
+
+/* We apply a custom font family priority list to make sure that the play and pause icons appear consistently.
+   For example on macOS the icons look different without this */
+.icon-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: "apple color emoji,segoe ui emoji,noto color emoji,android emoji,emojisymbols,emojione mozilla,twemoji mozilla,segoe ui symbol";
+}
+
+.c-icon {
+    color: black;
+}
+
+.c-icon-toogle-off {
+    padding: 2px;
+    box-sizing: border-box;
+    /* margin: 2px; */
+    border: none;
+    outline: none;
+}
+
+.c-icon-toogle-on {
+    padding: 1px;
+    box-sizing: border-box;
+    /* margin: 0px; */
+    /* box-shadow: inset 0px 0px 3px 0px orange; */
+    /* border: none; */
+    outline: none;
+    border: 1px solid orange;
+}
+
+.c-button,
+.c-input-form button,
+.c-input-form input[type="submit"] {
+    border: 1px solid lightgray;
+    background: whitesmoke;
+    font-size: 10pt;
+    padding: 0.25em;
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+    border-radius: 0.3em;
+}
+
+.c-button:hover,
+.c-input-form button:hover,
+.c-input-form input[type="submit"]:hover {
+    border: 1px solid gray;
+}
+
+.c-button:not(.c-no-focus):focus,
+.c-toggle:not(.c-no-focus):focus,
+.c-input-form button:not(.c-no-focus):focus,
+.c-input-form input[type="text"]:not(.c-no-focus):focus,
+.c-input-form input[type="submit"]:not(.c-no-focus):focus {
+    box-shadow: 0 0 2px 1px rgb(11, 119, 161);
+    /* outline: 1px solid darkslategrey; */
+    outline: none;
+}
+
+.c-button:active,
+.c-toggle:active,
+.c-input-form button:active,
+.c-input-form input[type="submit"]:active {
+    box-shadow: inset 0px 0px 2px 0px gray;
+}
+
+.c-button-backlit {
+    background-color: #ffdd7e !important;
+}
+
+.c-toggle {
+    background-color: whitesmoke;
+    border: 1px solid transparent;
+    font-size: 10pt;
+    padding-top: 0.1em;
+    padding-bottom: 0.1em;
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+}
+.c-toggle-on {
+    /* border: 1px solid darkorange !important; */
+    background-color: rgb(254, 221, 125) !important;
+}
+.c-toggle-on:not([disabled]):hover {
+    border: 1px solid rgb(255, 204, 108);
+}
+.c-toggle-green-on {
+    background-color: rgb(17, 153, 83) !important;
+    /* background-color: rgb(16, 215, 111) !important; */
+}
+.c-toggle-green-off {
+    background-color: rgba(49, 225, 133, 0.4) !important;
+}
+
+.c-toggle-yellow-on {
+    /* border: 1px solid darkorange !important; */
+    background-color: rgb(211, 168, 39) !important;
+}
+
+.c-no-focus {
+    outline: none;
+}
+
+.action-button {
+    background: whitesmoke;
+    margin-left: 5px;
+    padding: 1px 6px;
+    box-shadow: none;
+    outline: none;
+    width: 35px;
+    height: 33px;
+}
+
+.action-button-backlit {
+    background: #ffdd7e;
+}
+.action-button-mild-highlight {
+    background: #ffecb9;
+}
+.action-button-left {
+    margin-right: 6px;
+    width: 13px;
+    height: 13px;
+}
+.action-button-right {
+    margin-left: 6px;
+    width: 13px;
+    height: 13px;
+}
+.action-button-play {
+    font-size: 24px;
+}
+.action-button-first {
+    margin-left: auto;
+}
+.action-button-last {
+    margin-right: auto;
 }

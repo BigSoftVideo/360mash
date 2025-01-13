@@ -19,5 +19,9 @@
         },
         "jsx": "react"
     },
-    "include": ["src/**/*"]
+    "include": [
+        "src/**/*",
+        "forge.config.ts",
+        "webpack.*.*"
+    ],
 }
