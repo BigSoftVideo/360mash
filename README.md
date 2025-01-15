@@ -32,7 +32,7 @@ Given that the package is a beta release, and the UI leaves a lot to be desired,
 - Create (multiple) Filter zones for each filter.
 - UI enhancement, eg. better handling of IN/OUT points and playhead overlap.
 - Separate the `Convert 360 to 2D` transform from the reframing operation, eg. add a new transform in the pipeline for just reframing 2D and 360.
-- Updating `Video ToolBox` GPU encoder for contemporary macOS (eg. AMD Silicon).
+- Updating `Video ToolBox` GPU encoder for contemporary macOS (eg. Apple ARM Silicon).
 - Options for H.265 encoding.
 - Tackling export pipeline bottlenecks.
 - Keeping packages updated, eg. Electron, Webpack, Node, Yarn.
