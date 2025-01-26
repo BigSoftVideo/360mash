@@ -145,6 +145,186 @@ class FrameFifo {
     }
 }
 
+type OnExitHandler = (code: number | null, stderr: string) => void;
+
+export class EncoderController {
+
+    encoder: Encoder2 | null;
+
+    constructor() {
+        this.encoder = null;
+    }
+
+    cancelEncoding() {
+        this.encoder!.cancelEncoding();
+        this.encoder = null;
+    }
+
+    startEncoding(outFileName: string, encoderDesc: EncoderDesc, onExit: OnExitHandler) {
+        this.encoder = new Encoder2(outFileName, encoderDesc, onExit);
+        return this.encoder;
+    }
+}
+
+export class Encoder2 {
+    readonly width: number;
+    readonly height: number;
+
+    readonly ffmpegProc: ChildProcessWithoutNullStreams;
+    ffmpegStdout: string;
+    ffmpegStderr: string;
+
+    outFilename: string;
+
+    constructor(outFileName: string, encoderDesc: EncoderDesc, onExit: OnExitHandler) {
+        this.width = encoderDesc.width;
+        this.height = encoderDesc.height;
+        this.ffmpegStdout = "";
+        this.ffmpegStderr = "";
+        this.outFilename = outFileName;
+        this.ffmpegProc = this.createFfmpegProc(outFileName, encoderDesc, onExit);
+    }
+    
+    createFfmpegProc(outFileName: string, encoderDesc: EncoderDesc, onExit: OnExitHandler): ChildProcessWithoutNullStreams {
+        const ffmpegBin = settings.ffMpegExecutablePath;
+
+        const defaultBitrate = Math.round(Math.sqrt(encoderDesc.width * encoderDesc.height) * 3);
+        const bitrate = encoderDesc.bitrate || defaultBitrate;
+        console.log("Setting output bitrate to", bitrate);
+
+        const encoder = encoderDesc.encoder || "h264";
+
+        const resStr = encoderDesc.width + "x" + encoderDesc.height;
+        const outFileNameArg = outFileName.replace(/\\/g, "/");
+
+        const ffmpegArgs = [
+            "-hide_banner",
+            "-loglevel",
+            "warning",
+            "-f",
+            "rawvideo",
+            "-vcodec",
+            "rawvideo",
+            "-pix_fmt",
+            "yuv420p",
+            "-framerate",
+            encoderDesc.fps.toString(),
+            "-video_size",
+            resStr,
+            "-i",
+            "-",
+        ];
+        if (encoderDesc.audioStartSec) {
+            ffmpegArgs.push("-ss", secsToTimeString(encoderDesc.audioStartSec));
+        }
+        if (isFinite(encoderDesc.audioEndSec)) {
+            let start = encoderDesc.audioStartSec;
+            let duration = encoderDesc.audioEndSec - encoderDesc.audioStartSec;
+            ffmpegArgs.push("-t", secsToTimeString(duration));
+        }
+        ffmpegArgs.push(
+            "-i",
+            encoderDesc.audioFilePath,
+            "-c:a",
+            "aac",
+            "-vcodec",
+            encoder,
+            "-b:v",
+            bitrate + "k",
+            "-f",
+            "mp4",
+            "-map",
+            "0:v:0",
+            "-map",
+
+            // The question mark indicates that it's okay if the source does NOT
+            // have an audio track
+            "1:a:0?",
+            outFileNameArg
+        );
+
+        console.log("Starting encoding with ffmpeg arguments:", { ffmpegArgs });
+
+        const ffmpegProc = spawn(ffmpegBin, ffmpegArgs, {
+            stdio: ["pipe", "pipe", "pipe"],
+        });
+
+        ffmpegProc.stdin.on("finish", () => {
+            console.log("The stdin of ffmpeg was successfully closed");
+        });
+
+        ffmpegProc.stdout.on("data", (data) => {
+            this.ffmpegStdout += data;
+        });
+        ffmpegProc.stderr.on("data", (data) => {
+            this.ffmpegStderr += data;
+        });
+        ffmpegProc.on("error", (err) => {
+            console.log('%cFFmpeg encoder error: ' + err, 'color:red');
+        });
+        ffmpegProc.on("error", (err) => {
+            console.log('%cFFmpeg decoder error: ' + err, 'color:red');
+        });
+        ffmpegProc.stdin.on('error', (err) => {
+            console.log('%cEncoder Error on stdin: ' + err, 'color:red');
+        });
+        ffmpegProc.stdout.on('error', (err) => {
+            console.log('%cEncoder Error on stdout: ' + err, 'color:red');
+        });
+
+        ffmpegProc.on("exit", (code) => {
+            console.log("Exiting the ffmpeg proc for the Encoder. The stderr was:", this.ffmpegStderr);
+            onExit(code, this.ffmpegStderr);
+        });
+
+        return ffmpegProc;
+    }
+
+    async encode(rawFrame: Uint8Array): Promise<void> {
+        return new Promise((resolve, reject) => {
+            this.ffmpegProc.stdin.write(rawFrame, (err) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve();
+            });
+        })
+    }
+
+    async cancelEncoding() {
+        if (this.ffmpegProc.pid) {
+            console.log(`%cKilling process with PID: ${this.ffmpegProc.pid}`, 'color: red');
+            this.ffmpegProc.kill();
+        }
+        if (this.outFilename) {
+            // Delete the incomplete file
+            try {
+                await unlink(this.outFilename)
+            } catch (e) {
+                console.warn(`WARNING: Failed to remove the output file when the encoding was cancelled. Output filename is: ${this.outFilename}. Error message is: ${e}`);
+            }
+        }
+    }
+
+    async endEncoding(): Promise<void> {
+        // This triggers the "finish" event.
+        return new Promise((resolve) => {
+            this.ffmpegProc.stdin.end(resolve);
+        });
+    }
+}
+
+
+export class Decoder2 {
+
+    ffmpegProc: ChildProcessWithoutNullStreams;
+
+    startDecoding(receivedImgCb: ReceivedImageCallback) {
+
+    }
+}
+
 /**
  * A
  */
@@ -690,16 +870,16 @@ export class Encoder {
 
         let endTime = new Date();
         let elapsedSecs = (endTime.getTime() - this.encStartTime.getTime()) / 1000;
-        let avgFramerate = this.frameId / elapsedSecs;
-        console.log(
-            [
-                "ENCODING",
-                "The avg frametime (ms) was: " + (elapsedSecs / this.frameId) * 1000,
-                "Avg inter frame ms was " + this.sumWriteMs / this.frameId,
-                "Avg drain wait time was " + this.sumDrainWaitMs / this.frameId,
-                "Avg get image ms " + this.sumGetImageMs / this.frameId,
-            ].join("\n")
-        );
+        // let avgFramerate = this.frameId / elapsedSecs;
+        // console.log(
+        //     [
+        //         "ENCODING",
+        //         "The avg frametime (ms) was: " + (elapsedSecs / this.frameId) * 1000,
+        //         "Avg inter frame ms was " + this.sumWriteMs / this.frameId,
+        //         "Avg drain wait time was " + this.sumDrainWaitMs / this.frameId,
+        //         "Avg get image ms " + this.sumGetImageMs / this.frameId,
+        //     ].join("\n")
+        // );
 
         // The encoding settings are reset by the callback that listens on the "finish" event.
         this.ffmpegProc.stdin?.end();
