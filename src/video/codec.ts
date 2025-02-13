@@ -7,6 +7,8 @@ import { secsToTimeString } from "../util";
 import { FFmpegExists, settings } from "../app";
 import { shell } from "@electron/remote";
 import { pathExists, unlink } from "fs-extra";
+import { DynamicBuffer } from "./dynamic-buffer";
+import { assert } from "console";
 
 // const ffmpegBin =
 //     "C:\\Users\\Dighumlab2\\Desktop\\Media Tools\\ffmpeg-4.4-full_build\\bin\\ffmpeg";
@@ -41,7 +43,7 @@ export type GetImageCallback = (frameId: number, buffer: Uint8Array) => Promise<
 export type ReceivedMetadataCallback = (metadata: MediaMetadata) => void;
 
 /**
- * This callback is allowed to block until it's ready to proceed with processing frames
+ * This callback is allowed to block (asynchronously) until it's ready to proceed with processing frames
  */
 export type ReceivedImageCallback = (buffer: Uint8Array) => Promise<void>;
 
@@ -63,8 +65,12 @@ export interface EncoderDesc {
 }
 
 export interface DecoderDesc {
+    inFilePath: string;
     startSec?: number;
     endSec?: number;
+    receivedMetadataCb: ReceivedMetadataCallback;
+    receivedImageCb: ReceivedImageCallback;
+    onExit: OnExitHandler;
 }
 
 interface FrameSetElement {
@@ -160,7 +166,7 @@ export class EncoderController {
         this.encoder = null;
     }
 
-    startEncoding(outFileName: string, encoderDesc: EncoderDesc, onExit: OnExitHandler) {
+    startEncoding(outFileName: string, encoderDesc: EncoderDesc, onExit: OnExitHandler): Encoder2 {
         this.encoder = new Encoder2(outFileName, encoderDesc, onExit);
         return this.encoder;
     }
@@ -316,12 +322,239 @@ export class Encoder2 {
 }
 
 
+export class DecoderController {
+    decoder: Decoder2 | null;
+
+    constructor() {
+        this.decoder = null;
+    }
+
+    async startDecoding(desc: DecoderDesc) {
+        this.decoder = await Decoder2.construct(desc);
+    }
+
+    stopDecoding() {
+        this.decoder = null;
+    }
+}
+
+
 export class Decoder2 {
+    ffmpegProc: ChildProcessWithoutNullStreams | undefined;
+    ffmpegStdout: string;
+    ffmpegStderr: string;
 
-    ffmpegProc: ChildProcessWithoutNullStreams;
+    static async construct(desc: DecoderDesc): Promise<Decoder2> {
+        const [w, h] = await Decoder2.getDimensions(desc.inFilePath);
+        const framerate = await Decoder2.getFramerate(desc.inFilePath);
 
-    startDecoding(receivedImgCb: ReceivedImageCallback) {
+        const metadata: MediaMetadata = {
+            framerate,
+            width: w,
+            height: h,
+        };
 
+        // TODO: This depends on the pix_fmt
+        // For rgba this is w * h * 4
+        // But for yuv, this is w * h + 2 * (w/2 * h/2)
+        let halfW = Math.floor(w / 2);
+        let halfH = Math.floor(h / 2);
+        let yuvFrameSize = w * h + 2 * (halfW * halfH);
+        const frameSize = yuvFrameSize;
+        // this.pixelBuffer = new Uint8Array(frameSize);
+        desc.receivedMetadataCb(metadata);
+
+        return new Decoder2(desc, frameSize);
+    }
+
+    private constructor(
+        desc: DecoderDesc,
+        frameSize: number
+    ) {
+        this.ffmpegStdout = "";
+        this.ffmpegStderr = "";
+        this.createFfmpegProc(desc, frameSize);
+    }
+
+    private async createFfmpegProc(desc: DecoderDesc, frameSize: number) {
+        // This function may only be called once for each instance of the Decoder2 class
+        assert(!this.ffmpegProc);
+
+        const ffmpegBin = settings.ffMpegExecutablePath;
+
+        let ffmpegArgs = ["-hide_banner", "-loglevel", "error"];
+
+        if (desc.startSec) {
+            ffmpegArgs.push("-ss", secsToTimeString(desc.startSec));
+        }
+        if (desc.endSec) {
+            let start = desc.startSec || 0;
+            let duration = desc.endSec - start;
+            if (duration < 0) {
+                throw new Error(
+                    "The duration was negative. Halting the export. Start " +
+                        desc.startSec +
+                        " end " +
+                        desc.endSec
+                );
+            }
+            ffmpegArgs.push("-t", secsToTimeString(duration));
+        }
+
+        ffmpegArgs.push(
+            // Enabling HW acceleration here, doesn't seem to have any effect on the speed
+            // "-hwaccel",
+            // "d3d11va",
+            "-i",
+            `${desc.inFilePath}`,
+            "-f",
+            "rawvideo",
+            "-vcodec",
+            "rawvideo",
+            "-pix_fmt",
+            "yuv420p",
+            "-an",
+            "pipe:1"
+        );
+
+        try {
+            this.ffmpegProc = spawn(`${ffmpegBin}`, ffmpegArgs, {
+                stdio: ["pipe", "pipe", "pipe"],
+            });
+            this.ffmpegProc.on("exit", (code) => {
+                try {
+                    if (code === 0) {
+                        console.log("FFmpeg exited successfully");
+                        return;
+                    }
+                    if (code === null) {
+                        console.warn("ffmpeg seems to have been terminated");
+                    } else {
+                        console.warn("ffmpeg returned with the exit code:", code);
+                    }
+                    console.warn("ffmpeg stderr was:\n" + this.ffmpegStderr);
+                } finally {
+                    desc.onExit(code, this.ffmpegStderr);
+                }
+            });
+
+            this.ffmpegProc.on("error", (err) => {
+                console.error('FFmpeg decoder error: ' + err);
+            });
+            this.ffmpegProc.stdin.on('error', (err) => {
+                console.error('Decoder Error on stdin: ' + err);
+            });
+            this.ffmpegProc.stdout.on('error', (err) => {
+                console.error('Decoder Error on stdout: ' + err);
+            });
+
+            console.log("Expecting ffmpeg frames of size", frameSize);
+
+            let ffmpegOut = this.ffmpegProc.stdout;
+            const incomingFrameBytes: DynamicBuffer = new DynamicBuffer(frameSize);
+            ffmpegOut.on("data", async (data: any) => {
+                ffmpegOut.pause();
+                try {
+                    incomingFrameBytes.append(data);
+                    while (incomingFrameBytes.getLength() >= frameSize) {
+                        let frame = incomingFrameBytes.split(frameSize);
+                        await desc.receivedImageCb(new Uint8Array(frame.asBuffer().buffer));
+                    }
+                } finally {
+                    ffmpegOut.resume();
+                }
+            });
+            this.ffmpegProc.stderr.on("data", (data) => {
+                this.ffmpegStderr += data;
+            });
+        } catch (e) {
+            console.error('Error while reading data to pipe: ' + e);
+        }
+    }
+
+    private static getDimensions(filname: string): Promise<[number, number]> {
+        const ffprobeBin = settings.ffProbeExecutablePath;
+        const getDimensionsProc = spawn(
+            ffprobeBin,
+            [
+                "-v",
+                "0",
+                "-of",
+                "csv=p=0",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=width,height",
+                filname,
+            ],
+            {
+                stdio: ["pipe", "pipe", "pipe"],
+            }
+        );
+        let dimensionsStr = "";
+        getDimensionsProc.stdout.on("data", (data) => {
+            dimensionsStr += data;
+        });
+
+        return new Promise((resolve, reject) => {
+            getDimensionsProc.on("exit", (code) => {
+                if (code !== 0) {
+                    reject(new Error("Error while trying to obtain the dimensions."));
+                    return;
+                }
+                let [w, h] = dimensionsStr
+                    .trim()
+                    .split(",")
+                    .map((s) => Number.parseInt(s));
+
+                resolve([w, h]);
+                return;
+            });
+        });
+    }
+
+
+    private static getFramerate(inFilePath: string): Promise<number> {
+        const ffprobeBin = settings.ffProbeExecutablePath;
+        // This is from: https://askubuntu.com/a/468003
+        let getFramerateProc = spawn(
+            ffprobeBin,
+            [
+                "-v",
+                "0",
+                "-of",
+                "csv=p=0",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=r_frame_rate",
+                "-i",
+                inFilePath,
+            ],
+            {
+                stdio: ["pipe", "pipe", "pipe"],
+            }
+        );
+
+        let framerateStr = "";
+        getFramerateProc.stdout.on("data", (data) => {
+            framerateStr += data;
+        });
+
+        return new Promise((resolve, reject) => {
+            getFramerateProc.on("exit", (code) => {
+                if (code !== 0) {
+                    reject(new Error("Error while trying to obtain the framerate."));
+                    return;
+                }
+                console.log("Get framerate process completed");
+                let [num, denom] = framerateStr
+                    .trim()
+                    .split("/")
+                    .map((s) => Number.parseInt(s));
+                resolve(num / denom);
+            });
+        });
     }
 }
 
