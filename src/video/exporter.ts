@@ -7,6 +7,8 @@ export type ExporterDesc = {
     outFilePath: string;
 
     startSec: number;
+
+    /** May be set to Infinity, which means that it should last until the end of the input */
     endSec: number;
 
     outputWidth: number;

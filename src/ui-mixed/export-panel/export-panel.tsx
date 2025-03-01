@@ -13,6 +13,7 @@ import { ExportInfoProvider, MiscExportInfo } from "../export-overlay/export-ove
 import { secsToTimeString } from "../../util";
 import { FFmpegExists, settings } from "../../app";
 import { minorScale, Pane, Text } from "evergreen-ui";
+import { Exporter, ExporterDesc } from "../../video/exporter";
 
 // const settings = require("settings-store");
 
@@ -49,9 +50,6 @@ interface ExportPanelState {
 }
 
 export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelState> {
-    sumInputFrameWaitMs: number;
-    sumInputWaitIterations: number;
-
     canvasRef: React.RefObject<HTMLCanvasElement>;
 
     // pathRef: React.RefObject<HTMLInputElement>;
@@ -61,30 +59,19 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
     // selectedOutputWidth: number;
     selectedOutputDim: [number, number] | "MATCH_INPUT";
     selectedEncoder: AvailableEncoders;
-    sumRenderTimeCpu: number;
 
     outFrameCount: number;
-    sumFrameReadTime: number;
-    sumOutputWaitTime: number;
 
-    frameProcessStartTime: number;
     infoReportInterval: NodeJS.Timeout | null;
     progress: number;
-    encoder: Encoder2 | null;
 
     constructor(params: any) {
         super(params);
         this.canvasRef = React.createRef();
         // this.pathRef = React.createRef();
         // this.ffmpegFolderRef = React.createRef();
-        this.sumInputFrameWaitMs = 0;
-        this.sumInputWaitIterations = 0;
-        this.sumRenderTimeCpu = 0;
-        this.sumFrameReadTime = 0;
         this.outFrameCount = 0;
-        this.sumOutputWaitTime = 0;
         this.progress = 0;
-        this.frameProcessStartTime = NaN;
         this.infoReportInterval = null;
         // this.selectedOutputHeight = 2160;
         // this.selectedOutputWidth = 3840;
@@ -93,7 +80,6 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         this.state = {
             statusMessage: null,
         };
-        this.encoder = null;
     }
 
     componentDidMount() {
@@ -261,7 +247,6 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
 
         // let ffmpegParentPath = this.ffmpegFolderRef.current.value;
         let video = this.props.videoManager.video.htmlVideo;
-        this.sumInputFrameWaitMs = 0;
         video.pause();
         this.props.videoManager.stopRendering();
 
@@ -303,7 +288,6 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             while (readyFrameId < outFrameId) {
                 await setImmediateAsync();
             }
-            this.sumInputFrameWaitMs += new Date().getTime() - waitStart.getTime();
             let targetPixelBuffer: AlignedPixelData = {
                 data: buffer,
                 linesize: width * 4,
@@ -409,13 +393,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
 
         this.props.exportStateChange(true);
         this.props.infoProvider.reportProgress(0);
-        this.sumRenderTimeCpu = 0;
-        this.sumFrameReadTime = 0;
-        this.frameProcessStartTime = NaN;
 
-        this.sumInputFrameWaitMs = 0;
-        this.sumInputWaitIterations = 0;
-        this.sumOutputWaitTime = 0;
         this.progress = 0;
         let video = this.props.videoManager.video;
         let duration = video.htmlVideo.duration;
@@ -453,7 +431,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
 
         let lastInFrameId = Infinity;
 
-        let getOutputImage = async (
+        let todoRemoveThisgetOutputImage = async (
             outFrameId: number,
             buffer: Uint8Array
         ): Promise<number> => {
@@ -466,10 +444,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             // console.log("OUT Get output image called.")
             while (renderedOutFrameId < outFrameId) {
                 await timeoutAsync(5);
-                this.sumInputWaitIterations += 1;
             }
-            // console.log("OUT Starting to read-out frame", renderedOutFrameId, outFrameId);
-            this.sumInputFrameWaitMs += new Date().getTime() - waitStart.getTime();
             let targetPixelBuffer: PackedPixelData = {
                 data: buffer,
                 w: outWidth,
@@ -479,7 +454,6 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             let frameReadStart = new Date().getTime();
             await this.props.videoManager.pipeline.fillYuv420pPixelData(targetPixelBuffer);
             let frameReadEnd = new Date().getTime();
-            this.sumFrameReadTime += frameReadEnd - frameReadStart;
             let outTime = outFrameId / outFps;
             // console.log("Curr out time", outTime, "fps", outFps, "duration", duration);
             this.progress = outTime / duration;
@@ -504,7 +478,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         let inHeight = 0;
         let inFrameIdx = -1;
 
-        let receivedMetadata = (metadata: MediaMetadata) => {
+        let todoRemoveThisreceivedMetadata = (metadata: MediaMetadata) => {
             if (!this.props.videoManager) {
                 throw Error('Video Manager not defined');
             }
@@ -515,18 +489,17 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             inWidth = metadata.width;
             inHeight = metadata.height;
 
-            this.frameProcessStartTime = new Date().getTime();
-            this.infoReportInterval = setInterval(() => {
-                let elapsedMs = new Date().getTime() - this.frameProcessStartTime;
-                let remainingMs = (elapsedMs / this.progress) * (1 - this.progress);
-                let fps = this.outFrameCount / (elapsedMs / 1000);
-                let info: MiscExportInfo = {
-                    remainingMs: remainingMs,
-                    fps,
-                };
-                this.props.infoProvider.reportInfo(info);
-                this.props.infoProvider.reportProgress(this.progress);
-            }, 250);
+            // this.infoReportInterval = setInterval(() => {
+            //     let elapsedMs = new Date().getTime() - this.frameProcessStartTime;
+            //     let remainingMs = (elapsedMs / this.progress) * (1 - this.progress);
+            //     let fps = this.outFrameCount / (elapsedMs / 1000);
+            //     let info: MiscExportInfo = {
+            //         remainingMs: remainingMs,
+            //         fps,
+            //     };
+            //     this.props.infoProvider.reportInfo(info);
+            //     this.props.infoProvider.reportProgress(this.progress);
+            // }, 250);
 
             let encoderDesc: EncoderDesc = {
                 width: outWidth,
@@ -537,18 +510,15 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                 audioStartSec: this.props.videoManager.startSec,
                 audioEndSec: this.props.videoManager.endSec,
             };
-            this.encoder = this.props.encoderController.startEncoding(
-                targetFilename,
-                encoderDesc,
-                this.encodingExitHandler.bind(this)
-            );
+            // this.encoder = this.props.encoderController.startEncoding(
+            //     targetFilename,
+            //     encoderDesc,
+            //     this.encodingExitHandler.bind(this)
+            // );
         };
-        let receivedInputImage = async (buffer: Uint8Array) => {
+        let todoRemoveThisreceivedInputImage = async (buffer: Uint8Array) => {
             if (!this.props.videoManager) {
                 throw new Error('Video Manager not defined');
-            }
-            if (!this.encoder) {
-                throw new Error("Expected encoder to exist here");
             }
             // console.log("Video finished seeking. Time", video.currentTime);
             let pixelData: PackedPixelData = {
@@ -560,9 +530,6 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                 format: ImageFormat.YUV420P,
             };
             this.props.videoManager.renderOnce(pixelData);
-            let renderEnd = new Date().getTime();
-            this.sumRenderTimeCpu += renderEnd - renderStart;
-            renderedOutFrameId = nextOutFrameId;
         };
 
         // TODO: remove this if exporting works. I don't think this is needed.
@@ -582,21 +549,37 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         //     );
         // };
 
+        const exporterDesc: ExporterDesc = {
+            deconderController: this.props.decoderController,
+            encoderController: this.props.encoderController,
+            startSec: this.props.videoManager.startSec,
+            endSec: this.props.videoManager.endSec,
+            inFilePath: video.filePath,
+            onDone: this.encodingExitHandler.bind(this),
+            onProgress: (progress) => console.log("TODO: implement proper progress reporting. Progress is:", progress),
+            outFilePath: targetFilename,
+            outputWidth: outWidth,
+            outputHeight: outHeight,
+            videoManager: this.props.videoManager,
+        };
+
+        const exporter = new Exporter(exporterDesc);
+        // TODO TODO: make the exporter a field of this class and when clicking on the cancel button, call the `cancelExport` method
+
         let endSec = undefined;
         if (isFinite(this.props.videoManager.endSec)) {
             endSec = this.props.videoManager.endSec;
         }
-        let desc: DecoderDesc = {
-            startSec: this.props.videoManager.startSec,
-            endSec,
-            inFilePath: video.filePath,
-            onExit: () => console.log("DECODER EXIT FROM EXPORT PANEL"),
-            receivedImageCb: receivedInputImage,
-            receivedMetadataCb: receivedMetadata
-        };
-        this.props.decoderController.startDecoding(
-            desc,
-        );
+        // let desc: DecoderDesc = {
+        //     startSec: this.props.videoManager.startSec,
+        //     endSec,
+        //     inFilePath: video.filePath,
+        //     onExit: () => console.log("DECODER EXIT FROM EXPORT PANEL"),
+        //     receivedImageCb: receivedInputImage,
+        //     receivedMetadataCb: receivedMetadata
+        // };
+
+
     }
 
     fetchFrame() {
