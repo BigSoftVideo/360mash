@@ -33,8 +33,8 @@ export interface FilterDesc {
  * next is stored in `linesize`. This is also known as stride. (Note that linesize is always at
  * least `w*4`)
  *
- * To access the first channel (RED) of the pixel at (x, y) index the `data` field with `y*linesize
- * + x*4`
+ * To access the first channel (RED) of the pixel at (x, y) index the `data` field with 
+ * `y*linesize + x*4`
  */
 export interface AlignedPixelData {
     data: Uint8Array;
@@ -619,7 +619,7 @@ export class FilterPipeline {
      * The next `w/2 * h/2` bytes will all be U channel values.
      * The final `w/2 * h/2` bytes will all be V channel values.
      */
-    public async fillYuv420pPixelData(buffer: PackedPixelData): Promise<void> {
+    public fillYuv420pPixelData(buffer: PackedPixelData) {
         if (!this.lastRt) {
             throw new Error(
                 "Trying to copy to CPU, but no rendertarget was found that was written to."
@@ -637,10 +637,10 @@ export class FilterPipeline {
                     this.lastRt.height
             );
         }
-        let w = this.lastRt.width;
-        let h = this.lastRt.height;
-        let halfW = w / 2;
-        let halfH = h / 2;
+        const w = this.lastRt.width;
+        const h = this.lastRt.height;
+        const halfW = Math.floor(w / 2);
+        const halfH = Math.floor(h / 2);
 
         let targetByteCount = w * h + 2 * (halfW * halfH);
         // console.log(`Filter pipline. targetByteCount: ${targetByteCount}. Buffer length: ${buffer.data.byteLength}`);
@@ -686,9 +686,11 @@ export class FilterPipeline {
         gl.pixelStorei(gl.PACK_ROW_LENGTH, 0);
 
         // Just before we start reading the pixels, lets give some time for other stuff to execute
-        await setImmedateAsync();
+        // (Artur: I think I wrote this but I have not the slightest idea what was this for.
+        // I commented this out, I don't think it's needed)
+        // await setImmedateAsync();
 
-        let dataY = buffer.data.subarray(0, w * h);
+        const dataY = buffer.data.subarray(0, w * h);
         // console.log("Y size", dataY.byteLength);
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.rgbToYOutput.framebuffer);
         // Even thought the single channel texture format is R8, the single channel framebuffer
@@ -705,8 +707,8 @@ export class FilterPipeline {
         gl.viewport(0, 0, this.rgbToUOutput.width, this.rgbToUOutput.height);
         this.rgbToUShader.draw(gl);
 
-        let offsetU = dataY.byteLength;
-        let dataU = buffer.data.subarray(offsetU, offsetU + halfW * halfH);
+        const offsetU = dataY.byteLength;
+        const dataU = buffer.data.subarray(offsetU, offsetU + halfW * halfH);
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.rgbToUOutput.framebuffer);
         start = new Date().getTime();
         gl.readPixels(0, 0, halfW, halfH, gl.RED, gl.UNSIGNED_BYTE, dataU);
@@ -720,8 +722,8 @@ export class FilterPipeline {
         gl.viewport(0, 0, this.rgbToVOutput.width, this.rgbToVOutput.height);
         this.rgbToVShader.draw(gl);
 
-        let offsetV = dataU.byteOffset + dataU.byteLength;
-        let dataV = buffer.data.subarray(offsetV, offsetV + halfW * halfH);
+        const offsetV = dataU.byteOffset + dataU.byteLength;
+        const dataV = buffer.data.subarray(offsetV, offsetV + halfW * halfH);
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.rgbToVOutput.framebuffer);
         gl.readPixels(0, 0, halfW, halfH, gl.RED, gl.UNSIGNED_BYTE, dataV);
 

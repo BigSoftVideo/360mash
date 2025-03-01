@@ -6,7 +6,7 @@ import * as React from "react";
 import * as path from "path";
 import * as util from "util";
 import { dialog, getCurrentWindow } from '@electron/remote';
-import { Decoder, DecoderDesc, Encoder, EncoderDesc, MediaMetadata } from "../../video/codec";
+import { DecoderController, DecoderDesc, Encoder2, EncoderController, EncoderDesc, MediaMetadata } from "../../video/codec";
 import { VideoManager } from "../../video/video-manager";
 import { AlignedPixelData, ImageFormat, PackedPixelData } from "../../video/filter-pipeline";
 import { ExportInfoProvider, MiscExportInfo } from "../export-overlay/export-overlay";
@@ -36,8 +36,8 @@ function timeoutAsync(ms: number): Promise<void> {
 }
 
 export interface ExportPanelProps {
-    encoder: Encoder;
-    decoder: Decoder;
+    encoderController: EncoderController;
+    decoderController: DecoderController;
     videoManager: VideoManager | null;
     exportStateChange: (inProgress: boolean) => void;
     infoProvider: ExportInfoProvider;
@@ -70,6 +70,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
     frameProcessStartTime: number;
     infoReportInterval: NodeJS.Timeout | null;
     progress: number;
+    encoder: Encoder2 | null;
 
     constructor(params: any) {
         super(params);
@@ -92,6 +93,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         this.state = {
             statusMessage: null,
         };
+        this.encoder = null;
     }
 
     componentDidMount() {
@@ -356,10 +358,9 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             audioStartSec: this.props.videoManager.startSec,
             audioEndSec: this.props.videoManager.endSec,
         };
-        this.props.encoder.startEncoding(
+        this.props.encoderController.startEncoding(
             targetFilename,
             encoderDesc,
-            getImage,
             this.encodingExitHandler.bind(this)
         );
     }
@@ -536,36 +537,19 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                 audioStartSec: this.props.videoManager.startSec,
                 audioEndSec: this.props.videoManager.endSec,
             };
-            this.props.encoder.startEncoding(
+            this.encoder = this.props.encoderController.startEncoding(
                 targetFilename,
                 encoderDesc,
-                getOutputImage,
                 this.encodingExitHandler.bind(this)
             );
         };
         let receivedInputImage = async (buffer: Uint8Array) => {
             if (!this.props.videoManager) {
-                throw Error('Video Manager not defined');
+                throw new Error('Video Manager not defined');
             }
-            inFrameIdx += 1;
-
-            // TODO if the input framerate is different from the output framerate
-            // we need to check if we even need to render this frame
-            let outFrameId = inFrameIdx;
-
-            this.outFrameCount = outFrameId + 1;
-
-            let waitStart = new Date().getTime();
-            // console.log("IN Starting to wait for prev frame to complete", outFrameId);
-            while (nextOutFrameId < outFrameId) {
-                // This means that the most recent input frame hasn't yet finished encoding.
-                // We must wait with rendering this frame until the previous is done encoding.
-                await setImmediateAsync();
+            if (!this.encoder) {
+                throw new Error("Expected encoder to exist here");
             }
-            // console.log("IN Rendering input image", nextOutFrameId, outFrameId);
-            let waitEnd = new Date().getTime();
-            this.sumOutputWaitTime += waitEnd - waitStart;
-
             // console.log("Video finished seeking. Time", video.currentTime);
             let pixelData: PackedPixelData = {
                 data: buffer,
@@ -575,27 +559,28 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
                 // TODO: change this if requesting the data from ffmpeg in another format
                 format: ImageFormat.YUV420P,
             };
-            let renderStart = new Date().getTime();
             this.props.videoManager.renderOnce(pixelData);
             let renderEnd = new Date().getTime();
             this.sumRenderTimeCpu += renderEnd - renderStart;
             renderedOutFrameId = nextOutFrameId;
         };
-        let inputDone = (success: boolean) => {
-            console.log("Called done, success was", success);
 
-            // TODO This is a bit of a hack, we are rendering the last frame one more time
-            // optimally the getImage function should be able to indicate when the current frame
-            // is PAST the end (not when the current frame is the last)
-            renderedOutFrameId = nextOutFrameId;
-            lastInFrameId = inFrameIdx;
-            console.log(
-                "Set renderedOutFrameId to",
-                renderedOutFrameId,
-                "set lastInFrameId to",
-                lastInFrameId
-            );
-        };
+        // TODO: remove this if exporting works. I don't think this is needed.
+        // let inputDone = (success: boolean) => {
+        //     console.log("Called done, success was", success);
+
+        //     // TODO This is a bit of a hack, we are rendering the last frame one more time
+        //     // optimally the getImage function should be able to indicate when the current frame
+        //     // is PAST the end (not when the current frame is the last)
+        //     renderedOutFrameId = nextOutFrameId;
+        //     lastInFrameId = inFrameIdx;
+        //     console.log(
+        //         "Set renderedOutFrameId to",
+        //         renderedOutFrameId,
+        //         "set lastInFrameId to",
+        //         lastInFrameId
+        //     );
+        // };
 
         let endSec = undefined;
         if (isFinite(this.props.videoManager.endSec)) {
@@ -604,13 +589,13 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         let desc: DecoderDesc = {
             startSec: this.props.videoManager.startSec,
             endSec,
+            inFilePath: video.filePath,
+            onExit: () => console.log("DECODER EXIT FROM EXPORT PANEL"),
+            receivedImageCb: receivedInputImage,
+            receivedMetadataCb: receivedMetadata
         };
-        this.props.decoder.startDecoding(
-            video.filePath,
+        this.props.decoderController.startDecoding(
             desc,
-            receivedMetadata,
-            receivedInputImage,
-            inputDone
         );
     }
 
@@ -668,7 +653,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         }
         if (code === null || code !== 0) {
             this.setState({ statusMessage: `Encoder error. Output:\n${stderr}` });
-            this.props.decoder.stopDecoding();
+            this.props.decoderController.stopDecoding();
         } else {
             this.setState({ statusMessage: "Finished exporting" });
         }

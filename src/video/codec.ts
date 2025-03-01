@@ -191,7 +191,7 @@ export class Encoder2 {
         this.ffmpegProc = this.createFfmpegProc(outFileName, encoderDesc, onExit);
     }
     
-    createFfmpegProc(outFileName: string, encoderDesc: EncoderDesc, onExit: OnExitHandler): ChildProcessWithoutNullStreams {
+    protected createFfmpegProc(outFileName: string, encoderDesc: EncoderDesc, onExit: OnExitHandler): ChildProcessWithoutNullStreams {
         const ffmpegBin = settings.ffMpegExecutablePath;
 
         const defaultBitrate = Math.round(Math.sqrt(encoderDesc.width * encoderDesc.height) * 3);
@@ -286,7 +286,7 @@ export class Encoder2 {
         return ffmpegProc;
     }
 
-    async encode(rawFrame: Uint8Array): Promise<void> {
+    public async encode(rawFrame: Uint8Array): Promise<void> {
         return new Promise((resolve, reject) => {
             this.ffmpegProc.stdin.write(rawFrame, (err) => {
                 if (err) {
@@ -298,7 +298,7 @@ export class Encoder2 {
         })
     }
 
-    async cancelEncoding() {
+    public async cancelEncoding() {
         if (this.ffmpegProc.pid) {
             console.log(`%cKilling process with PID: ${this.ffmpegProc.pid}`, 'color: red');
             this.ffmpegProc.kill();
@@ -313,7 +313,10 @@ export class Encoder2 {
         }
     }
 
-    async endEncoding(): Promise<void> {
+    /*
+     Signal to the encoder process that the input has ended. The returned promise resolves, when the stream has finished
+     */
+    public async finishEncoding(): Promise<void> {
         // This triggers the "finish" event.
         return new Promise((resolve) => {
             this.ffmpegProc.stdin.end(resolve);
@@ -355,12 +358,7 @@ export class Decoder2 {
         };
 
         // TODO: This depends on the pix_fmt
-        // For rgba this is w * h * 4
-        // But for yuv, this is w * h + 2 * (w/2 * h/2)
-        let halfW = Math.floor(w / 2);
-        let halfH = Math.floor(h / 2);
-        let yuvFrameSize = w * h + 2 * (halfW * halfH);
-        const frameSize = yuvFrameSize;
+        const frameSize = getYuvBufferSize(w, h);
         // this.pixelBuffer = new Uint8Array(frameSize);
         desc.receivedMetadataCb(metadata);
 
@@ -561,7 +559,7 @@ export class Decoder2 {
 /**
  * A
  */
-export class Encoder {
+export class EncoderOld {
     outFilename: string;
 
     /** Measures the time in milliseconds between the start and completion of a pipeline write and the end of it. */
@@ -722,10 +720,8 @@ export class Encoder {
         {
             let w = encoderDesc.width;
             let h = encoderDesc.height;
-            let halfW = encoderDesc.width / 2;
-            let halfH = encoderDesc.height / 2;
             let createBuffer = () => {
-                return new Uint8Array(w * h + 2 * halfW * halfH);
+                return new Uint8Array(getYuvBufferSize(w, h));
             };
             this.frameFifo = new FrameFifo([createBuffer(), createBuffer(), createBuffer()]);
         }
@@ -1119,7 +1115,7 @@ export class Encoder {
     }
 }
 
-export class Decoder {
+export class DecoderOld {
     // runningDecoding: boolean;
     decStartTime: Date;
     /** Size in bytes of the average pipe data size */
@@ -1320,11 +1316,7 @@ export class Decoder {
                 this.metadata.height = h;
 
                 // TODO: This depends on the pix_fmt
-                // For rgba this is w * h * 4
-                // But for yuv, this is w * h + 2 * (w/2 * h/2)
-                let halfW = Math.floor(w / 2);
-                let halfH = Math.floor(h / 2);
-                let yuvFrameSize = w * h + 2 * (halfW * halfH);
+                let yuvFrameSize = getYuvBufferSize(w, h);
                 this.frameSize = yuvFrameSize;
                 this.pixelBuffer = new Uint8Array(this.frameSize);
                 receivedMetadata(this.metadata);
@@ -1828,4 +1820,14 @@ export class Decoder {
 
         this.finishedDecoding(false);
     }
+}
+
+/**
+ * Returns the buffer size in bytes for the YUV420p formatted buffer for
+ * a given image width and height.
+ */
+export function getYuvBufferSize(w: number, h: number): number {
+    const halfW = Math.floor(w / 2);
+    const halfH = Math.floor(h / 2);
+    return w * h + 2 * (halfW * halfH);
 }

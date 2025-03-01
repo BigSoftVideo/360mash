@@ -110,7 +110,7 @@ export class RenderTexture {
         this.gl = gl;
         this.width = 2;
         this.height = 2;
-        let color = gl.createTexture();
+        const color = gl.createTexture();
         if (!color) {
             throw new Error("Could not create texture." + gl.getError());
         }
@@ -120,7 +120,7 @@ export class RenderTexture {
         }
         this.color = color;
 
-        let format = gl.RGBA;
+        let format: number = gl.RGBA;
         if (internalFormat === gl.RGBA) {
             format = internalFormat;
         } else if (internalFormat === gl.R8) {

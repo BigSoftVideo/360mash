@@ -7,15 +7,15 @@ import { VideoManager } from '../video/video-manager';
 import { ffMpedInstalledStates as ffMpegInstalledStates, FFMpegInstallerDialogMethods } from '../ffmpeg-installer/ffmpeg-installer';
 import { settings } from '../app';
 import { AvailableEncoders, ExportPanel } from '../ui-mixed/export-panel/export-panel';
-import { Decoder, Encoder } from '../video/codec';
+import { DecoderController, EncoderController } from '../video/codec';
 import { ExportInfoProvider } from '../ui-mixed/export-overlay/export-overlay';
 
 interface TitleBarProps {
     videoManager: VideoManager | null;
     ffMpegInstalledState: ffMpegInstalledStates;
     showFFmpegInstallerDialog: () => void;
-    encoder: Encoder;
-    decoder: Decoder;
+    encoderController: EncoderController;
+    decoderController: DecoderController;
     exportStateChange: (inProgress: boolean) => void;
     infoProvider: ExportInfoProvider;
 }
@@ -153,8 +153,8 @@ export const SettingsBar = React.forwardRef<SettingsBarMethods, TitleBarProps>( 
                 >
                     <ExportPanel
                         videoManager={props.videoManager}
-                        encoder={props.encoder}
-                        decoder={props.decoder}
+                        encoderController={props.encoderController}
+                        decoderController={props.decoderController}
                         exportStateChange={props.exportStateChange}
                         infoProvider={props.infoProvider}
                     />

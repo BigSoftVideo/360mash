@@ -2,7 +2,7 @@ import "./export-overlay.css";
 
 import * as React from "react";
 import { secsToTimeString } from "../../util";
-import { Decoder, Encoder } from "../../video/codec";
+import { DecoderController, EncoderController } from "../../video/codec";
 
 export interface MiscExportInfo {
     /** The number of exported video frames per second */
@@ -53,8 +53,8 @@ export class ExportInfoProvider {
 
 export interface ExportOverlayProps {
     infoProvider: ExportInfoProvider;
-    encoder: Encoder;
-    decoder: Decoder;
+    encoderController: EncoderController;
+    decoderController: DecoderController;
 }
 
 interface ExportOverlayState {
@@ -126,8 +126,8 @@ export class ExportOverlay extends React.Component<ExportOverlayProps, ExportOve
                         </div>
                         <div className="export-overlay-buttons-parent">
                             <button className="export-overlay-cancel-button" onClick={ () => {
-                                this.props.decoder.stopDecoding();
-                                this.props.encoder.stopEncoding();
+                                this.props.decoderController.stopDecoding();
+                                this.props.encoderController.cancelEncoding();
                             }}>Cancel encoding</button>
                         </div>
                     </div>

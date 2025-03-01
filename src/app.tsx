@@ -23,7 +23,7 @@ import { BAndCFilter, BANDC_FILTER_NAME } from "./filters/bandc";
 import { NewsPrintFilter, NEWSPRINT_FILTER_NAME } from "./filters/newsprint";
 import { FilterBase, FilterId } from "./video/filter-base";
 import { FilterList } from "./ui-mixed/filter-list/filter-list";
-import { Decoder, Encoder } from "./video/codec";
+import { DecoderController, EncoderController } from "./video/codec";
 import { AvailableEncoders, ExportPanel } from "./ui-mixed/export-panel/export-panel";
 import {
     Conv360To2DAttribsCreator,
@@ -74,8 +74,8 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
     onResized: () => void;
     onVideoReady: (video: Video) => void;
 
-    encoder: Encoder;
-    decoder: Decoder;
+    encoderController: EncoderController;
+    decoderController: DecoderController;
 
     exportInfoProvider: ExportInfoProvider;
 
@@ -94,8 +94,8 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
             selectedOutputDimentions: "MATCH_INPUT",
             selectedEncoder: "h264",
         };
-        this.encoder = new Encoder();
-        this.decoder = new Decoder();
+        this.encoderController = new EncoderController();
+        this.decoderController = new DecoderController();
         this.exportInfoProvider = new ExportInfoProvider();
 
         this.previewPanelRef = React.createRef();
@@ -295,8 +295,8 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
             exportOverlay = (
                 <ExportOverlay
                     infoProvider={this.exportInfoProvider}
-                    encoder={this.encoder}
-                    decoder={this.decoder}
+                    encoderController={this.encoderController}
+                    decoderController={this.decoderController}
                 ></ExportOverlay>
             );
         }
@@ -315,8 +315,8 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
                         this.ffMpegInstaller.current?.showDialog();
                     }}
                     videoManager={this.videoManager}
-                    encoder={this.encoder}
-                    decoder={this.decoder}
+                    encoderController={this.encoderController}
+                    decoderController={this.decoderController}
                     exportStateChange={(inProgress) => {
                         this.setState({ exportInProgress: inProgress });
                     }}
