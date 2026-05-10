@@ -224,8 +224,8 @@ export class Encoder2 {
             ffmpegArgs.push("-ss", secsToTimeString(encoderDesc.audioStartSec));
         }
         if (isFinite(encoderDesc.audioEndSec)) {
-            let start = encoderDesc.audioStartSec;
-            let duration = encoderDesc.audioEndSec - encoderDesc.audioStartSec;
+            const start = encoderDesc.audioStartSec || 0;
+            const duration = encoderDesc.audioEndSec - start;
             ffmpegArgs.push("-t", secsToTimeString(duration));
         }
         ffmpegArgs.push(
@@ -386,8 +386,8 @@ export class Decoder2 {
             ffmpegArgs.push("-ss", secsToTimeString(desc.startSec));
         }
         if (desc.endSec) {
-            let start = desc.startSec || 0;
-            let duration = desc.endSec - start;
+            const start = desc.startSec || 0;
+            const duration = desc.endSec - start;
             if (duration < 0) {
                 throw new Error(
                     "The duration was negative. Halting the export. Start " +
@@ -416,28 +416,29 @@ export class Decoder2 {
         );
 
         try {
+            console.log("Starting decoder ffmpeg with arguments:", ffmpegArgs);
             this.ffmpegProc = spawn(`${ffmpegBin}`, ffmpegArgs, {
                 stdio: ["pipe", "pipe", "pipe"],
             });
             this.ffmpegProc.on("exit", (code) => {
                 try {
                     if (code === 0) {
-                        console.log("FFmpeg exited successfully");
+                        console.log("Decoder FFmpeg exited successfully");
                         return;
                     }
                     if (code === null) {
-                        console.warn("ffmpeg seems to have been terminated");
+                        console.warn("Decoder FFmpeg seems to have been terminated");
                     } else {
-                        console.warn("ffmpeg returned with the exit code:", code);
+                        console.warn("Decoder FFmpeg returned with the exit code:", code);
                     }
-                    console.warn("ffmpeg stderr was:\n" + this.ffmpegStderr);
+                    console.warn("Decoder FFmpeg stderr was:\n" + this.ffmpegStderr);
                 } finally {
                     desc.onExit(code, this.ffmpegStderr);
                 }
             });
 
             this.ffmpegProc.on("error", (err) => {
-                console.error('FFmpeg decoder error: ' + err);
+                console.error('Decoder FFmpeg error: ' + err);
             });
             this.ffmpegProc.stdin.on('error', (err) => {
                 console.error('Decoder Error on stdin: ' + err);

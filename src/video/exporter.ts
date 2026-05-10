@@ -21,7 +21,7 @@ export type ExporterDesc = {
     onProgress: (progress: number) => void;
     onDone: (code: number | null, stderr: string) => void;
 
-    deconderController: DecoderController;
+    decoderController: DecoderController;
     encoderController: EncoderController;
     videoManager: VideoManager;
 };
@@ -37,12 +37,16 @@ export class Exporter {
      */
     constructor(desc: ExporterDesc) {
         this.encoderController = desc.encoderController;
-        this.decoderController = desc.deconderController;
+        this.decoderController = desc.decoderController;
         this.videoManager = desc.videoManager;
         this.videoManager.video?.htmlVideo.pause();
         this.videoManager.stopRendering();
 
-        let handleReceivedImage = async (_: Uint8Array): Promise<void> => {
+        const recvImgShouldNotBeCalledYet = async (_: Uint8Array): Promise<void> => {
+            throw new Error("This function should not have been called yet");
+        };
+
+        const recvMetadataShouldNotBeCalledYet = (_: MediaMetadata): void => {
             throw new Error("This function should not have been called yet");
         };
 
@@ -50,6 +54,29 @@ export class Exporter {
             desc.videoManager.renderContinously();
             desc.onDone(code, stderr);
         }
+
+        let encoder = null as Encoder2 | null;
+
+        const decoderDesc: DecoderDesc = {
+            inFilePath: desc.inFilePath,
+            onExit: (code) => {
+                console.log("DECODER EXITED. Sent from exporter");
+                if (!encoder) {
+                    console.warn("Decoder exited before the encoder was set up. This likely means that the decoder failed to start.");
+                    desc.onDone(-1, "Encoder not found when decoder exited.");
+                } else {
+                    if (code) {
+                        encoder.cancelEncoding();
+                    } else {
+                        encoder.finishEncoding();
+                    }
+                }
+            },
+            receivedImageCb: recvImgShouldNotBeCalledYet,
+            receivedMetadataCb: recvMetadataShouldNotBeCalledYet,
+            startSec: desc.startSec,
+            endSec: desc.endSec
+        };
 
         const handleReceivedMetadata = (metadata: MediaMetadata) => {
             const encoderDesc: EncoderDesc = {
@@ -63,7 +90,7 @@ export class Exporter {
             };
 
             // SET UP the encoder
-            const encoder = desc.encoderController.startEncoding(
+            encoder = desc.encoderController.startEncoding(
                 desc.outFilePath, encoderDesc, encodingDone
             );
             const outW = desc.outputWidth;
@@ -74,7 +101,7 @@ export class Exporter {
                 h: outH,
                 format: ImageFormat.YUV420P
             };
-            handleReceivedImage = async (buffer: Uint8Array) => {
+            decoderDesc.receivedImageCb = async (buffer: Uint8Array) => {
                 const inputImage: PackedPixelData = {
                     data: buffer,
                     format: ImageFormat.YUV420P,
@@ -86,14 +113,9 @@ export class Exporter {
                 await encoder.encode(outputBuffer.data);
             };
         };
-
-        const decoderDesc: DecoderDesc = {
-            inFilePath: desc.inFilePath,
-            onExit: () => console.log("DECODER EXITED. Sent from exporter"),
-            receivedImageCb: handleReceivedImage,
-            receivedMetadataCb: handleReceivedMetadata
-        };
-        desc.deconderController.startDecoding(decoderDesc)
+        decoderDesc.receivedMetadataCb = handleReceivedMetadata;
+        
+        desc.decoderController.startDecoding(decoderDesc)
     }
 
     public cancelExport() {

@@ -13,7 +13,7 @@ import { ExportInfoProvider, MiscExportInfo } from "../export-overlay/export-ove
 import { secsToTimeString } from "../../util";
 import { FFmpegExists, settings } from "../../app";
 import { minorScale, Pane, Text } from "evergreen-ui";
-import { Exporter, ExporterDesc } from "../../video/exporter";
+import { Exporter, ExporterDesc as ExporterDescriptor } from "../../video/exporter";
 
 // const settings = require("settings-store");
 
@@ -64,6 +64,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
 
     infoReportInterval: NodeJS.Timeout | null;
     progress: number;
+    exporter: Exporter | null;
 
     constructor(params: any) {
         super(params);
@@ -73,6 +74,7 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         this.outFrameCount = 0;
         this.progress = 0;
         this.infoReportInterval = null;
+        this.exporter = null;
         // this.selectedOutputHeight = 2160;
         // this.selectedOutputWidth = 3840;
         this.selectedOutputDim = MATCH_INPUT_RESOLUTION;
@@ -549,8 +551,8 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
         //     );
         // };
 
-        const exporterDesc: ExporterDesc = {
-            deconderController: this.props.decoderController,
+        const exporterDesc: ExporterDescriptor = {
+            decoderController: this.props.decoderController,
             encoderController: this.props.encoderController,
             startSec: this.props.videoManager.startSec,
             endSec: this.props.videoManager.endSec,
@@ -563,8 +565,8 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             videoManager: this.props.videoManager,
         };
 
-        const exporter = new Exporter(exporterDesc);
-        // TODO TODO: make the exporter a field of this class and when clicking on the cancel button, call the `cancelExport` method
+        this.exporter = new Exporter(exporterDesc);
+        // TODO TODO: make the exporter a field of App and when clicking on the cancel button, call the `cancelExport` method
 
         let endSec = undefined;
         if (isFinite(this.props.videoManager.endSec)) {
@@ -641,17 +643,17 @@ export class ExportPanel extends React.Component<ExportPanelProps, ExportPanelSt
             this.setState({ statusMessage: "Finished exporting" });
         }
         this.props.exportStateChange(false);
-        console.log(
-            [
-                "-- EXPORT PIPELINE Finished.",
-                `Avg wait iterations ${this.sumInputWaitIterations / this.outFrameCount}`,
-                `Avg ms waiting on input ${this.sumInputFrameWaitMs / this.outFrameCount}`,
-                `Avg frame read time ${this.sumFrameReadTime / this.outFrameCount}`,
+        // console.log(
+        //     [
+        //         "-- EXPORT PIPELINE Finished.",
+        //         `Avg wait iterations ${this.sumInputWaitIterations / this.outFrameCount}`,
+        //         `Avg ms waiting on input ${this.sumInputFrameWaitMs / this.outFrameCount}`,
+        //         `Avg frame read time ${this.sumFrameReadTime / this.outFrameCount}`,
 
-                `Avg ms waiting on output ${this.sumOutputWaitTime / this.outFrameCount}`,
-                `Avg render time ${this.sumRenderTimeCpu / this.outFrameCount}`,
-            ].join("\n")
-        );
+        //         `Avg ms waiting on output ${this.sumOutputWaitTime / this.outFrameCount}`,
+        //         `Avg render time ${this.sumRenderTimeCpu / this.outFrameCount}`,
+        //     ].join("\n")
+        // );
         if (this.infoReportInterval) {
             clearInterval(this.infoReportInterval);
             this.infoReportInterval = null;

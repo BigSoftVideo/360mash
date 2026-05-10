@@ -45,12 +45,13 @@ import { existsSync } from "fs";
 import "./img/icofont/icofont.css";
 import { Flat2DPositionerFilter, POSITION_2D_FILTER_NAME } from "./filters/2dVideoPositioning";
 import { UserInputManager } from "./userinput";
+import { Exporter } from "./video/exporter";
 
 // TODO: move this to a redux store maybe
 export interface AppState {
     //videoUrl: string;
     outputAspectRatio: number;
-    exportInProgress: boolean;
+    exporter: Exporter | null;
     selectedFilterId: FilterId | null;
     FFmpegInstalledState: ffMpedInstalledStates;
     selectedOutputDimentions: [number, number] | "MATCH_INPUT";
@@ -88,7 +89,7 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
         super(params);
         this.state = {
             outputAspectRatio: 16 / 9,
-            exportInProgress: false,
+            exporter: null,
             selectedFilterId: CONV360T02D_FILTER_NAME,
             FFmpegInstalledState: "Checking",
             selectedOutputDimentions: "MATCH_INPUT",
@@ -291,12 +292,11 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
         }
 
         let exportOverlay = undefined;
-        if (this.state.exportInProgress) {
+        if (App.isExportInProgress(this.state.exporter)) {
             exportOverlay = (
                 <ExportOverlay
                     infoProvider={this.exportInfoProvider}
-                    encoderController={this.encoderController}
-                    decoderController={this.decoderController}
+                    exporter={this.state.exporter}
                 ></ExportOverlay>
             );
         }
@@ -488,5 +488,9 @@ export class App extends React.Component<{}, AppState> implements FFmpegInstalle
                 //TODO wait until the first frame is available and only then set the aspect ratio.
                 // Otherwise the videoWidth and height won't yet be available.
             });
+    }
+
+    protected static isExportInProgress(exporter: Exporter | null): exporter is Exporter {
+        return exporter !== null;
     }
 }
