@@ -57,10 +57,13 @@ export class Exporter {
 
         let encoder = null as Encoder2 | null;
 
+        let startTime = new Date();
+
         const decoderDesc: DecoderDesc = {
             inFilePath: desc.inFilePath,
             onExit: (code) => {
-                console.log("DECODER EXITED. Sent from exporter");
+                const now = new Date();
+                console.log("DECODER EXITED. Exporting took " + (now.getTime() - startTime.getTime()) + " ms");
                 if (!encoder) {
                     console.warn("Decoder exited before the encoder was set up. This likely means that the decoder failed to start.");
                     desc.onDone(-1, "Encoder not found when decoder exited.");
